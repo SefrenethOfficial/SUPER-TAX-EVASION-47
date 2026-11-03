@@ -26,14 +26,7 @@ const fx = new FX(scene);
 const input = new Input(canvas);
 
 // --- HUD -------------------------------------------------------------------
-const popup = document.getElementById('popup');
 const debug = document.getElementById('debug');
-let popupTimer = 0;
-function showMove(name) {
-  popup.textContent = name;
-  popup.classList.remove('pop'); void popup.offsetWidth; popup.classList.add('pop');
-  popupTimer = 1.1;
-}
 const help = document.getElementById('help');
 addEventListener('keydown', (e) => {
   if (e.code === 'KeyH') help.classList.toggle('hidden');
@@ -104,10 +97,9 @@ function updateCamera(dt, player) {
 
 // --- Load the character and go ----------------------------------------------
 let player = null;
-new GLTFLoader().load('assets/player.glb', (gltf) => {
+new GLTFLoader().load('assets/stickman.glb', (gltf) => {
   const ch = buildCharacter(gltf.scene);
   player = new Player(world, ch, fx);
-  player.onMove = showMove;
   window.__player = player; // handy for debugging in the console
   window.__game = { renderer, scene, camera, cam, updateCamera, fx, input };
   document.body.classList.add('loaded');
@@ -132,7 +124,6 @@ function frame() {
     }
   }
   fx.update(dt);
-  if (popupTimer > 0) { popupTimer -= dt; if (popupTimer <= 0) popup.classList.remove('pop'); }
   renderer.render(scene, camera);
 }
 frame();

@@ -19,11 +19,6 @@ const AIR = new Set(['jump', 'double', 'triple', 'backflip', 'sideflip', 'longju
 const WALL_KICKABLE = new Set(['jump', 'double', 'triple', 'sideflip', 'longjump', 'wallkick', 'fall', 'rollout', 'backflip', 'jumpkick']);
 const LEDGE_OK = new Set(['jump', 'double', 'triple', 'sideflip', 'backflip', 'wallkick', 'fall', 'rollout', 'jumpkick']);
 
-const MOVE_NAMES = {
-  double: 'DOUBLE JUMP', triple: 'TRIPLE JUMP!', backflip: 'BACKFLIP', sideflip: 'SIDE SOMERSAULT',
-  longjump: 'LONG JUMP', wallkick: 'WALL KICK!', gp_spin: 'GROUND POUND', dive: 'DIVE', slidekick: 'SLIDE KICK',
-  rollout: 'ROLLOUT', ledge: 'LEDGE GRAB',
-};
 
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const approach = (v, t, d) => (v < t ? Math.min(v + d, t) : Math.max(v - d, t));
@@ -31,91 +26,81 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const damp = (a, b, k, dt) => lerp(a, b, 1 - Math.exp(-k * dt));
 
 // ---------------------------------------------------------------------------
-// Character model: cut the single rigid mesh into body / arms / legs so the
-// limbs can swing, and paint it with flat vertex colours.
+// Character model: the rigged stickman. Its skeleton is driven procedurally.
+// Rotations are authored in the character's root space (it faces +Z, Y up)
+// and converted into each bone's local space against its rest pose.
 // ---------------------------------------------------------------------------
-const COL = {
-  straw: new THREE.Color('#ecc15a'), band: new THREE.Color('#c0392b'), skin: new THREE.Color('#e9b48a'),
-  shirt: new THREE.Color('#d8452f'), belt: new THREE.Color('#4a2c17'), pants: new THREE.Color('#2f5fc4'),
-  shoes: new THREE.Color('#5a3417'),
+const BONES = {
+  armL: 'hand_l_1_04', elbowL: 'hand_l_2_05', armR: 'hand_r_1_09', elbowR: 'hand_r_2_010',
+  legL: 'foot_l_1_019', kneeL: 'foot_l_2_020', legR: 'foot_r_1_015', kneeR: 'foot_r_2_016',
+  spine: 'body2_01', head: 'head_014',
 };
-
-function partOf(c) {
-  if (c.y < -0.42 && Math.abs(c.x) > 0.02) return c.x > 0 ? 'legL' : 'legR';
-  if (Math.abs(c.x) > 0.47 && c.y > -0.5 && c.y < 0.72) return c.x > 0 ? 'armL' : 'armR';
-  return 'body';
-}
-function colourOf(c, part) {
-  if (c.y > 1.05) {
-    const r = Math.hypot(c.x, c.z);
-    return c.y > 1.3 && c.y < 1.62 && r < 0.5 ? COL.band : COL.straw;
-  }
-  if (part === 'body') {
-    if (c.y > 0.72) return COL.skin;
-    if (c.y < -0.25) return COL.belt;
-    return COL.shirt;
-  }
-  if (part.startsWith('arm')) return c.y < -0.12 ? COL.skin : COL.shirt;
-  return c.y < -1.0 ? COL.shoes : COL.pants;
-}
-
-// Joint positions in the model's raw (unscaled) space.
-const JOINTS = { armL: [0.55, 0.55, 0], armR: [-0.55, 0.55, 0], legL: [0.2, -0.42, 0], legR: [-0.2, -0.42, 0], body: [0, 0, 0] };
+const MODEL_HEIGHT = 621;          // raw units, feet to top of head
+const ARM_DOWN = 1.32;             // rotate the T-pose arms down to the sides
 
 export function buildCharacter(gltfScene) {
+  const bones = {};
+  gltfScene.traverse((o) => {
+    if (o.isBone) bones[o.name] = o;
+    if (o.isMesh) {
+      o.material = new THREE.MeshLambertMaterial({ color: 0x18181c });
+      o.castShadow = true;
+      o.frustumCulled = false;   // skinned bounds don't follow the pose
+    }
+  });
   gltfScene.updateMatrixWorld(true);
-  let src = null;
-  gltfScene.traverse((o) => { if (o.isMesh && !src) src = o; });
-  const geo = src.geometry.clone().applyMatrix4(src.matrixWorld).toNonIndexed();
-  const pos = geo.attributes.position;
-  const nrm = geo.attributes.normal;
 
-  const buckets = { body: [], armL: [], armR: [], legL: [], legR: [] };
-  const c = new THREE.Vector3();
-  for (let i = 0; i < pos.count; i += 3) {
-    c.set(0, 0, 0);
-    for (let k = 0; k < 3; k++) c.x += pos.getX(i + k) / 3, c.y += pos.getY(i + k) / 3, c.z += pos.getZ(i + k) / 3;
-    const p = partOf(c);
-    buckets[p].push([i, colourOf(c, p)]);
+  // Rest data for each driven bone: local rest rotation and its parent's
+  // rest rotation in model space.
+  const rig = {};
+  const tmp = new THREE.Quaternion();
+  const rootInv = gltfScene.getWorldQuaternion(new THREE.Quaternion()).invert();
+  for (const [key, name] of Object.entries(BONES)) {
+    const b = bones[name];
+    if (!b) continue;
+    const parentQ = rootInv.clone().multiply(b.parent.getWorldQuaternion(tmp));
+    rig[key] = { bone: b, rest: b.quaternion.clone(), P: parentQ, Pinv: parentQ.clone().invert() };
   }
 
-  const height = 3.374;
-  const scale = 1.7 / height;
+  const scale = 1.7 / MODEL_HEIGHT;
   const root = new THREE.Group();
-  const holder = new THREE.Group();          // turns the model to face +Z and scales it
-  holder.rotation.y = Math.PI;
+  const holder = new THREE.Group();
   holder.scale.setScalar(scale);
-  holder.position.y = 1.35 * scale - 0.85;   // feet at y=0 relative to the 0.85 pivot
+  holder.position.y = 1.5 * scale - 0.85;   // feet at y=0 relative to the 0.85 pivot
+  holder.add(gltfScene);
   root.add(holder);
 
-  const mat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
-  const parts = {};
-  for (const [name, tris] of Object.entries(buckets)) {
-    const n = tris.length * 3;
-    const p = new Float32Array(n * 3), nn = new Float32Array(n * 3), col = new Float32Array(n * 3);
-    const j = JOINTS[name];
-    let w = 0;
-    for (const [i, colr] of tris) {
-      for (let k = 0; k < 3; k++) {
-        p[w * 3] = pos.getX(i + k) - j[0]; p[w * 3 + 1] = pos.getY(i + k) - j[1]; p[w * 3 + 2] = pos.getZ(i + k) - j[2];
-        nn[w * 3] = nrm.getX(i + k); nn[w * 3 + 1] = nrm.getY(i + k); nn[w * 3 + 2] = nrm.getZ(i + k);
-        col[w * 3] = colr.r; col[w * 3 + 1] = colr.g; col[w * 3 + 2] = colr.b;
-        w++;
-      }
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(p, 3));
-    g.setAttribute('normal', new THREE.BufferAttribute(nn, 3));
-    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    const mesh = new THREE.Mesh(g, mat);
-    mesh.castShadow = true;
-    const joint = new THREE.Group();
-    joint.position.set(...j);
-    joint.add(mesh);
-    holder.add(joint);
-    parts[name] = joint;
+  const e = new THREE.Euler();
+  const q = new THREE.Quaternion();
+  const qa = new THREE.Quaternion(), qb = new THREE.Quaternion();
+  const X = new THREE.Vector3(1, 0, 0), Y = new THREE.Vector3(0, 1, 0), Z = new THREE.Vector3(0, 0, 1);
+  // Apply a model-space rotation `q` to a bone, relative to its rest pose.
+  const apply = (key, qModel) => {
+    const r = rig[key];
+    if (!r) return;
+    r.bone.quaternion.copy(r.Pinv).multiply(qModel).multiply(r.P).multiply(r.rest);
+  };
+  const state = {};
+  const smooth = (k, v, dt) => (state[k] = damp(state[k] ?? v, v, 18, dt));
+
+  // p: armL/armR (forward swing, rad), armSpread, legL/legR (forward swing),
+  //    legSpread, kneeL/kneeR, elbowL/elbowR, lean
+  function pose(p, dt) {
+    const v = {};
+    for (const k of ['armL', 'armR', 'legL', 'legR', 'armSpread', 'legSpread', 'kneeL', 'kneeR', 'elbowL', 'elbowR', 'lean']) v[k] = smooth(k, p[k] || 0, dt);
+    // Arms: the "l" arm points down -X in T-pose, "r" arm down +X.
+    apply('armL', qa.setFromAxisAngle(X, -v.armL).multiply(qb.setFromAxisAngle(Z, ARM_DOWN - v.armSpread)));
+    apply('armR', qa.setFromAxisAngle(X, -v.armR).multiply(qb.setFromAxisAngle(Z, -(ARM_DOWN - v.armSpread))));
+    apply('elbowL', q.setFromAxisAngle(Y, v.elbowL));
+    apply('elbowR', q.setFromAxisAngle(Y, -v.elbowR));
+    apply('legL', qa.setFromAxisAngle(X, -v.legL).multiply(qb.setFromAxisAngle(Z, -v.legSpread * 0.5)));
+    apply('legR', qa.setFromAxisAngle(X, -v.legR).multiply(qb.setFromAxisAngle(Z, v.legSpread * 0.5)));
+    apply('kneeL', q.setFromAxisAngle(X, v.kneeL));
+    apply('kneeR', q.setFromAxisAngle(X, v.kneeR));
+    apply('spine', q.setFromAxisAngle(X, v.lean));
   }
-  return { root, parts };
+  pose({}, 1);
+  return { root, pose };
 }
 
 // ---------------------------------------------------------------------------
@@ -125,7 +110,6 @@ export class Player {
   constructor(world, character, fx) {
     this.world = world;
     this.fx = fx;
-    this.onMove = () => {};
 
     // Visual hierarchy: root(pos, yaw) > squash(scale) > pivot(y .85) > spin(rot) > character
     this.root = new THREE.Group();
@@ -135,7 +119,7 @@ export class Player {
     this.spin = new THREE.Group();
     this.root.add(this.squashG); this.squashG.add(this.pivot); this.pivot.add(this.spin);
     this.spin.add(character.root);
-    this.parts = character.parts;
+    this.character = character;
     world.scene.add(this.root);
 
     // Blob shadow (classic platformer depth cue)
@@ -169,7 +153,6 @@ export class Player {
     if (this.state === s) return;
     this.state = s; this.t = 0;
     this.grounded = !AIR.has(s) && s !== 'ledgehang' && s !== 'ledgeclimb';
-    if (MOVE_NAMES[s]) this.onMove(MOVE_NAMES[s]);
   }
 
   // --- jumps -----------------------------------------------------------------
@@ -257,7 +240,7 @@ export class Player {
         if (this.physics(h, input)) break;
       }
     }
-    if (this.pos.y < -40) { this.reset(); this.onMove('TAXMAN GOT YOU'); }
+    if (this.pos.y < -40) this.reset();
     this.animate(dt);
   }
 
@@ -535,7 +518,6 @@ export class Player {
     this.ledgeStart = this.pos.clone();
     this.ledgeEnd = new THREE.Vector3(this.pos.x - hit.nx * (R + 0.45), top, this.pos.z - hit.nz * (R + 0.45));
     this.setState('ledgehang');
-    this.onMove(MOVE_NAMES.ledge);
     this.anim.sq = -0.1;
   }
 
@@ -580,6 +562,7 @@ export class Player {
     let pitch = 0, roll = 0, yawOff = 0, bob = 0, crouch = 0;
     let armL = 0, armR = 0, legL = 0, legR = 0, armSpread = 0, legSpread = 0;
     let direct = false; // flips set rotation directly (no smoothing)
+    let kneeOverride = null, elbowL = null, elbowR = null;
 
     const speedK = Math.min(1, Math.abs(this.fwd) / RUN);
     const flip = (dur) => Math.min(1, t / dur);
@@ -608,9 +591,9 @@ export class Player {
         if (this.fwd > 0.2) { a.phase += this.fwd * dt * 3; legL += Math.sin(a.phase) * 0.4; legR -= Math.sin(a.phase) * 0.4; }
         break;
       case 'crouchslide': crouch = 0.35; pitch = 0.35; legL = 0.8; legR = 0.4; armL = armR = -0.8; armSpread = 0.4; break;
-      case 'punch1': armR = 1.6 * Math.sin(Math.min(1, t / 0.22) * Math.PI); yawOff = -0.3 * Math.sin(Math.min(1, t / 0.22) * Math.PI); pitch = 0.15; break;
-      case 'punch2': armL = 1.6 * Math.sin(Math.min(1, t / 0.22) * Math.PI); yawOff = 0.3 * Math.sin(Math.min(1, t / 0.22) * Math.PI); pitch = 0.15; break;
-      case 'kick': yawOff = ease(flip(0.38)) * Math.PI * 2; legL = 1.4; armSpread = 0.9; direct = true; break;
+      case 'punch1': elbowR = 0; armR = 1.6 * Math.sin(Math.min(1, t / 0.22) * Math.PI); yawOff = -0.3 * Math.sin(Math.min(1, t / 0.22) * Math.PI); pitch = 0.15; break;
+      case 'punch2': elbowL = 0; armL = 1.6 * Math.sin(Math.min(1, t / 0.22) * Math.PI); yawOff = 0.3 * Math.sin(Math.min(1, t / 0.22) * Math.PI); pitch = 0.15; break;
+      case 'kick': kneeOverride = 0.1; yawOff = ease(flip(0.38)) * Math.PI * 2; legL = 1.4; armSpread = 0.9; direct = true; break;
       case 'jump': case 'fall': case 'rollout': {
         if (s === 'rollout' && t < 0.45) { pitch = ease(flip(0.45)) * Math.PI * 2; crouch = 0.25; direct = true; break; }
         const up = this.vy > 0;
@@ -630,7 +613,7 @@ export class Player {
       case 'dive': pitch = 1.45; armL = armR = 3.0; legL = legR = -0.2; break;
       case 'bellyslide': pitch = 1.5; armL = armR = 3.0; legL = legR = -0.25; bob = -0.55; break;
       case 'slidekick': case 'slide': pitch = -1.25; legL = 1.6; legR = 0.6; armL = armR = -1.2; armSpread = 0.5; bob = s === 'slide' ? -0.45 : 0; break;
-      case 'jumpkick': legL = 1.6 * Math.sin(Math.min(1, t / 0.32) * Math.PI); legR = -0.3; armL = -0.6; armR = 1.0; pitch = -0.2; break;
+      case 'jumpkick': kneeOverride = 0.15; legL = 1.6 * Math.sin(Math.min(1, t / 0.32) * Math.PI); legR = -0.3; armL = -0.6; armR = 1.0; pitch = -0.2; break;
       case 'bonk': pitch = -0.9; armSpread = 1.4; legSpread = 0.5; break;
       case 'stun': pitch = -0.5 + Math.min(0.5, t); crouch = 0.15; roll = Math.sin(t * 18) * 0.1 * (1 - t / 0.6); armSpread = 0.8; break;
       case 'ledgehang': armL = armR = 3.0; legL = 0.2; legR = -0.1 + Math.sin(t * 3) * 0.1; break;
@@ -651,20 +634,20 @@ export class Player {
     a.sqv += (-170 * a.sq - 14 * a.sqv) * dt;
     a.sq += a.sqv * dt;
     a.crouch = damp(a.crouch || 0, crouch, 16, dt);
-    const sy = Math.max(0.5, 1 + a.sq - a.crouch);
+    const sy = Math.max(0.5, 1 + a.sq - a.crouch * 0.25);
     const sxz = 1 / Math.sqrt(sy);
     this.squashG.scale.set(sxz, sy, sxz);
     a.bob = damp(a.bob, bob, 20, dt);
-    this.pivot.position.y = 0.85 + a.bob;
+    this.pivot.position.y = 0.85 + a.bob - a.crouch * 0.55;
 
-    // Limbs (rotation about the joint's local X; arms raise forward/up)
-    const P = this.parts, kL = 18;
-    const set = (j, x, z) => { j.rotation.x = damp(j.rotation.x, x, kL, dt); j.rotation.z = damp(j.rotation.z, z, kL, dt); };
-    // The model is rotated 180° in its holder, so +X here is the model's left.
-    set(P.armL, armL, armSpread);
-    set(P.armR, armR, -armSpread);
-    set(P.legL, legL, legSpread * 0.5);
-    set(P.legR, legR, -legSpread * 0.5);
+    // Limbs. Knees bend when a leg tucks forward or trails behind; elbows stay soft.
+    const knee = (leg) => 0.12 + Math.max(0, leg) * 0.8 + Math.max(0, -leg) * 0.9 + a.crouch * 2.2;
+    const elbow = (arm) => 0.25 + Math.max(0, arm) * 0.25;
+    this.character.pose({
+      armL, armR, legL, legR, armSpread, legSpread,
+      kneeL: kneeOverride ?? knee(legL), kneeR: kneeOverride ?? knee(legR),
+      elbowL: elbowL ?? elbow(armL), elbowR: elbowR ?? elbow(armR),
+    }, dt);
 
     this.root.position.copy(this.pos);
     this.root.rotation.y = this.yaw;
@@ -681,5 +664,3 @@ export class Player {
     } else this.blob.visible = false;
   }
 }
-
-export { MOVE_NAMES };
