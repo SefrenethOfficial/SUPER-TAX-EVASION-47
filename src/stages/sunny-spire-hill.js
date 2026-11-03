@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Terrain } from '../terrain.js?v=12';
+import { Terrain } from '../terrain.js?v=13';
 
 // ---------------------------------------------------------------------------
 // SUNNY SPIRE HILL
@@ -18,6 +18,7 @@ import { Terrain } from '../terrain.js?v=12';
 
 export const NAME = 'Sunny Spire Hill';
 export const MUSIC = 'sunny-spire-hill.mp3';
+export const STARS = 7;
 
 // ---- helpers ----------------------------------------------------------------
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -56,6 +57,7 @@ const creekZ = (x) => -76 + 5 * Math.sin(x * 0.045);   // ravine centreline
 const RAVINE_DEPTH = (x) => 4.5 * (1 - smooth(45, 85, x));
 const POND = { x: 34, z: 100, r: 14, bed: -2, water: -0.7 };
 const PEN = { x: 50, z: -48, half: 10 };
+const SPIRE = { x: -34, z: 82, h: 14 };   // the rock spire in the back meadow
 const HILLS = [[62, -100, 18, 7], [-62, -96, 22, 9], [72, 20, 20, 8], [-72, 12, 18, 6], [-32, 112, 20, 7], [70, 92, 18, 6], [-80, -40, 16, 5]];
 
 // Paths (x, z polylines)
@@ -131,7 +133,7 @@ export function height(x, z) {
 }
 
 // ---- build ------------------------------------------------------------------------
-export function build(world, coins) {
+export function build(world, coins, reds) {
   const scene = world.scene;
   const grassT = world.tile('grass.webp'), cliffT = world.tile('cliff.png'), pathT = world.tile('path.png'), rockT = world.tile('rock.png');
   const terrain = new Terrain({
@@ -174,7 +176,8 @@ export function build(world, coins) {
   box([bx1, deck + 0.95, bz0], [bx1 + 0.25, deck + 1.1, bz1], wood);
   for (const z of [bz0 - 1, bz1 + 1]) for (const x of [bx0 - 0.4, bx1 + 0.15]) box([x, H(x, z) - 0.5, z - 0.12], [x + 0.25, H(x, z) + 1.3, z + 0.13], wood);
 
-  // --- Fenced pen with a stake ---------------------------------------------------
+  // --- Fenced pen with a stake (ground-pound it three times for a star) ----------
+  let stake = null;
   {
     const { x, z, half } = PEN, y = (px, pz) => H(px, pz);
     const post = (px, pz) => box([px - 0.15, y(px, pz) - 0.4, pz - 0.15], [px + 0.15, y(px, pz) + 1.2, pz + 0.15], wood);
@@ -188,7 +191,19 @@ export function build(world, coins) {
     box([x + half - 0.06, ry, z - half], [x + half + 0.06, ry + 0.14, z + half], wood);
     box([x - half - 0.06, ry, z - half], [x - half + 0.06, ry + 0.14, z - 3.75], wood);
     box([x - half - 0.06, ry, z + 3.75], [x - half + 0.06, ry + 0.14, z + half], wood);
-    box([x - 0.4, y(x, z) - 0.5, z - 0.4], [x + 0.4, y(x, z) + 2.0, z + 0.4], wood);
+    stake = box([x - 0.4, y(x, z) - 0.5, z - 0.4], [x + 0.4, y(x, z) + 2.0, z + 0.4], wood);
+  }
+
+  // --- The spire: rock ledges spiral up a tall pillar to a star -----------------
+  const spireBase = H(SPIRE.x, SPIRE.z);
+  const spireTop = spireBase + SPIRE.h;
+  box([SPIRE.x - 2, spireBase - 1, SPIRE.z - 2], [SPIRE.x + 2, spireTop, SPIRE.z + 2], { top: grass, side: rock });
+  const ledges = [];
+  for (let i = 0; i < 13; i++) {
+    const a = -Math.PI / 2 + i * (Math.PI / 3);
+    const lx = SPIRE.x + Math.cos(a) * 3.9, lz = SPIRE.z + Math.sin(a) * 3.9, top = spireBase + 1.1 + i * 1.0;
+    box([lx - 1.1, top - 0.5, lz - 1.1], [lx + 1.1, top, lz + 1.1], rock);
+    ledges.push([lx, top, lz]);
   }
 
   // --- Summit: King Cherry Bomb's arena ----------------------------------------
@@ -213,6 +228,7 @@ export function build(world, coins) {
     if (Math.abs(z - creekZ(x)) < 9 || Math.hypot(x - POND.x, z - POND.z) < POND.r + 5) return false;
     if (Math.abs(x - PEN.x) < PEN.half + 3 && Math.abs(z - PEN.z) < PEN.half + 3) return false;
     if (Math.hypot(x, z + 114) < 10) return false;
+    if (Math.hypot(x - SPIRE.x, z - SPIRE.z) < 10) return false;
     if (onPath(x, z, margin)) return false;
     terrain.gradient(x, z, g2);
     return Math.hypot(g2.x, g2.z) < 0.4;
@@ -298,21 +314,64 @@ gl_Position = projectionMatrix * mvPosition;`);
   for (let f = 0.12; f < MTN.turns - 0.05; f += 0.14) { const [x, z] = roadCentre(f); onGround(x, z); } // the road
   for (const [x, y, z] of stones) coins.add(x, y + 0.9, z);
   for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; coins.add(IS.x + Math.cos(a) * 3, IS.y + 0.9, IS.z + Math.sin(a) * 3); }
-  coins.add(IS.x, IS.y + 0.9, IS.z);
   for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; onGround(SP.x + Math.cos(a) * 7, SP.z + Math.sin(a) * 7); } // summit
   for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; coins.add(POND.x + Math.cos(a) * 6, POND.water + 0.9, POND.z + Math.sin(a) * 6); } // pond
   for (const [x, z] of BACK_PATH.slice(1)) onGround(x, z);
   { const [hx, hz] = HILLS[4]; for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; onGround(hx + Math.cos(a) * 2.5, hz + Math.sin(a) * 2.5); } }
 
+  for (let i = 1; i < 12; i += 3) coins.add(ledges[i][0], ledges[i][1] + 0.9, ledges[i][2]);   // spire
+
+  // --- Red coins: find all 8 and a star appears on the plateau -------------------
+  const redAt = [
+    [bx0 - 0.12, deck + 1.1 + 0.8, creekZ(-8)],                                 // on the bridge rail
+    [50, H(50, creekZ(50)) + 0.9, creekZ(50)],                                  // along the ravine
+    [POND.x, POND.water + 1.7, POND.z],                                         // over the pond
+    [PEN.x + PEN.half, H(PEN.x + PEN.half, PEN.z + PEN.half) + 2.1, PEN.z + PEN.half], // on a fence post
+    [stones[1][0], stones[1][1] + 3.0, stones[1][2]],                           // high above a stepping stone
+    [ledges[8][0], ledges[8][1] + 0.9, ledges[8][2]],                           // halfway up the spire
+    [HILLS[5][0], H(HILLS[5][0], HILLS[5][1]) + 0.9, HILLS[5][1]],              // top of the north-east hill
+    [roadCentre(2.95)[0], roadCentre(2.95)[2] + 0.9, roadCentre(2.95)[1]],      // high on the mountain road
+  ];
+  for (const [x, y, z] of redAt) reds.add(x, y, z);
+
+  // --- Stake: count ground pounds on top of it ------------------------------------
+  const stakeH0 = stake.max.y - stake.min.y;
+  let pounds = 0, pounding = false;
+  const update = (dt, game) => {
+    const P = game.player;
+    const onStake = Math.abs(P.pos.x - PEN.x) < 0.75 && Math.abs(P.pos.z - PEN.z) < 0.75 && Math.abs(P.pos.y - stake.max.y) < 0.08;
+    if (P.state === 'gp_land' && onStake && !pounding && pounds < 3) {
+      pounding = true;
+      pounds++;
+      stake.max.y -= 0.6;
+      const h = stake.max.y - stake.min.y;
+      stake.mesh.scale.y = h / stakeH0;
+      stake.mesh.position.y = (stake.min.y + stake.max.y) / 2;
+      P.pos.y = stake.max.y;
+      game.fx.shake(0.3); game.fx.dust(P.pos, 10);
+      if (pounds === 3) game.spawnStar(6, new THREE.Vector3(PEN.x, H(PEN.x, PEN.z) + 3.2, PEN.z + 3));
+    }
+    if (P.state !== 'gp_land') pounding = false;
+  };
+
   return {
     spawn: new THREE.Vector3(0, H(0, -114), -114),
     spawnYaw: 0,
-    star: null,   // King Cherry Bomb drops it
+    update,
+    // Stars: 1 King Cherry Bomb, 2 hundred coins, 3 red coins, 6 the stake
+    // appear during play; these three sit in the level from the start.
+    stars: [
+      { n: 4, pos: new THREE.Vector3(IS.x, IS.y + 1.4, IS.z) },                                       // floating island
+      { n: 5, pos: new THREE.Vector3(-62, H(-62, creekZ(-62)) + 1.3, creekZ(-62)) },                  // down in the ravine
+      { n: 7, pos: new THREE.Vector3(SPIRE.x, spireTop + 1.3, SPIRE.z) },                             // top of the spire
+    ],
+    redStar: new THREE.Vector3(-12, H(-12, -18) + 1.6, -18),
     boss: { x: SP.x, z: SP.z, y: MTN_TOP, arena: 11 },
     bombs: [[8, -96], [-12, -100], [-30, -58], [-12, -14], [10, -24], [40, -34], [55, -48],
-      roadCentre(0.45).slice(0, 2), roadCentre(1.35).slice(0, 2), roadCentre(2.3).slice(0, 2), [22, 96], [-20, 104]],
+      roadCentre(0.45).slice(0, 2), roadCentre(1.35).slice(0, 2), roadCentre(2.3).slice(0, 2), [22, 96], [-20, 104],
+      [-44, creekZ(-44)], [-30, 74], [-40, 90]],
   };
 }
 
 // For tests and tooling.
-export const layout = { MAIN_PATH, ROAD, MTN, roadCentre };
+export const layout = { MAIN_PATH, ROAD, MTN, roadCentre, SPIRE, PEN, creekZ };

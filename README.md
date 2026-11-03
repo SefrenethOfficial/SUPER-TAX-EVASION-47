@@ -32,6 +32,18 @@ A long valley course in the style of Bob-omb Battlefield. From the spawn meadow 
 
 **King Cherry Bomb** waits on the summit. He chases you and throws cherry bombs, and if you get in front of him he grabs you and hurls you. Stomping or punching him does nothing: get behind him, press **B** to grab him, then **B** again to throw him so he lands on the summit. Three throws beat him; throw him off the edge and he jumps back up unhurt. When he's beaten he explodes and drops the star. Grab the star to clear the course.
 
+### The 7 stars
+
+1. **King Cherry Bomb** on the summit drops one when beaten.
+2. **100 coins**: collect 100 in one visit and a star appears (red coins count as 2).
+3. **Red coins**: find all 8 and a star appears on the plateau. They're on the bridge rail, along the ravine, over the pond, on a pen fence post, above a stepping stone, halfway up the spire, on the north-east hill and high on the mountain road.
+4. **The floating island** off the mountain's west side.
+5. **Down in the ravine**, at its deep west end.
+6. **The stake** in the fenced pen: ground-pound it three times.
+7. **The spire** in the back meadow: climb the spiral of rock ledges.
+
+Each star ends the course and returns you to the hub. Stars you already have show see-through blue; the course card shows how many of the 7 you've got.
+
 Your health is the meter at the top; coins refill it. Lose it all and the course restarts. About 110 coins; counters are top-right. Press **M** to mute the music.
 
 The look aims for the N64: smoothly filtered textures, blob shadows, rigid limbs posed at 30 fps, and trees as flat sprites that always face the camera. If the game runs slowly, add `?low` to the address. `?stage=sunny` jumps straight into the course.

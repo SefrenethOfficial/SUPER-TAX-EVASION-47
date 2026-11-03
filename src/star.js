@@ -3,7 +3,8 @@ import * as THREE from 'three';
 // A star: spins in place, collected by touching it. If `drop` is set it
 // floats down from above first (e.g. when the boss is beaten).
 export class Star {
-  constructor(scene, model, pos, fx, { drop = false } = {}) {
+  // ghost: a star you already have shows see-through blue (still collectable)
+  constructor(scene, model, pos, fx, { drop = false, ghost = false } = {}) {
     this.fx = fx;
     this.scene = scene;
     this.onGet = () => {};
@@ -15,7 +16,15 @@ export class Star {
     const k = 1.6 / Math.max(size.x, size.y);
     m.scale.setScalar(k);
     m.position.set(-(box.min.x + box.max.x) / 2 * k, -(box.min.y + box.max.y) / 2 * k, -(box.min.z + box.max.z) / 2 * k);
-    m.traverse((o) => { if (o.isMesh && o.material) { o.material = o.material.clone(); o.material.emissiveIntensity = 0.6; } });
+    m.traverse((o) => {
+      if (!o.isMesh || !o.material) return;
+      o.material = o.material.clone();
+      o.material.emissiveIntensity = 0.6;
+      if (ghost) {
+        o.material.color.set(0x6fa8ff); o.material.emissive?.set(0x1a3a8a);
+        o.material.transparent = true; o.material.opacity = 0.55; o.material.depthWrite = false;
+      }
+    });
     this.mesh.add(m);
     this.base = pos.clone();
     this.mesh.position.copy(pos);

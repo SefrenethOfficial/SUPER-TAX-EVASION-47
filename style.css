@@ -75,3 +75,11 @@ body.no-coins #coins { display: none; }
 
 #fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity .45s; }
 #fade.on { opacity: 1; }
+
+#reds { position: fixed; top: 98px; right: 18px; display: none; align-items: center; gap: 6px; font-size: 26px; color: #fff; -webkit-text-stroke: 1.5px #1b1b3a; text-shadow: 3px 3px 0 #1b1b3a; pointer-events: none; }
+#reds img { width: 28px; height: 28px; filter: hue-rotate(-50deg) saturate(2.5) drop-shadow(2px 2px 0 #1b1b3a); }
+#reds .x { font-size: 20px; } #reds .of { font-size: 16px; opacity: .8; }
+#reds.bump #red-count { display: inline-block; animation: cbump .25s ease-out; }
+body.has-reds #reds { display: flex; }
+body:has(#start:not(.hidden)) #reds { display: none; }
+#card-stars { font-size: .55em; margin-top: 6px; color: #fff; letter-spacing: 1px; }

@@ -5,7 +5,8 @@ const PICKUP_RADIUS = 0.85;
 const SIZE = 0.75;
 
 export class Coins {
-  constructor(scene, texture, fx) {
+  // tint: colour multiplied into the coin texture (e.g. red coins)
+  constructor(scene, texture, fx, { tint = 0xffffff } = {}) {
     this.scene = scene;
     this.fx = fx;
     this.count = 0;
@@ -13,7 +14,7 @@ export class Coins {
     this.items = [];
     texture.colorSpace = THREE.SRGBColorSpace;
     this.geo = new THREE.PlaneGeometry(SIZE, SIZE);
-    this.mat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide, alphaTest: 0.5 });
+    this.mat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide, alphaTest: 0.5, color: tint });
     this.audio = null;
     this.capacity = Infinity;
     this.sound = null;   // optional () => bool; falls back to a synth ding

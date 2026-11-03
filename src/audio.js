@@ -83,11 +83,12 @@ export class GameAudio {
     });
   }
 
-  play(name, volume = 0.6) {
+  play(name, volume = 0.6, rate = 1) {
     const buf = this.buffers[name.includes('.') ? name : `${name}.wav`];
     if (this.muted || !this.ctx || !buf) return false;
     const src = this.ctx.createBufferSource();
     src.buffer = buf;
+    src.playbackRate.value = rate;
     const g = this.ctx.createGain();
     g.gain.value = volume;
     src.connect(g); g.connect(this.ctx.destination);

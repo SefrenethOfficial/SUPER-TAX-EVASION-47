@@ -1,19 +1,19 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Input } from './input.js?v=12';
-import { World } from './world.js?v=12';
-import { Player, buildCharacter } from './player.js?v=12';
-import { FX } from './fx.js?v=12';
-import { Coins } from './coins.js?v=12';
-import { Star } from './star.js?v=12';
-import { GameAudio } from './audio.js?v=12';
-import { CherryBomb, KingCherryBomb } from './enemies.js?v=12';
-import * as hub from './stages/hub.js?v=12';
-import * as sunny from './stages/sunny-spire-hill.js?v=12';
+import { Input } from './input.js?v=13';
+import { World } from './world.js?v=13';
+import { Player, buildCharacter } from './player.js?v=13';
+import { FX } from './fx.js?v=13';
+import { Coins } from './coins.js?v=13';
+import { Star } from './star.js?v=13';
+import { GameAudio } from './audio.js?v=13';
+import { CherryBomb, KingCherryBomb } from './enemies.js?v=13';
+import * as hub from './stages/hub.js?v=13';
+import * as sunny from './stages/sunny-spire-hill.js?v=13';
 
 // Bump VERSION (and the ?v= on every local import) whenever files change,
 // so browsers never mix old and new code.
-const VERSION = '12';
+const VERSION = '13';
 const STAGES = { hub, sunny };
 
 const canvas = document.getElementById('game');
@@ -55,8 +55,16 @@ function showHealth(h) {
   healthEl.querySelector('span').textContent = h;
   healthShownUntil = performance.now() + 3500;
 }
-function updateStarHud() { $('star-count').textContent = stars.size; }
-updateStarHud();
+function updateStarHud() {
+  $('star-count').textContent = stars.size;
+  // stars for the current course, e.g. "3 / 7" on the course card
+  const el = $('card-stars');
+  if (!el) return;
+  const total = S && S.mod.STARS;
+  if (!total) { el.textContent = ''; return; }
+  const got = [...stars].filter((s) => s.startsWith(`${S.key}:`)).length;
+  el.textContent = `★ ${got} / ${total}`;
+}
 addEventListener('keydown', (e) => {
   if (e.code === 'KeyH') help.classList.toggle('hidden');
   if (e.code === 'KeyM') audio.toggleMute();
@@ -114,8 +122,22 @@ function loadStage(key, { from } = {}) {
   const fx = new FX(scene);
   const coins = new Coins(scene, coinTex, fx);
   coins.sound = () => audio.play('coin');
-  coins.onCollect = (n) => { $('coin-count').textContent = n; bump($('coin-count')); player.heal(1); };
-  const level = mod.build(world, coins);
+  // Coin count for the course (red coins are worth 2). 100 makes a star appear.
+  const addCoins = (v) => {
+    S.coinCount += v;
+    $('coin-count').textContent = S.coinCount; bump($('coin-count'));
+    player.heal(v);
+    if (S.coinCount >= 100 && mod.STARS) spawnStar(2, player.pos.clone().add(new THREE.Vector3(0, 3.2, 0)), { drop: true });
+  };
+  coins.onCollect = () => addCoins(1);
+  const reds = new Coins(scene, coinTex, fx, { tint: 0xff3a2a });
+  reds.sound = () => audio.play('coin', 0.7, 1 + reds.count * 0.12);
+  reds.onCollect = (n) => {
+    addCoins(2);
+    $('red-count').textContent = n; document.body.classList.add('has-reds'); bump($('red-count'));
+    if (n === reds.total && S.level.redStar) spawnStar(3, S.level.redStar, { drop: true });
+  };
+  const level = mod.build(world, coins, reds);
 
   if (!player) {
     player = new Player(world, character, fx);
@@ -141,11 +163,11 @@ function loadStage(key, { from } = {}) {
     boss.onStart = () => { audio.music('boss.mp3'); showHealth(player.health); };
     player.tryGrab = () => boss.tryGrab();
     player.onThrow = () => { if (boss.state === 'held') boss.onThrown(); };
-    boss.onDefeat = (p) => { audio.music(mod.MUSIC); audio.play('star-appears', 0.7); S.star = makeStar(p.clone().add(new THREE.Vector3(0, 1.4, 0)), { drop: true }); };
+    boss.onDefeat = (p) => { audio.music(mod.MUSIC); spawnStar(1, p.clone().add(new THREE.Vector3(0, 1.4, 0)), { drop: true }); };
   }
 
-  S = { key, mod, scene, world, fx, coins, enemies, boss, level, star: null, portals: level.portals || [], busy: false, clear: false };
-  if (level.star) S.star = makeStar(level.star);
+  S = { key, mod, scene, world, fx, coins, reds, enemies, boss, level, stars: [], held: null, coinCount: 0, portals: level.portals || [], busy: false, clear: false };
+  for (const d of level.stars || []) spawnStar(d.n, d.pos, { sound: false });
 
   cam.yaw = player.yaw + Math.PI; cam.pitch = 0.32; cam.dist = cam.targetDist = 9; cam.idle = 0;
   cam.focus.copy(player.pos).add(new THREE.Vector3(0, 1.2, 0));
@@ -153,6 +175,9 @@ function loadStage(key, { from } = {}) {
   $('coin-total').textContent = coins.total;
   document.body.classList.toggle('no-coins', coins.total === 0);
   document.querySelectorAll('.course-name').forEach((el) => { el.textContent = mod.NAME; });
+  $('red-count').textContent = '0'; $('red-total').textContent = reds.total;
+  document.body.classList.remove('has-reds');
+  updateStarHud();
   const card = $('course-card');
   card.classList.remove('show'); void card.offsetWidth; card.classList.add('show');
   showHealth(player.health);
@@ -161,15 +186,20 @@ function loadStage(key, { from } = {}) {
   window.__player = player;
 }
 
-function makeStar(pos, opts) {
-  const st = new Star(S.scene, starModel, pos, S.fx, opts);
-  st.onGet = onStarGet;
-  return st;
+// Put star n of this course in the level (once). Stars you already have are ghosts.
+function spawnStar(n, pos, { drop = false, sound = true } = {}) {
+  if (S.stars.some((s) => s.n === n)) return;
+  const st = new Star(S.scene, starModel, pos, S.fx, { drop, ghost: stars.has(`${S.key}:${n}`) });
+  st.n = n;
+  st.onGet = () => onStarGet(st);
+  S.stars.push(st);
+  if (sound) audio.play('star-appears', 0.7);
 }
 
-function onStarGet() {
+function onStarGet(st) {
   S.clear = true;
-  stars.add(`${S.key}:1`); saveStars(); updateStarHud(); bump($('star-count'));
+  S.held = st;
+  stars.add(`${S.key}:${st.n}`); saveStars(); updateStarHud(); bump($('star-count'));
   player.starGet();
   audio.jingle('course-clear.mp3', () => setTimeout(() => go('hub', { from: 'clear' }), 1500));
 }
@@ -226,10 +256,12 @@ function step(dt) {
   input.update(dt);
   if (player && S) {
     player.update(dt, input, cam.yaw);
-    if (S.clear && S.star) S.star.hold(tmp.copy(player.pos).add(new THREE.Vector3(Math.cos(player.yaw) * 0.45, 2.75, -Math.sin(player.yaw) * 0.45)), dt);
+    if (S.clear && S.held) S.held.hold(tmp.copy(player.pos).add(new THREE.Vector3(Math.cos(player.yaw) * 0.45, 2.75, -Math.sin(player.yaw) * 0.45)), dt);
     updateCamera(dt, player);
     S.coins.update(dt, player.pos);
-    if (S.star) S.star.update(dt, player.pos);
+    if (!S.clear) for (const st of S.stars) st.update(dt, player.pos);
+    S.reds.update(dt, player.pos);
+    if (S.level.update && !S.clear) S.level.update(dt, { player, fx: S.fx, spawnStar });
     if (!S.clear) {
       for (const e of S.enemies) e.update(dt);
       if (S.boss) S.boss.update(dt);
