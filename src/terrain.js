@@ -11,7 +11,10 @@ import * as THREE from 'three';
 // ---------------------------------------------------------------------------
 
 export class Terrain {
-  constructor({ minX, maxX, minZ, maxZ, res, height, paths = [], grass, cliff, path }) {
+  // rock / rockZone: optional second cliff texture used inside a circle
+  // (x, z, radius), e.g. red rock on a mountain.
+  constructor({ minX, maxX, minZ, maxZ, res, height, paths = [], grass, cliff, path, rock = null, rockZone = null }) {
+    this.rock = rock || cliff; this.rockZone = rockZone || new THREE.Vector3(0, 0, -1);
     this.minX = minX; this.minZ = minZ; this.res = res;
     this.nx = Math.ceil((maxX - minX) / res) + 1;
     this.nz = Math.ceil((maxZ - minZ) / res) + 1;
@@ -113,6 +116,8 @@ export class Terrain {
       sh.uniforms.grassMap = { value: grassTex };
       sh.uniforms.cliffMap = { value: cliffTex };
       sh.uniforms.pathMap = { value: pathTex };
+      sh.uniforms.rockMap = { value: this.rock };
+      sh.uniforms.rockZone = { value: this.rockZone };
       sh.vertexShader = sh.vertexShader
         .replace('#include <common>', `#include <common>
 attribute float aPath; attribute vec2 aPathUV;
@@ -121,7 +126,7 @@ varying float vPath; varying vec2 vPathUV; varying vec3 vWPos; varying vec3 vWN;
 vPath = aPath; vPathUV = aPathUV; vWPos = position; vWN = normal;`);
       sh.fragmentShader = sh.fragmentShader
         .replace('#include <common>', `#include <common>
-uniform sampler2D grassMap; uniform sampler2D cliffMap; uniform sampler2D pathMap;
+uniform sampler2D grassMap; uniform sampler2D cliffMap; uniform sampler2D pathMap; uniform sampler2D rockMap; uniform vec3 rockZone;
 varying float vPath; varying vec2 vPathUV; varying vec3 vWPos; varying vec3 vWN;`)
         .replace('#include <map_fragment>', `
 vec3 tn = normalize(vWN);
@@ -131,6 +136,8 @@ float tint = 0.88 + 0.12 * sin(vWPos.x * 0.06) * sin(vWPos.z * 0.05 + 1.7) + 0.0
 g.rgb *= vec3(tint, 0.96 + 0.06 * tint, tint);
 vec2 cuv = abs(tn.x) > abs(tn.z) ? vWPos.zy : vWPos.xy;
 vec4 c = texture2D(cliffMap, cuv / 2.0);
+float inRock = 1.0 - step(rockZone.z, distance(vWPos.xz, rockZone.xy));
+c = mix(c, texture2D(rockMap, cuv / 2.0), inRock);
 vec4 p = texture2D(pathMap, vPathUV);
 float steep = smoothstep(0.45, 0.62, 1.0 - tn.y);
 vec4 col = mix(g, p, smoothstep(0.35, 0.65, vPath) * (1.0 - steep));

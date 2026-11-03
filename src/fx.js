@@ -14,7 +14,7 @@ export class FX {
     g.fillStyle = grd; g.fillRect(0, 0, 64, 64);
     const tex = new THREE.CanvasTexture(c);
     this.pool = [];
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < 160; i++) {
       const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, color: 0xe8dcc0, transparent: true, depthWrite: false }));
       s.visible = false;
       scene.add(s);
@@ -50,6 +50,24 @@ export class FX {
       p.s.material.color.setHex(0xffe14a);
       p.s.visible = true;
     }
+  }
+
+  // Big orange/grey burst for explosions.
+  explode(pos) {
+    const cols = [0xffd040, 0xff8020, 0xff5010, 0x888888, 0x444444];
+    for (let i = 0; i < 26; i++) {
+      const p = this.pool[this.next];
+      this.next = (this.next + 1) % this.pool.length;
+      const a = Math.random() * Math.PI * 2, e = Math.random() * 2 - 0.4;
+      const sp = 3 + Math.random() * 5;
+      p.s.position.copy(pos);
+      p.v.set(Math.cos(a) * sp, e * sp * 0.8 + 2, Math.sin(a) * sp);
+      p.life = p.max = 0.45 + Math.random() * 0.4;
+      p.s.material.color.setHex(cols[i % cols.length]);
+      p.s.visible = true;
+    }
+    this.ring(new THREE.Vector3(pos.x, pos.y - 0.5, pos.z));
+    this.shake(0.45);
   }
 
   ring(pos) {

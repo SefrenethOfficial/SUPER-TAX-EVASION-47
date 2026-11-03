@@ -15,6 +15,7 @@ export class Coins {
     this.geo = new THREE.PlaneGeometry(SIZE, SIZE);
     this.mat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide, alphaTest: 0.5 });
     this.audio = null;
+    this.capacity = Infinity;
     this.sound = null;   // optional () => bool; falls back to a synth ding
   }
 
@@ -24,9 +25,17 @@ export class Coins {
     this.items.push({ m, base: y, alive: true, phase: Math.random() * 6 });
   }
 
+  // A bonus coin that pops out of something (not counted in the stage total).
+  spawn(x, y, z) {
+    if (this.items.length >= this.capacity) return;
+    this.add(x, y, z);
+    this.items[this.items.length - 1].bonus = true;
+  }
+
   ensureMesh() {
     if (this.mesh) return;
-    this.mesh = new THREE.InstancedMesh(this.geo, this.mat, Math.max(1, this.items.length));
+    this.capacity = this.items.length + 80;
+    this.mesh = new THREE.InstancedMesh(this.geo, this.mat, this.capacity);
     this.mesh.frustumCulled = false;
     this.scene.add(this.mesh);
     this._m4 = new THREE.Matrix4(); this._q = new THREE.Quaternion(); this._s = new THREE.Vector3(1, 1, 1);
@@ -47,7 +56,7 @@ export class Coins {
     }
   }
 
-  get total() { return this.items.length; }
+  get total() { return this.items.filter((c) => !c.bonus).length; }
 
   update(dt, playerPos) {
     this.ensureMesh();
@@ -68,6 +77,7 @@ export class Coins {
       }
       if (c.alive) this.mesh.setMatrixAt(i, this._m4.compose(c.m.position, this._q.setFromAxisAngle(this._up, c.m.rotation.y), this._s));
     }
+    this.mesh.count = this.items.length;
     this.mesh.instanceMatrix.needsUpdate = true;
   }
 

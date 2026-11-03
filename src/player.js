@@ -14,12 +14,13 @@ const SUB_DT = 1 / 120;    // physics sub-step
 
 const JUMP_V = { jump: 12, double: 15, triple: 19.5, backflip: 20, sideflip: 18, longjump: 10, wallkick: 15.5, rollout: 10.5 };
 
-const AIR = new Set(['jump', 'double', 'triple', 'backflip', 'sideflip', 'longjump', 'wallkick', 'fall',
+const AIR = new Set(['jump', 'double', 'triple', 'backflip', 'sideflip', 'longjump', 'wallkick', 'fall', 'hurt', 'starjump',
   'gp_spin', 'gp_fall', 'dive', 'jumpkick', 'rollout', 'bonk', 'slidekick', 'wallcling']);
 const WALL_KICKABLE = new Set(['jump', 'double', 'triple', 'sideflip', 'longjump', 'wallkick', 'fall', 'rollout', 'backflip', 'jumpkick']);
 const LEDGE_OK = new Set(['jump', 'double', 'triple', 'sideflip', 'backflip', 'wallkick', 'fall', 'rollout', 'jumpkick']);
 
 
+const NO_INPUT = { move: { x: 0, y: 0 }, buttons: { A: false, B: false, Z: false }, pressed: { A: false, B: false, Z: false } };
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const approach = (v, t, d) => (v < t ? Math.min(v + d, t) : Math.max(v - d, t));
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -167,7 +168,7 @@ export function buildCharacter(gltfScene, { wood, eye, cone } = {}) {
     r.bone.quaternion.copy(r.Pinv).multiply(qModel).multiply(r.P).multiply(r.rest);
   };
   const state = {};
-  const smooth = (k, v, dt) => (state[k] = damp(state[k] ?? v, v, 18, dt));
+  const smooth = (k, v, dt) => (state[k] = damp(state[k] ?? v, v, 26, dt));
 
   // p: armL/armR (forward swing, rad), armSpread, legL/legR (forward swing),
   //    legSpread, kneeL/kneeR, elbowL/elbowR
@@ -232,6 +233,64 @@ export class Player {
     this.anim = { pitch: 0, roll: 0, yaw: 0, bob: 0, phase: 0, sq: 0, sqv: 0, lean: 0, limbs: 0, armUp: 0 };
     this.lastFloor = 0;
     this.inDir = new THREE.Vector2(); this.inMag = 0; this.inYaw = 0;
+    this.health = 8; this.invuln = 0; this.locked = false;
+    this.root.visible = true;
+  }
+
+  // --- health ------------------------------------------------------------------
+  // Take damage from something at (fromX, fromZ): knocked back and briefly
+  // invulnerable. onHurt / onDeath let the game update the HUD and respawn.
+  hurt(amount, fromX, fromZ) {
+    if (this.invuln > 0 || this.locked || this.health <= 0) return false;
+    this.health = Math.max(0, this.health - amount);
+    this.invuln = 2;
+    this.yaw = Math.atan2(fromX - this.pos.x, fromZ - this.pos.z);   // face the hit
+    this.fwd = -7; this.vy = 9; this.airControl = 0; this.airMax = RUN;
+    this.setState('hurt');
+    this.grounded = false;
+    this.fx.shake(0.3);
+    if (this.onHurt) this.onHurt(this.health);
+    if (this.health <= 0 && this.onDeath) this.onDeath();
+    return true;
+  }
+
+  heal(n) {
+    if (this.health <= 0) return;
+    this.health = Math.min(8, this.health + n);
+    if (this.onHurt) this.onHurt(this.health);
+  }
+
+  // Bounce off an enemy's head.
+  bounce(v = 11) {
+    this.vy = v; this.airControl = 1; this.airMax = Math.max(RUN, this.fwd);
+    this.setState('jump'); this.grounded = false; this.kicked = false;
+  }
+
+  // Where the player's current attack hits, or null.
+  attackSphere() {
+    const s = this.state;
+    const reach = { punch1: 0.75, punch2: 0.75, kick: 0.6, jumpkick: 0.7, dive: 0.8, slidekick: 0.6, slide: 0.6, bellyslide: 0.7 }[s];
+    if (reach === undefined) return null;
+    if ((s === 'punch1' || s === 'punch2') && (this.t < 0.04 || this.t > 0.18)) return null;
+    if (s === 'jumpkick' && this.t > 0.3) return null;
+    if ((s === 'slide' || s === 'bellyslide') && this.fwd < 3) return null;
+    const y = s === 'slide' || s === 'bellyslide' || s === 'slidekick' ? 0.4 : 0.9;
+    return { x: this.pos.x + Math.sin(this.yaw) * reach, y: this.pos.y + y, z: this.pos.z + Math.cos(this.yaw) * reach, r: 0.85 };
+  }
+
+  // Falling onto something whose top is at `top`, centred at (x, z) with radius r?
+  stomping(x, z, top, r) {
+    if (this.grounded || this.vy > 0) return false;
+    if (Math.hypot(this.pos.x - x, this.pos.z - z) > r + 0.3) return false;
+    return this.pos.y > top - 0.6 && this.pos.y < top + 0.4;
+  }
+
+  // The star-get celebration: hop, land, turn to the camera, hold the star up.
+  starGet() {
+    this.locked = true;
+    this.fwd = 0; this.vy = 7;
+    this.setState('starjump');
+    this.grounded = false;
   }
 
   setState(s) {
@@ -285,7 +344,8 @@ export class Player {
         this.setState('gp_land'); this.fwd = 0;
         this.fx.ring(this.pos); this.fx.dust(this.pos, 14); this.fx.shake(0.35);
         return;
-      case 'bonk': this.setState('stun'); this.fwd = 0; return;
+      case 'bonk': case 'hurt': this.setState('stun'); this.fwd = 0; return;
+      case 'starjump': this.setState('starpose'); this.fwd = 0; return;
       case 'jump': this.combo = 1; this.comboTimer = 0.22; break;
       case 'double': this.combo = 2; this.comboTimer = 0.22; break;
       case 'triple': this.landLock = 0.18; this.fwd *= 0.5; this.fx.dust(this.pos, 8); break;
@@ -299,6 +359,9 @@ export class Player {
 
   // --- per-frame update ------------------------------------------------------
   update(dt, input, camYaw) {
+    this.camYaw = camYaw;
+    this.invuln = Math.max(0, this.invuln - dt);
+    if (this.locked) input = NO_INPUT;
     // Camera-relative stick
     const fx = -Math.sin(camYaw), fz = -Math.cos(camYaw);  // camera forward
     const rx = Math.cos(camYaw), rz = -Math.sin(camYaw);   // camera right
@@ -326,6 +389,8 @@ export class Player {
       }
     }
     if (this.pos.y < -40) { const y = this.spawnYaw || 0; this.reset(); this.yaw = y; }
+    // blink while invulnerable
+    this.root.visible = this.invuln <= 0 || Math.floor(this.invuln * 12) % 2 === 0;
     this.animate(dt);
   }
 
@@ -401,6 +466,13 @@ export class Player {
         if (this.t > 0.38) this.setState('ground');
         break;
       }
+      case 'starpose': {
+        // turn to face the camera
+        this.yaw = this.turnToward(this.yaw, this.camYaw ?? this.yaw, 7 * dt);
+        break;
+      }
+      case 'hurt': case 'starjump':
+        break;
       case 'stun': {
         if (this.t > 0.6) this.setState('ground');
         break;
@@ -698,7 +770,6 @@ export class Player {
     let pitch = 0, roll = 0, yawOff = 0, bob = 0, crouch = 0;
     let armL = 0, armR = 0, legL = 0, legR = 0, armSpread = 0, legSpread = 0;
     let direct = false; // flips set rotation directly (no smoothing)
-    let kneeOverride = null, elbowL = null, elbowR = null;
 
     const speedK = Math.min(1, Math.abs(this.fwd) / RUN);
     const flip = (dur) => Math.min(1, t / dur);
@@ -727,9 +798,9 @@ export class Player {
         if (this.fwd > 0.2) { a.phase += this.fwd * dt * 3; legL += Math.sin(a.phase) * 0.4; legR -= Math.sin(a.phase) * 0.4; }
         break;
       case 'crouchslide': crouch = 0.35; pitch = 0.35; legL = 0.8; legR = 0.4; armL = armR = -0.8; armSpread = 0.4; break;
-      case 'punch1': elbowR = 0; armR = 1.6 * Math.sin(Math.min(1, t / 0.22) * Math.PI); yawOff = -0.3 * Math.sin(Math.min(1, t / 0.22) * Math.PI); pitch = 0.15; break;
-      case 'punch2': elbowL = 0; armL = 1.6 * Math.sin(Math.min(1, t / 0.22) * Math.PI); yawOff = 0.3 * Math.sin(Math.min(1, t / 0.22) * Math.PI); pitch = 0.15; break;
-      case 'kick': kneeOverride = 0.1; yawOff = ease(flip(0.38)) * Math.PI * 2; legL = 1.4; armSpread = 0.9; direct = true; break;
+      case 'punch1': armR = 1.6 * Math.sin(Math.min(1, t / 0.22) * Math.PI); yawOff = -0.3 * Math.sin(Math.min(1, t / 0.22) * Math.PI); pitch = 0.15; break;
+      case 'punch2': armL = 1.6 * Math.sin(Math.min(1, t / 0.22) * Math.PI); yawOff = 0.3 * Math.sin(Math.min(1, t / 0.22) * Math.PI); pitch = 0.15; break;
+      case 'kick': yawOff = ease(flip(0.38)) * Math.PI * 2; legL = 1.4; armSpread = 0.9; direct = true; break;
       case 'jump': case 'fall': case 'rollout': {
         if (s === 'rollout' && t < 0.45) { pitch = ease(flip(0.45)) * Math.PI * 2; crouch = 0.25; direct = true; break; }
         const up = this.vy > 0;
@@ -749,10 +820,18 @@ export class Player {
       case 'dive': pitch = 1.45; armL = armR = 3.0; legL = legR = -0.2; break;
       case 'bellyslide': pitch = 1.5; armL = armR = 3.0; legL = legR = -0.25; bob = -0.55; break;
       case 'slidekick': case 'slide': pitch = -1.25; legL = 1.6; legR = 0.6; armL = armR = -1.2; armSpread = 0.5; bob = s === 'slide' ? -0.45 : 0; break;
-      case 'jumpkick': kneeOverride = 0.15; legL = 1.6 * Math.sin(Math.min(1, t / 0.32) * Math.PI); legR = -0.3; armL = -0.6; armR = 1.0; pitch = -0.2; break;
+      case 'jumpkick': legL = 1.6 * Math.sin(Math.min(1, t / 0.32) * Math.PI); legR = -0.3; armL = -0.6; armR = 1.0; pitch = -0.2; break;
       case 'bonk': pitch = -0.9; armSpread = 1.4; legSpread = 0.5; break;
       case 'stun': pitch = -0.5 + Math.min(0.5, t); crouch = 0.15; roll = Math.sin(t * 18) * 0.1 * (1 - t / 0.6); armSpread = 0.8; break;
       case 'ledgehang': armL = armR = 3.0; legL = 0.2; legR = -0.1 + Math.sin(t * 3) * 0.1; break;
+      case 'hurt': pitch = -0.7; armL = armR = 1.2; armSpread = 1.3; legL = 0.6; legR = 0.2; break;
+      case 'starjump': armR = 3.0; armL = 0.6; armSpread = 0.4; legL = 0.8; legR = 0.1; yawOff = ease(flip(0.6)) * Math.PI * 2; direct = true; break;
+      case 'starpose': {
+        // star held high, then a happy little bounce
+        armR = 3.05; armL = t > 0.6 ? 1.4 + Math.sin(t * 9) * 0.25 : 0.4; armSpread = 0.35;
+        bob = t > 0.6 ? Math.abs(Math.sin(t * 5)) * 0.06 : 0; legL = legR = 0;
+        break;
+      }
       case 'ledgeclimb': { const k = Math.min(1, t / (this.climbFast ? 0.22 : 0.45)); armL = armR = 3.0 * (1 - k) + 0.3; legL = 1.2 * Math.sin(k * Math.PI); crouch = 0.3 * Math.sin(k * Math.PI); pitch = 0.4 * Math.sin(k * Math.PI); break; }
     }
 
@@ -770,20 +849,19 @@ export class Player {
     a.sqv += (-170 * a.sq - 14 * a.sqv) * dt;
     a.sq += a.sqv * dt;
     a.crouch = damp(a.crouch || 0, crouch, 16, dt);
-    const sy = Math.max(0.5, 1 + a.sq - a.crouch * 0.25);
+    const sy = Math.max(0.5, 1 + a.sq - a.crouch * 0.6);
     const sxz = 1 / Math.sqrt(sy);
     this.squashG.scale.set(sxz, sy, sxz);
     a.bob = damp(a.bob, bob, 20, dt);
-    this.pivot.position.y = 0.85 + a.bob - a.crouch * 0.55;
+    this.pivot.position.y = 0.85 + a.bob;
 
-    // Limbs. Knees bend when a leg tucks forward or trails behind; elbows stay soft.
-    const knee = (leg) => 0.12 + Math.max(0, leg) * 0.8 + Math.max(0, -leg) * 0.9 + a.crouch * 2.2;
-    const elbow = (arm) => 0.25 + Math.max(0, arm) * 0.25;
-    this.character.pose({
-      armL, armR, legL, legR, armSpread, legSpread,
-      kneeL: kneeOverride ?? knee(legL), kneeR: kneeOverride ?? knee(legR),
-      elbowL: elbowL ?? elbow(armL), elbowR: elbowR ?? elbow(armR),
-    }, dt);
+    // Limbs: rigid arms and legs (no elbow or knee bends), posed at 30 Hz like
+    // an N64 game, so motion reads as snappy key poses.
+    a.poseClock = (a.poseClock || 0) + dt;
+    if (a.poseClock >= 1 / 30) {
+      this.character.pose({ armL, armR, legL, legR, armSpread, legSpread, kneeL: 0, kneeR: 0, elbowL: 0, elbowR: 0 }, a.poseClock);
+      a.poseClock = 0;
+    }
 
     this.root.position.copy(this.pos);
     this.root.rotation.y = this.yaw;

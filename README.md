@@ -20,13 +20,21 @@ A three.js 3D platformer in the spirit of Super Mario 64. The first stage is **S
 
 Touch screens get an on-screen stick plus A / B / Z buttons.
 
+## Tax Haven (hub)
+
+The game starts on the castle grounds. Jump into the painting on the castle's front wall to enter Sunny Spire Hill. When you clear the course you come back out of the painting. Stars you collect are saved in your browser.
+
 ## Sunny Spire Hill
 
-A long valley course in the style of Bob-omb Battlefield. From the spawn meadow a dirt path crosses a creek on a wooden bridge, climbs a ramp onto a raised plateau (a second slope drops east to a fenced pen with a stake), and reaches a big mountain. A road spirals 3.4 times round the mountain to the summit, where rock ledges wind up a spire to the star. Stepping stones lead off the mountain's west side to a floating island, and a pond sits in the back meadow. The cliffs between road levels can be shortcut with a triple jump and a ledge grab.
+A long valley course in the style of Bob-omb Battlefield. From the spawn meadow a dirt path crosses a ravine on a wooden bridge (fall in and you can walk out at its shallow east end), climbs a ramp onto a raised plateau (a second slope drops east to a fenced pen with a stake), and reaches a big red-rock mountain. A road spirals 3.4 times round the mountain to the summit. Stepping stones lead off the mountain's west side to a floating island, and a pond sits in the back meadow. The cliffs between road levels can be shortcut with a triple jump and a ledge grab.
 
-The ground is a heightmap: gentle slopes are walkable, steep ones and cliffs block you (and work for wall kicks and ledge grabs). There are about 110 coins; the counters are top-right. Press **M** to mute the music.
+**Cherry Bombs** wait around the course. Get close and they roll after you; stay next to one too long and it explodes. Punch, kick or dive into one to send it flying, or stomp it flat.
 
-The look aims for the N64: smoothly filtered textures, blob shadows instead of real-time shadows, and trees as flat sprites that always face the camera. If the game runs slowly, add `?low` to the address (renders at 1x pixel density).
+**King Cherry Bomb** waits on the summit. He chases you and throws cherry bombs. Hit him three times (stomp on him or attack him) and he explodes and drops the star. Grab the star to clear the course.
+
+Your health is the meter at the top; coins refill it. Lose it all and the course restarts. About 110 coins; counters are top-right. Press **M** to mute the music.
+
+The look aims for the N64: smoothly filtered textures, blob shadows, rigid limbs posed at 30 fps, and trees as flat sprites that always face the camera. If the game runs slowly, add `?low` to the address. `?stage=sunny` jumps straight into the course.
 
 ## Code layout
 
@@ -35,7 +43,9 @@ The look aims for the N64: smoothly filtered textures, blob shadows instead of r
 - `src/world.js`: sky, lighting and level-building helpers; boxes double as collision
 - `src/terrain.js`: heightmap terrain (mesh, collision, grass/cliff/path texture blending)
 - `src/stages/sunny-spire-hill.js`: the stage: height function, paths, props, coins and star
-- `src/star.js`, `src/audio.js`: the star goal; music and sound effects
+- `src/stages/hub.js`: the hub (castle grounds and paintings)
+- `src/enemies.js`: Cherry Bomb and King Cherry Bomb
+- `src/star.js`, `src/audio.js`: the star; music, jingles and sound effects
 - `src/input.js`: keyboard, mouse, gamepad and touch
 - `src/fx.js`: dust, sparkles, impact shockwave, camera shake
 - `src/coins.js`: collectible coins and the coin sound
@@ -51,3 +61,9 @@ Character model: "Fully Rigged Low Poly Character for blender" by [satyasrichait
 Traffic cone hat: "Traffic Cone" by [hinndia](https://sketchfab.com/hinndia) on [Sketchfab](https://sketchfab.com/3d-models/traffic-cone-573feef839d7450cb3e12da9986e7a98), licensed [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/).
 
 Music and coin sound effect: supplied by the project owner; based on Nintendo's Super Mario 64.
+
+Cherry Bomb: "Cherry Bomb" by [flogo](https://sketchfab.com/flogo) on [Sketchfab](https://sketchfab.com/3d-models/cherry-bomb-dbcfd63c7a5442b598f18edd3b38e3d7), licensed [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/).
+
+Star: "Super Mario 64 Star" by [tubers431](https://sketchfab.com/tubers431) on [Sketchfab](https://sketchfab.com/3d-models/super-mario-64-star-6ee9a66741a748a3b51e31840f5b1d14), licensed [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/).
+
+Course clear and boss music: supplied by the project owner; from Nintendo's Super Mario 64.

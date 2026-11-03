@@ -1,14 +1,14 @@
 import * as THREE from 'three';
-import { Terrain } from '../terrain.js?v=9';
+import { Terrain } from '../terrain.js?v=10';
 
 // ---------------------------------------------------------------------------
 // SUNNY SPIRE HILL
 //
 // A long valley course, south to north:
-//   spawn meadow -> path over a creek on a wooden bridge -> ramp up onto a
+//   spawn meadow -> path over a ravine on a wooden bridge -> ramp up onto a
 //   raised plateau (a second slope drops east to a fenced pen) -> a big
-//   mountain with a road spiralling 3.4 times round it to the summit, where a
-//   rock spire with spiral ledges holds the star. A floating island hangs off
+//   mountain with a road spiralling 3.4 times round it to the summit, where
+//   King Cherry Bomb guards the star. A floating island hangs off
 //   the mountain's west side, and a pond sits in the back meadow. Rolling
 //   hills and steep valley walls close it in.
 //
@@ -52,7 +52,8 @@ const BOUNDS = { minX: -110, maxX: 110, minZ: -140, maxZ: 140 };
 const PLATEAU = { x0: -44, x1: 30, z0: -40, z1: 12, r: 10, h: 6 };
 const MTN = { x: 0, z: 45, R0: 36, w: 6.5, H: 6.4, turns: 3.4, base: 6, th0: -Math.PI / 2 };
 const MTN_TOP = MTN.base + MTN.H * MTN.turns;
-const creekZ = (x) => -76 + 5 * Math.sin(x * 0.045);
+const creekZ = (x) => -76 + 5 * Math.sin(x * 0.045);   // ravine centreline
+const RAVINE_DEPTH = (x) => 4.5 * (1 - smooth(45, 85, x));
 const POND = { x: 34, z: 100, r: 14, bed: -2, water: -0.7 };
 const PEN = { x: 50, z: -48, half: 10 };
 const HILLS = [[62, -100, 18, 7], [-62, -96, 22, 9], [72, 20, 20, 8], [-72, 12, 18, 6], [-32, 112, 20, 7], [70, 92, 18, 6], [-80, -40, 16, 5]];
@@ -115,9 +116,11 @@ function mountain(x, z) {
 }
 export function height(x, z) {
   let h = Math.max(meadow(x, z), plateau(x, z), ramp1(x, z), ramp2(x, z), mountain(x, z));
-  // creek
+  // ravine: a narrow gully with steep walls that shallows out at its east
+  // end, so if you fall in you can walk out that way
   const cd = Math.abs(z - creekZ(x));
-  h = Math.min(h, -2.4 + 2.4 * smooth(2.5, 7, cd) + Math.max(0, cd - 7) * 9);
+  const rd = RAVINE_DEPTH(x);
+  if (rd > 0.01) h = Math.min(h, -rd + rd * smooth(1.6, 4.2, cd) + Math.max(0, cd - 4.2) * 9);
   // pond
   const pd = Math.hypot(x - POND.x, z - POND.z);
   if (pd < POND.r + 8) h = Math.min(h, POND.bed + (0 - POND.bed) * smooth(POND.r - 4, POND.r + 2, pd) + Math.max(0, pd - POND.r - 2) * 9);
@@ -138,6 +141,7 @@ export function build(world, coins) {
       { points: BACK_PATH, width: 4 }, { points: ROAD, width: MTN.w - 1.6 },
     ],
     grass: grassT, cliff: cliffT, path: pathT,
+    rock: rockT, rockZone: new THREE.Vector3(MTN.x, MTN.z, MTN.R0 + 9),   // red rock mountain walls
   });
   world.setTerrain(terrain);
   const H = (x, z) => terrain.height(x, z);
@@ -152,14 +156,6 @@ export function build(world, coins) {
   // --- Water -----------------------------------------------------------------
   const waterMat = new THREE.MeshStandardMaterial({ color: 0x3b8fd6, transparent: true, opacity: 0.72, roughness: 0.12, metalness: 0.1 });
   {
-    const g = new THREE.PlaneGeometry(BOUNDS.maxX - BOUNDS.minX, 12, 220, 1);
-    g.rotateX(-Math.PI / 2);
-    const p = g.attributes.position;
-    for (let i = 0; i < p.count; i++) p.setZ(i, p.getZ(i) + creekZ(p.getX(i)));
-    const creek = new THREE.Mesh(g, waterMat);
-    creek.position.y = -0.9;
-    creek.receiveShadow = true;
-    scene.add(creek);
     const pond = new THREE.Mesh(new THREE.CircleGeometry(POND.r + 1.5, 48), waterMat);
     pond.rotation.x = -Math.PI / 2;
     pond.position.set(POND.x, POND.water, POND.z);
@@ -167,8 +163,8 @@ export function build(world, coins) {
     scene.add(pond);
   }
 
-  // --- Wooden bridge over the creek --------------------------------------------
-  const bx0 = -10.6, bx1 = -5.4, bz0 = creekZ(-8) - 8, bz1 = creekZ(-8) + 8.5, deck = 0.28;
+  // --- Wooden bridge over the ravine --------------------------------------------
+  const bx0 = -10.6, bx1 = -5.4, bz0 = creekZ(-8) - 6, bz1 = creekZ(-8) + 6, deck = 0.28;
   box([bx0, -0.2, bz0], [bx1, deck, bz1], wood);
   for (let z = bz0 + 0.2; z <= bz1; z += 2.5) {
     box([bx0 - 0.25, deck, z], [bx0, deck + 1.1, z + 0.25], wood);
@@ -195,17 +191,8 @@ export function build(world, coins) {
     box([x - 0.4, y(x, z) - 0.5, z - 0.4], [x + 0.4, y(x, z) + 2.0, z + 0.4], wood);
   }
 
-  // --- Summit spire with spiral ledges, and the star ------------------------------
+  // --- Summit: King Cherry Bomb's arena ----------------------------------------
   const SP = { x: MTN.x, z: MTN.z };
-  const spireTop = MTN_TOP + 6.5;
-  box([SP.x - 2, MTN_TOP - 1, SP.z - 2], [SP.x + 2, spireTop, SP.z + 2], { top: grass, side: rock });
-  const ledges = [];
-  for (let i = 0; i < 6; i++) {
-    const a = -Math.PI / 2 + i * (Math.PI / 3);
-    const lx = SP.x + Math.cos(a) * 3.9, lz = SP.z + Math.sin(a) * 3.9, top = MTN_TOP + 1.2 + i * 1.0;
-    box([lx - 1.1, top - 0.5, lz - 1.1], [lx + 1.1, top, lz + 1.1], rock);
-    ledges.push([lx, top, lz]);
-  }
 
   // --- Floating island off the west side of the mountain ---------------------------
   const [rwX, rwZ, rwY] = roadCentre(0.75);   // first turn, due west
@@ -303,7 +290,7 @@ gl_Position = projectionMatrix * mvPosition;`);
   for (let z = -110; z <= -104; z += 2) onGround(0, z);                      // spawn path
   { const [hx, hz] = HILLS[0]; for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; onGround(hx + Math.cos(a) * 3, hz + Math.sin(a) * 3); } }
   for (let i = 0; i < 5; i++) coins.add(-8, deck + 0.9, bz0 + 2 + i * (bz1 - bz0 - 4) / 4);   // bridge
-  for (const x of [-16, -1, 6]) onGround(x, creekZ(x));                      // in the creek
+  for (const x of [-16, -1, 6, 20, 34]) onGround(x, creekZ(x));             // down in the ravine
   for (let z = -62; z <= -44; z += 3.6) onGround(-34, z);                    // ramp
   for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; onGround(-12 + Math.cos(a) * 3, -18 + Math.sin(a) * 3); } // plateau
   for (let x = 32; x <= 48; x += 4) onGround(x, -20);                        // east slope
@@ -313,7 +300,6 @@ gl_Position = projectionMatrix * mvPosition;`);
   for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; coins.add(IS.x + Math.cos(a) * 3, IS.y + 0.9, IS.z + Math.sin(a) * 3); }
   coins.add(IS.x, IS.y + 0.9, IS.z);
   for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; onGround(SP.x + Math.cos(a) * 7, SP.z + Math.sin(a) * 7); } // summit
-  coins.add(ledges[2][0], ledges[2][1] + 0.9, ledges[2][2]); coins.add(ledges[4][0], ledges[4][1] + 0.9, ledges[4][2]);
   for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; coins.add(POND.x + Math.cos(a) * 6, POND.water + 0.9, POND.z + Math.sin(a) * 6); } // pond
   for (const [x, z] of BACK_PATH.slice(1)) onGround(x, z);
   { const [hx, hz] = HILLS[4]; for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; onGround(hx + Math.cos(a) * 2.5, hz + Math.sin(a) * 2.5); } }
@@ -321,7 +307,10 @@ gl_Position = projectionMatrix * mvPosition;`);
   return {
     spawn: new THREE.Vector3(0, H(0, -114), -114),
     spawnYaw: 0,
-    star: new THREE.Vector3(SP.x, spireTop + 1.3, SP.z),
+    star: null,   // King Cherry Bomb drops it
+    boss: { x: SP.x, z: SP.z, y: MTN_TOP, arena: 11 },
+    bombs: [[8, -96], [-12, -100], [-30, -58], [-12, -14], [10, -24], [40, -34], [55, -48],
+      roadCentre(0.45).slice(0, 2), roadCentre(1.35).slice(0, 2), roadCentre(2.3).slice(0, 2), [22, 96], [-20, 104]],
   };
 }
 
