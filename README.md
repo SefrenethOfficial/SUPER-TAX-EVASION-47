@@ -29,7 +29,7 @@ Next to spawn: stairs, a couple of raised platforms, a tall two-wall chimney, fl
 - `src/player.js`: character rig setup and the movement state machine (collision, procedural animation)
 - `src/world.js`: level geometry. The level is axis-aligned boxes that double as collision
 - `src/input.js`: keyboard, mouse, gamepad and touch
-- `src/fx.js`: dust, ground-pound shockwave, camera shake
+- `src/fx.js`: dust, impact shockwave, camera shake
 
 The stickman's skeleton is posed in code every frame; there are no baked animations.
 
