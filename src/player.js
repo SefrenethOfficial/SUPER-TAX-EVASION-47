@@ -238,6 +238,9 @@ export class Player {
     this.root.visible = true;
   }
 
+  // Voice lines / sound effects go through this hook (set by the game).
+  say(name) { if (name && this.sfx) this.sfx(name); }
+
   // --- health ------------------------------------------------------------------
   // Take damage from something at (fromX, fromZ): knocked back and briefly
   // invulnerable. onHurt / onDeath let the game update the HUD and respawn.
@@ -249,6 +252,8 @@ export class Player {
     this.fwd = -7 * power; this.vy = 9 * Math.sqrt(power); this.airControl = 0; this.airMax = Math.max(RUN, -this.fwd);
     this.setState('hurt');
     this.grounded = false;
+    this.bigHurt = power > 1.5;
+    this.say('hurt');
     this.fx.shake(0.3);
     if (this.onHurt) this.onHurt(this.health);
     if (this.health <= 0 && this.onDeath) this.onDeath();
@@ -289,6 +294,7 @@ export class Player {
   // The star-get celebration: hop, land, turn to the camera, hold the star up.
   starGet() {
     this.locked = true;
+    this.say('here-we-go');
     this.fwd = 0; this.vy = 7;
     this.setState('starjump');
     this.grounded = false;
@@ -317,6 +323,7 @@ export class Player {
     this.airMax = Math.max(RUN, this.fwd);
     this.kicked = false;
     this.jumpBuffer = 0; this.coyote = 0;
+    this.say({ double: 'hoohoo', backflip: 'hoohoo', sideflip: 'hoohoo', triple: 'yahoo', longjump: 'yahoo', wallkick: 'haha' }[kind]);
     this.setState(kind);
     this.grounded = false;
     this.anim.sq = 0.28; this.anim.sqv = 0;      // stretch on take-off
@@ -345,7 +352,9 @@ export class Player {
         this.setState('gp_land'); this.fwd = 0;
         this.fx.ring(this.pos); this.fx.dust(this.pos, 14); this.fx.shake(0.35);
         return;
-      case 'bonk': case 'hurt': this.setState('stun'); this.fwd = 0; return;
+      case 'bonk': case 'hurt':
+        if (from === 'hurt' && this.bigHurt) this.say('oof');
+        this.setState('stun'); this.fwd = 0; return;
       case 'starjump': this.setState('starpose'); this.fwd = 0; return;
       case 'jump': this.combo = 1; this.comboTimer = 0.22; break;
       case 'double': this.combo = 2; this.comboTimer = 0.22; break;
@@ -478,7 +487,7 @@ export class Player {
         break;
       case 'carry': {
         // heavy: slow walk, no jumping; B throws
-        if (B && this.t > 0.25) { this.setState('throwing'); if (this.onThrow) this.onThrow(); break; }
+        if (B && this.t > 0.25) { this.setState('throwing'); this.say('haha'); if (this.onThrow) this.onThrow(); break; }
         this.groundMove(dt);
         this.fwd = Math.min(this.fwd, 3.2);
         break;
@@ -687,7 +696,7 @@ export class Player {
         return true;
       }
       if (this.state === 'dive' && into > 0.5 && this.fwd > 6) {
-        this.setState('bonk'); this.fwd = -3; this.vy = Math.min(this.vy, 2); this.airMax = RUN;
+        this.setState('bonk'); this.say('oof'); this.fwd = -3; this.vy = Math.min(this.vy, 2); this.airMax = RUN;
         this.fx.shake(0.2);
       } else if (into > 0.3) {
         this.fwd = Math.min(this.fwd, Math.max(0, RUN * (1 - into)));
@@ -705,6 +714,7 @@ export class Player {
     this.ledgeEnd = new THREE.Vector3(this.pos.x - hit.nx * back, top, this.pos.z - hit.nz * back);
     if (hit.terrain) this.ledgeEnd.y = Math.max(top, this.world.terrain.height(this.ledgeEnd.x, this.ledgeEnd.z));
     this.setState('ledgehang');
+    this.say('whoa');
     this.anim.sq = -0.1;
   }
 

@@ -1,19 +1,19 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Input } from './input.js?v=11';
-import { World } from './world.js?v=11';
-import { Player, buildCharacter } from './player.js?v=11';
-import { FX } from './fx.js?v=11';
-import { Coins } from './coins.js?v=11';
-import { Star } from './star.js?v=11';
-import { GameAudio } from './audio.js?v=11';
-import { CherryBomb, KingCherryBomb } from './enemies.js?v=11';
-import * as hub from './stages/hub.js?v=11';
-import * as sunny from './stages/sunny-spire-hill.js?v=11';
+import { Input } from './input.js?v=12';
+import { World } from './world.js?v=12';
+import { Player, buildCharacter } from './player.js?v=12';
+import { FX } from './fx.js?v=12';
+import { Coins } from './coins.js?v=12';
+import { Star } from './star.js?v=12';
+import { GameAudio } from './audio.js?v=12';
+import { CherryBomb, KingCherryBomb } from './enemies.js?v=12';
+import * as hub from './stages/hub.js?v=12';
+import * as sunny from './stages/sunny-spire-hill.js?v=12';
 
 // Bump VERSION (and the ?v= on every local import) whenever files change,
 // so browsers never mix old and new code.
-const VERSION = '11';
+const VERSION = '12';
 const STAGES = { hub, sunny };
 
 const canvas = document.getElementById('game');
@@ -120,6 +120,7 @@ function loadStage(key, { from } = {}) {
   if (!player) {
     player = new Player(world, character, fx);
     player.onHurt = showHealth;
+    player.sfx = (n) => audio.voice(n);
     player.onDeath = () => setTimeout(() => go(S.key), 1200);
   } else {
     player.world = world; player.fx = fx;
@@ -131,7 +132,7 @@ function loadStage(key, { from } = {}) {
   player.reset();
   player.yaw = player.spawnYaw;
 
-  const ctx = { world, fx, coins, player, bombModel };
+  const ctx = { world, fx, coins, player, bombModel, sfx: (n) => audio.play(n, 0.5) };
   const enemies = (level.bombs || []).map(([x, z]) => new CherryBomb(ctx, x, z));
   let boss = null;
   player.tryGrab = null; player.onThrow = null;
@@ -140,7 +141,7 @@ function loadStage(key, { from } = {}) {
     boss.onStart = () => { audio.music('boss.mp3'); showHealth(player.health); };
     player.tryGrab = () => boss.tryGrab();
     player.onThrow = () => { if (boss.state === 'held') boss.onThrown(); };
-    boss.onDefeat = (p) => { audio.music(mod.MUSIC); S.star = makeStar(p.clone().add(new THREE.Vector3(0, 1.4, 0)), { drop: true }); };
+    boss.onDefeat = (p) => { audio.music(mod.MUSIC); audio.play('star-appears', 0.7); S.star = makeStar(p.clone().add(new THREE.Vector3(0, 1.4, 0)), { drop: true }); };
   }
 
   S = { key, mod, scene, world, fx, coins, enemies, boss, level, star: null, portals: level.portals || [], busy: false, clear: false };
@@ -237,7 +238,7 @@ function step(dt) {
     if (!S.busy) {
       for (const p of S.portals) {
         const q = player.pos;
-        if (q.x > p.min[0] && q.x < p.max[0] && q.y + 0.8 > p.min[1] && q.y < p.max[1] && q.z > p.min[2] && q.z < p.max[2]) { go(p.to); break; }
+        if (q.x > p.min[0] && q.x < p.max[0] && q.y + 0.8 > p.min[1] && q.y < p.max[1] && q.z > p.min[2] && q.z < p.max[2]) { audio.voice('yahoo'); go(p.to); break; }
       }
     }
     healthEl.classList.toggle('show', performance.now() < healthShownUntil || player.health < 8 || (S.boss && S.boss.state !== 'sleep' && S.boss.state !== 'gone'));

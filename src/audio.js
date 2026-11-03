@@ -2,6 +2,8 @@
 // and start exactly on the beat. Browsers only allow audio after a click or
 // key press, so call unlock() from the start screen.
 const MUSIC_VOL = 0.45;
+// Sound effects preloaded on unlock (assets/<name>.wav).
+const SFX = ['coin', 'star-appears', 'spotted', 'hurt', 'whoa', 'yahoo', 'oof', 'hoohoo', 'here-we-go', 'haha'];
 
 export class GameAudio {
   constructor(version) {
@@ -22,7 +24,7 @@ export class GameAudio {
         this.musicGain = this.ctx.createGain();
         this.musicGain.gain.value = this.muted ? 0 : MUSIC_VOL;
         this.musicGain.connect(this.ctx.destination);
-        this.buffer('coin.wav');
+        for (const n of SFX) this.buffer(`${n}.wav`);
       } catch (_) { this.ctx = null; return; }
     }
     if (this.ctx.state === 'suspended') this.ctx.resume();
@@ -91,6 +93,20 @@ export class GameAudio {
     src.connect(g); g.connect(this.ctx.destination);
     src.start();
     return true;
+  }
+
+  // A voice line: cuts off the previous one so they never pile up.
+  voice(name, volume = 0.75) {
+    const buf = this.buffers[`${name}.wav`];
+    if (this.muted || !this.ctx || !buf) return;
+    if (this.voiceSrc) { try { this.voiceSrc.stop(); } catch (_) { /* done */ } }
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    const g = this.ctx.createGain();
+    g.gain.value = volume;
+    src.connect(g); g.connect(this.ctx.destination);
+    src.start();
+    this.voiceSrc = src;
   }
 
   toggleMute() {

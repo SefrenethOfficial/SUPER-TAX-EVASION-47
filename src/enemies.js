@@ -122,14 +122,14 @@ export class CherryBomb {
 
     // Chase or idle
     const near = dist < 15 && Math.abs(dy) < 5;
-    if (this.state === 'idle' && near) this.state = 'chase';
+    if (this.state === 'idle' && near) { this.state = 'chase'; if (this.ctx.sfx) this.ctx.sfx('spotted'); }
     if (this.state === 'chase' && (dist > 22 || Math.abs(dy) > 7)) this.state = 'home';
     let tx = this.pos.x, tz = this.pos.z, speed = 0;
     if (this.state === 'chase') { tx = p.x; tz = p.z; speed = 3.6; }
     else if (this.state === 'home') {
       tx = this.home.x; tz = this.home.z; speed = 2.5;
       if (Math.hypot(tx - this.pos.x, tz - this.pos.z) < 0.5) this.state = 'idle';
-      if (near) this.state = 'chase';
+      if (near) { this.state = 'chase'; if (this.ctx.sfx) this.ctx.sfx('spotted'); }
     } else {
       // idle: wobble on the spot
       this.roll.rotation.z = Math.sin(this.t * 3) * 0.1;
@@ -375,7 +375,7 @@ export class KingCherryBomb {
         // Walk up to his face and he grabs you
         if (this.grabCooldown <= 0 && dist < this.R + 1.1 && Math.abs(p.y - this.pos.y) < 2.2 && this.facing(p.x, p.z) > 0.35 && player.state !== 'grabbed' && player.invuln <= 0) {
           this.state = 'grabbing'; this.t = 0;
-          player.setState('grabbed'); player.fwd = 0; player.vy = 0;
+          player.setState('grabbed'); player.fwd = 0; player.vy = 0; player.say('whoa');
         }
         break;
       }
