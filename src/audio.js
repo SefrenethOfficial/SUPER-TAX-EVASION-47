@@ -1,75 +1,91 @@
-// Music and sound effects. Browsers only allow audio after a click or key
-// press, so call unlock() from the start screen.
+// Music and sound effects, all through Web Audio so music loops are gapless
+// and start exactly on the beat. Browsers only allow audio after a click or
+// key press, so call unlock() from the start screen.
+const MUSIC_VOL = 0.45;
+
 export class GameAudio {
   constructor(version) {
     this.version = version;
     this.ctx = null;
-    this.buffers = {};
-    this.tracks = {};
-    this.current = null;
-    this.unlocked = false;
+    this.buffers = {};     // name -> AudioBuffer
+    this.loading = {};     // name -> Promise<AudioBuffer>
+    this.want = null;      // music we want playing
+    this.src = null;       // current music source
     this.muted = false;
     try { this.muted = localStorage.getItem('ste47-muted') === '1'; } catch (_) { /* storage blocked */ }
   }
 
-  track(file) {
-    if (!this.tracks[file]) {
-      const a = new Audio(`assets/${file}?v=${this.version}`);
-      a.preload = 'auto';
-      a.volume = 0.45;
-      this.tracks[file] = a;
-    }
-    return this.tracks[file];
-  }
-
-  // Switch background music (loops). Same track keeps playing.
-  music(file) {
-    const a = file ? this.track(file) : null;
-    if (this.current === a) return;
-    if (this.current) { this.current.pause(); }
-    this.current = a;
-    if (!a) return;
-    a.loop = true;
-    a.currentTime = 0;
-    a.muted = this.muted;
-    if (this.unlocked) a.play().catch(() => {});
-  }
-
-  // Play a one-off piece of music (stops the background track); calls done() at the end.
-  jingle(file, done) {
-    this.music(null);
-    const a = this.track(file);
-    a.loop = false; a.currentTime = 0; a.muted = this.muted;
-    let fired = false;
-    const finish = () => { if (fired) return; fired = true; a.onended = null; if (done) done(); };
-    a.onended = finish;
-    // backup in case 'ended' never fires (blocked audio, muted tab, etc.)
-    setTimeout(finish, ((isFinite(a.duration) && a.duration > 0 ? a.duration : 6.8) + 0.8) * 1000);
-    a.play().catch(() => {});
-  }
-
   unlock() {
-    this.unlocked = true;
     if (!this.ctx) {
       try {
         this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-        this.load('coin', 'coin.wav');
-      } catch (_) { this.ctx = null; }
-    } else if (this.ctx.state === 'suspended') this.ctx.resume();
-    if (this.current) this.current.play().catch(() => {});
+        this.musicGain = this.ctx.createGain();
+        this.musicGain.gain.value = this.muted ? 0 : MUSIC_VOL;
+        this.musicGain.connect(this.ctx.destination);
+        this.buffer('coin.wav');
+      } catch (_) { this.ctx = null; return; }
+    }
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+    if (this.want && !this.src) this.music(this.want, true);
   }
 
-  async load(name, file) {
-    try {
-      const res = await fetch(`assets/${file}?v=${this.version}`);
-      this.buffers[name] = await this.ctx.decodeAudioData(await res.arrayBuffer());
-    } catch (e) { console.warn('sound failed to load', file, e); }
+  buffer(file) {
+    if (this.buffers[file]) return Promise.resolve(this.buffers[file]);
+    if (!this.loading[file]) {
+      this.loading[file] = fetch(`assets/${file}?v=${this.version}`)
+        .then((r) => r.arrayBuffer())
+        .then((a) => this.ctx.decodeAudioData(a))
+        .then((b) => (this.buffers[file] = b))
+        .catch((e) => { console.warn('sound failed to load', file, e); delete this.loading[file]; return null; });
+    }
+    return this.loading[file];
+  }
+
+  stopMusic() {
+    if (this.src) { try { this.src.onended = null; this.src.stop(); } catch (_) { /* already stopped */ } }
+    this.src = null;
+  }
+
+  // Switch background music (loops). Asking for the track already playing does nothing.
+  music(file, force = false) {
+    if (!force && file === this.want && this.src) return;
+    this.want = file;
+    this.stopMusic();
+    if (!file || !this.ctx) return;
+    this.buffer(file).then((buf) => {
+      if (!buf || this.want !== file || this.src) return;
+      const s = this.ctx.createBufferSource();
+      s.buffer = buf; s.loop = true;
+      s.connect(this.musicGain);
+      s.start();
+      this.src = s;
+    });
+  }
+
+  // A one-off piece of music (stops the background track); done() when it ends.
+  jingle(file, done) {
+    this.want = null;
+    this.stopMusic();
+    let fired = false;
+    const finish = () => { if (fired) return; fired = true; if (done) done(); };
+    if (!this.ctx) { setTimeout(finish, 4000); return; }
+    this.buffer(file).then((buf) => {
+      if (!buf) { setTimeout(finish, 4000); return; }
+      const s = this.ctx.createBufferSource();
+      s.buffer = buf;
+      s.connect(this.musicGain);
+      s.onended = finish;
+      s.start();
+      this.src = s;
+      setTimeout(finish, (buf.duration + 0.5) * 1000);   // backup if 'ended' never fires
+    });
   }
 
   play(name, volume = 0.6) {
-    if (this.muted || !this.ctx || !this.buffers[name]) return false;
+    const buf = this.buffers[name.includes('.') ? name : `${name}.wav`];
+    if (this.muted || !this.ctx || !buf) return false;
     const src = this.ctx.createBufferSource();
-    src.buffer = this.buffers[name];
+    src.buffer = buf;
     const g = this.ctx.createGain();
     g.gain.value = volume;
     src.connect(g); g.connect(this.ctx.destination);
@@ -79,7 +95,7 @@ export class GameAudio {
 
   toggleMute() {
     this.muted = !this.muted;
-    for (const a of Object.values(this.tracks)) a.muted = this.muted;
+    if (this.musicGain) this.musicGain.gain.value = this.muted ? 0 : MUSIC_VOL;
     try { localStorage.setItem('ste47-muted', this.muted ? '1' : '0'); } catch (_) { /* ignore */ }
     return this.muted;
   }

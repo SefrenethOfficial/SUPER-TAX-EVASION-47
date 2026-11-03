@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Terrain } from '../terrain.js?v=10';
+import { Terrain } from '../terrain.js?v=11';
 
 // ---------------------------------------------------------------------------
 // TAX HAVEN: the hub. Castle grounds with a castle; jump into the painting on

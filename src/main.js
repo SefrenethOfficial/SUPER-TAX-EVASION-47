@@ -1,19 +1,19 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Input } from './input.js?v=10';
-import { World } from './world.js?v=10';
-import { Player, buildCharacter } from './player.js?v=10';
-import { FX } from './fx.js?v=10';
-import { Coins } from './coins.js?v=10';
-import { Star } from './star.js?v=10';
-import { GameAudio } from './audio.js?v=10';
-import { CherryBomb, KingCherryBomb } from './enemies.js?v=10';
-import * as hub from './stages/hub.js?v=10';
-import * as sunny from './stages/sunny-spire-hill.js?v=10';
+import { Input } from './input.js?v=11';
+import { World } from './world.js?v=11';
+import { Player, buildCharacter } from './player.js?v=11';
+import { FX } from './fx.js?v=11';
+import { Coins } from './coins.js?v=11';
+import { Star } from './star.js?v=11';
+import { GameAudio } from './audio.js?v=11';
+import { CherryBomb, KingCherryBomb } from './enemies.js?v=11';
+import * as hub from './stages/hub.js?v=11';
+import * as sunny from './stages/sunny-spire-hill.js?v=11';
 
 // Bump VERSION (and the ?v= on every local import) whenever files change,
 // so browsers never mix old and new code.
-const VERSION = '10';
+const VERSION = '11';
 const STAGES = { hub, sunny };
 
 const canvas = document.getElementById('game');
@@ -134,9 +134,12 @@ function loadStage(key, { from } = {}) {
   const ctx = { world, fx, coins, player, bombModel };
   const enemies = (level.bombs || []).map(([x, z]) => new CherryBomb(ctx, x, z));
   let boss = null;
+  player.tryGrab = null; player.onThrow = null;
   if (level.boss) {
     boss = new KingCherryBomb(ctx, level.boss);
     boss.onStart = () => { audio.music('boss.mp3'); showHealth(player.health); };
+    player.tryGrab = () => boss.tryGrab();
+    player.onThrow = () => { if (boss.state === 'held') boss.onThrown(); };
     boss.onDefeat = (p) => { audio.music(mod.MUSIC); S.star = makeStar(p.clone().add(new THREE.Vector3(0, 1.4, 0)), { drop: true }); };
   }
 
@@ -167,7 +170,7 @@ function onStarGet() {
   S.clear = true;
   stars.add(`${S.key}:1`); saveStars(); updateStarHud(); bump($('star-count'));
   player.starGet();
-  audio.jingle('course-clear.mp3', () => setTimeout(() => go('hub', { from: 'clear' }), 600));
+  audio.jingle('course-clear.mp3', () => setTimeout(() => go('hub', { from: 'clear' }), 1500));
 }
 
 // Fade to black, switch stage, fade back in.

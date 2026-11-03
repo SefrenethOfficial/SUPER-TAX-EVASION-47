@@ -20,6 +20,7 @@ const WALL_KICKABLE = new Set(['jump', 'double', 'triple', 'sideflip', 'longjump
 const LEDGE_OK = new Set(['jump', 'double', 'triple', 'sideflip', 'backflip', 'wallkick', 'fall', 'rollout', 'jumpkick']);
 
 
+const NO_PHYSICS = new Set(['ledgehang', 'ledgeclimb', 'wallcling', 'gp_spin', 'grabbed']);
 const NO_INPUT = { move: { x: 0, y: 0 }, buttons: { A: false, B: false, Z: false }, pressed: { A: false, B: false, Z: false } };
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const approach = (v, t, d) => (v < t ? Math.min(v + d, t) : Math.max(v - d, t));
@@ -240,12 +241,12 @@ export class Player {
   // --- health ------------------------------------------------------------------
   // Take damage from something at (fromX, fromZ): knocked back and briefly
   // invulnerable. onHurt / onDeath let the game update the HUD and respawn.
-  hurt(amount, fromX, fromZ) {
+  hurt(amount, fromX, fromZ, power = 1) {
     if (this.invuln > 0 || this.locked || this.health <= 0) return false;
     this.health = Math.max(0, this.health - amount);
     this.invuln = 2;
     this.yaw = Math.atan2(fromX - this.pos.x, fromZ - this.pos.z);   // face the hit
-    this.fwd = -7; this.vy = 9; this.airControl = 0; this.airMax = RUN;
+    this.fwd = -7 * power; this.vy = 9 * Math.sqrt(power); this.airControl = 0; this.airMax = Math.max(RUN, -this.fwd);
     this.setState('hurt');
     this.grounded = false;
     this.fx.shake(0.3);
@@ -380,7 +381,7 @@ export class Player {
     this.t += dt;
 
     this.logic(dt, input);
-    if (this.state !== 'ledgehang' && this.state !== 'ledgeclimb' && this.state !== 'wallcling' && this.state !== 'gp_spin') {
+    if (!NO_PHYSICS.has(this.state)) {
       let remaining = dt;
       while (remaining > 1e-6) {
         const h = Math.min(SUB_DT, remaining);
@@ -404,6 +405,8 @@ export class Player {
         if (Zh) { this.setState('crouch'); break; }
         if (A && this.groundJump()) break;
         if (B) {
+          // grab something heavy (the boss) if it's there to grab
+          if (this.tryGrab && this.tryGrab()) { this.setState('carry'); this.fwd = 0; break; }
           if (this.fwd >= 7.5) { this.dive(true); break; }
           this.setState('punch1'); this.queued = false; this.fwd = Math.max(this.fwd * 0.5, 2.5); break;
         }
@@ -471,7 +474,18 @@ export class Player {
         this.yaw = this.turnToward(this.yaw, this.camYaw ?? this.yaw, 7 * dt);
         break;
       }
-      case 'hurt': case 'starjump':
+      case 'hurt': case 'starjump': case 'grabbed':
+        break;
+      case 'carry': {
+        // heavy: slow walk, no jumping; B throws
+        if (B && this.t > 0.25) { this.setState('throwing'); if (this.onThrow) this.onThrow(); break; }
+        this.groundMove(dt);
+        this.fwd = Math.min(this.fwd, 3.2);
+        break;
+      }
+      case 'throwing':
+        this.fwd = approach(this.fwd, 0, 20 * dt);
+        if (this.t > 0.4) this.setState('ground');
         break;
       case 'stun': {
         if (this.t > 0.6) this.setState('ground');
@@ -679,7 +693,7 @@ export class Player {
         this.fwd = Math.min(this.fwd, Math.max(0, RUN * (1 - into)));
       }
     }
-    return !(this.state !== 'ledgehang' && this.state !== 'ledgeclimb' && this.state !== 'wallcling' && this.state !== 'gp_spin');
+    return NO_PHYSICS.has(this.state);
   }
 
   grabLedge(hit, top) {
@@ -824,6 +838,13 @@ export class Player {
       case 'bonk': pitch = -0.9; armSpread = 1.4; legSpread = 0.5; break;
       case 'stun': pitch = -0.5 + Math.min(0.5, t); crouch = 0.15; roll = Math.sin(t * 18) * 0.1 * (1 - t / 0.6); armSpread = 0.8; break;
       case 'ledgehang': armL = armR = 3.0; legL = 0.2; legR = -0.1 + Math.sin(t * 3) * 0.1; break;
+      case 'carry': {
+        armL = armR = 2.3; armSpread = 0.25; pitch = -0.15;
+        if (Math.abs(this.fwd) > 0.3) { a.phase += this.fwd * dt * 2.4; const sw = Math.sin(a.phase); legL = sw * 0.45; legR = -sw * 0.45; bob = Math.abs(Math.cos(a.phase)) * 0.05; }
+        break;
+      }
+      case 'throwing': { const k = Math.min(1, t / 0.2); armL = armR = 2.3 - k * 1.5; pitch = 0.25 * k; legL = 0.5 * k; break; }
+      case 'grabbed': armL = 1.5 + Math.sin(t * 20) * 0.8; armR = 1.5 - Math.sin(t * 20) * 0.8; legL = Math.sin(t * 18) * 0.7; legR = -legL; armSpread = 0.6; break;
       case 'hurt': pitch = -0.7; armL = armR = 1.2; armSpread = 1.3; legL = 0.6; legR = 0.2; break;
       case 'starjump': armR = 3.0; armL = 0.6; armSpread = 0.4; legL = 0.8; legR = 0.1; yawOff = ease(flip(0.6)) * Math.PI * 2; direct = true; break;
       case 'starpose': {

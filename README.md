@@ -30,7 +30,7 @@ A long valley course in the style of Bob-omb Battlefield. From the spawn meadow 
 
 **Cherry Bombs** wait around the course. Get close and they roll after you; stay next to one too long and it explodes. Punch, kick or dive into one to send it flying, or stomp it flat.
 
-**King Cherry Bomb** waits on the summit. He chases you and throws cherry bombs. Hit him three times (stomp on him or attack him) and he explodes and drops the star. Grab the star to clear the course.
+**King Cherry Bomb** waits on the summit. He chases you and throws cherry bombs, and if you get in front of him he grabs you and hurls you. Stomping or punching him does nothing: get behind him, press **B** to grab him, then **B** again to throw him so he lands on the summit. Three throws beat him; throw him off the edge and he jumps back up unhurt. When he's beaten he explodes and drops the star. Grab the star to clear the course.
 
 Your health is the meter at the top; coins refill it. Lose it all and the course restarts. About 110 coins; counters are top-right. Press **M** to mute the music.
 
