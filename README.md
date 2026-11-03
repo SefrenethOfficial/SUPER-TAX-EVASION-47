@@ -21,7 +21,7 @@ Touch screens get an on-screen stick plus A / B / Z buttons.
 
 ## Test yard
 
-Next to spawn: stairs, a couple of raised platforms, a tall two-wall chimney, floating stepping stones, a tower, and two raised runways with a gap between them.
+Next to spawn: stairs, a couple of raised platforms, a tall two-wall chimney, floating stepping stones, a tower, and two raised runways with a gap between them. There are 44 coins scattered around it; the counter is in the top-right.
 
 ## Code layout
 
@@ -29,9 +29,12 @@ Next to spawn: stairs, a couple of raised platforms, a tall two-wall chimney, fl
 - `src/player.js`: character rig setup and the movement state machine (collision, procedural animation)
 - `src/world.js`: level geometry. The level is axis-aligned boxes that double as collision
 - `src/input.js`: keyboard, mouse, gamepad and touch
-- `src/fx.js`: dust, impact shockwave, camera shake
+- `src/fx.js`: dust, sparkles, impact shockwave, camera shake
+- `src/coins.js`: collectible coins and the coin sound
 
 The stickman's skeleton is posed in code every frame; there are no baked animations.
+
+When you change any file, bump `VERSION` and the `?v=` numbers in `src/main.js` and `index.html` so players' browsers don't mix old and new files.
 
 ## Credits
 

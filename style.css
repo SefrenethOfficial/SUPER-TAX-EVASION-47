@@ -43,3 +43,11 @@ body.loaded #start .go { display: block; }
 #touch [data-btn="Z"] { background: rgba(120, 120, 120, .65); }
 #touch [data-btn].down { filter: brightness(1.5); }
 @media (pointer: coarse) { #hint { display: none; } }
+
+#coins { position: fixed; top: 14px; right: 18px; display: flex; align-items: center; gap: 6px; font-size: 30px; color: #fff; -webkit-text-stroke: 1.5px #1b1b3a; text-shadow: 3px 3px 0 #1b1b3a; pointer-events: none; }
+#coins img { width: 34px; height: 34px; image-rendering: pixelated; filter: drop-shadow(2px 2px 0 #1b1b3a); }
+#coins .x { font-size: 22px; }
+#coins .of { font-size: 18px; opacity: .8; margin-left: 2px; }
+#coins.bump #coin-count { display: inline-block; animation: cbump .25s ease-out; }
+@keyframes cbump { 50% { transform: scale(1.35); } }
+body:has(#start:not(.hidden)) #coins { display: none; }

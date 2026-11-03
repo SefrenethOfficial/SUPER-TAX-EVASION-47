@@ -33,6 +33,21 @@ export class FX {
       p.s.position.set(pos.x + Math.cos(a) * 0.2, pos.y + 0.15 + Math.random() * 0.2, pos.z + Math.sin(a) * 0.2);
       p.v.set(Math.cos(a) * sp, 0.6 + Math.random() * 1.2, Math.sin(a) * sp);
       p.life = p.max = 0.45 + Math.random() * 0.3;
+      p.s.material.color.setHex(0xe8dcc0);
+      p.s.visible = true;
+    }
+  }
+
+  sparkle(pos, n = 10) {
+    for (let i = 0; i < n; i++) {
+      const p = this.pool[this.next];
+      this.next = (this.next + 1) % this.pool.length;
+      const a = Math.random() * Math.PI * 2, e = (Math.random() - 0.3) * 2;
+      const sp = 2 + Math.random() * 2;
+      p.s.position.copy(pos);
+      p.v.set(Math.cos(a) * sp, e * sp, Math.sin(a) * sp);
+      p.life = p.max = 0.3 + Math.random() * 0.2;
+      p.s.material.color.setHex(0xffe14a);
       p.s.visible = true;
     }
   }

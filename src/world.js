@@ -38,7 +38,7 @@ function skyTexture() {
 }
 
 export class World {
-  constructor(scene) {
+  constructor(scene, version = '') {
     this.scene = scene;
     this.boxes = [];
     this.meshes = [];
@@ -61,9 +61,13 @@ export class World {
     this.sun = sun;
 
     // Ground: a big grassy checkerboard.
-    const groundTex = checkerTexture('#5fbf3c', '#52ad33', 2, 64);
+    const groundTex = new THREE.TextureLoader().load(`assets/grass.webp?v=${version}`);
+    groundTex.wrapS = groundTex.wrapT = THREE.RepeatWrapping;
+    groundTex.colorSpace = THREE.SRGBColorSpace;
+    groundTex.magFilter = THREE.NearestFilter;
+    groundTex.anisotropy = 8;
     const groundMat = new THREE.MeshLambertMaterial({ map: groundTex });
-    groundMat.userData.uvScale = 6;
+    groundMat.userData.uvScale = 2.5;   // metres per grass tile
     this.addBox([-100, -4, -100], [100, 0, 100], groundMat);
 
     // A small "test yard" next to spawn so every move has something to try on.

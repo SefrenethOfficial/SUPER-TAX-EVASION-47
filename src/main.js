@@ -1,9 +1,14 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Input } from './input.js?v=3';
-import { World } from './world.js?v=3';
-import { Player, buildCharacter } from './player.js?v=3';
-import { FX } from './fx.js?v=3';
+import { Input } from './input.js?v=4';
+import { World } from './world.js?v=4';
+import { Player, buildCharacter } from './player.js?v=4';
+import { FX } from './fx.js?v=4';
+import { Coins } from './coins.js?v=4';
+
+// Bump VERSION (and the ?v= on the imports above) whenever files change,
+// so browsers never mix old and new code.
+const VERSION = '4';
 
 const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -21,9 +26,37 @@ addEventListener('resize', () => {
   camera.updateProjectionMatrix();
 });
 
-const world = new World(scene);
+const world = new World(scene, VERSION);
 const fx = new FX(scene);
 const input = new Input(canvas);
+
+// --- Coins -------------------------------------------------------------------
+const texLoader = new THREE.TextureLoader();
+const coins = new Coins(scene, texLoader.load(`assets/coin.webp?v=${VERSION}`), fx);
+const coinCount = document.getElementById('coin-count');
+coins.onCollect = (n) => {
+  coinCount.textContent = n;
+  coinCount.parentElement.classList.remove('bump'); void coinCount.offsetWidth; coinCount.parentElement.classList.add('bump');
+};
+{
+  // around spawn
+  coins.ring(0, 0.9, 5, 2, 8);
+  // up the stairs
+  for (let i = 0; i < 6; i++) coins.add(-5.4 - i * 1.2, 0.25 * (i + 1) + 0.9, 9.5);
+  // on the platforms
+  coins.ring(8.5, 3.5, 10.5, 1.5, 6);
+  coins.line([14, 5.1, 10], [16, 5.1, 10], 3);
+  // up the wall-kick chimney, and on the ledge at the top
+  coins.line([-17.25, 2.5, 0], [-17.25, 12.5, 0], 6);
+  coins.line([-25, 14.9, 0], [-21, 14.9, 0], 3);
+  // floating stepping stones
+  for (const [x, y, z] of [[0, 3, -12], [4, 4.5, -15], [8, 6, -17], [12, 7.5, -16], [15, 9, -12]]) coins.add(x, y + 0.9, z);
+  // tower top
+  coins.ring(20, 9.9, -6, 1, 4);
+  // arc over the runway gap
+  coins.add(0, 3.2, 20); coins.add(1.75, 3.6, 20); coins.add(3.5, 3.2, 20);
+}
+document.getElementById('coin-total').textContent = coins.total;
 
 // --- HUD -------------------------------------------------------------------
 const debug = document.getElementById('debug');
@@ -36,6 +69,7 @@ addEventListener('keydown', (e) => {
 const start = document.getElementById('start');
 function begin() {
   start.classList.add('hidden');
+  coins.unlockAudio();
   input.requestLock();
 }
 start.addEventListener('click', begin);
@@ -95,16 +129,18 @@ function updateCamera(dt, player) {
   camera.lookAt(cam.focus);
 }
 
-// Bump VERSION whenever files change so browsers never mix old and new code.
-const VERSION = '3';
-
 // --- Load the character and go ----------------------------------------------
 let player = null;
+const skin = texLoader.load(`assets/character.jpg?v=${VERSION}`);
+skin.colorSpace = THREE.SRGBColorSpace;
+skin.wrapS = skin.wrapT = THREE.RepeatWrapping;
+skin.repeat.set(3, 3);
+skin.anisotropy = 8;
 new GLTFLoader().load(`assets/stickman.glb?v=${VERSION}`, (gltf) => {
-  const ch = buildCharacter(gltf.scene);
+  const ch = buildCharacter(gltf.scene, skin);
   player = new Player(world, ch, fx);
   window.__player = player; // handy for debugging in the console
-  window.__game = { renderer, scene, camera, cam, updateCamera, fx, input };
+  window.__game = { renderer, scene, camera, cam, updateCamera, fx, input, coins };
   document.body.classList.add('loaded');
 }, undefined, (err) => {
   console.error(err);
@@ -127,6 +163,7 @@ function frame() {
       debug.textContent = `state ${player.state}\nspeed ${player.fwd.toFixed(2)}\nvy ${player.vy.toFixed(2)}\npos ${player.pos.x.toFixed(1)}, ${player.pos.y.toFixed(2)}, ${player.pos.z.toFixed(1)}`;
     }
   }
+  if (player) coins.update(dt, player.pos);
   fx.update(dt);
   renderer.render(scene, camera);
 }

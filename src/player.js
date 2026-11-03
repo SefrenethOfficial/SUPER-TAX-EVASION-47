@@ -38,12 +38,12 @@ const BONES = {
 const MODEL_HEIGHT = 621;          // raw units, feet to top of head
 const ARM_DOWN = 1.32;             // rotate the T-pose arms down to the sides
 
-export function buildCharacter(gltfScene) {
+export function buildCharacter(gltfScene, skin = null) {
   const bones = {};
   gltfScene.traverse((o) => {
     if (o.isBone) bones[o.name] = o;
     if (o.isMesh) {
-      o.material = new THREE.MeshLambertMaterial({ color: 0x18181c });
+      o.material = skin ? new THREE.MeshLambertMaterial({ map: skin }) : new THREE.MeshLambertMaterial({ color: 0x18181c });
       o.castShadow = true;
       o.frustumCulled = false;   // skinned bounds don't follow the pose
     }
