@@ -32,10 +32,12 @@ Next to spawn: stairs, a couple of raised platforms, a tall two-wall chimney, fl
 - `src/fx.js`: dust, sparkles, impact shockwave, camera shake
 - `src/coins.js`: collectible coins and the coin sound
 
-The stickman's skeleton is posed in code every frame; there are no baked animations.
+The character's skeleton is posed in code every frame; there are no baked animations. Its head gets the wood texture, the eye decal and the cone hat at load time.
 
 When you change any file, bump `VERSION` and the `?v=` numbers in `src/main.js` and `index.html` so players' browsers don't mix old and new files.
 
 ## Credits
 
-Character model: "Stickman Low Poly" by [studentsimf](https://sketchfab.com/studentsimf) on [Sketchfab](https://sketchfab.com/3d-models/stickman-low-poly-12b31ea386ee4398a552d15c01615ae9), licensed [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/).
+Character model: "Fully Rigged Low Poly Character for blender" by [satyasrichaitanya360](https://sketchfab.com/satyasrichaitanya360) on [Sketchfab](https://sketchfab.com/3d-models/fully-rigged-low-poly-character-for-blender-dd918a1760be4849ac1026daa2c58b75), licensed [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/).
+
+Traffic cone hat: "Traffic Cone" by [hinndia](https://sketchfab.com/hinndia) on [Sketchfab](https://sketchfab.com/3d-models/traffic-cone-573feef839d7450cb3e12da9986e7a98), licensed [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/).

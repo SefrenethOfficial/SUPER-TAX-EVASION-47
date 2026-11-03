@@ -26,29 +26,115 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const damp = (a, b, k, dt) => lerp(a, b, 1 - Math.exp(-k * dt));
 
 // ---------------------------------------------------------------------------
-// Character model: the rigged stickman. Its skeleton is driven procedurally.
-// Rotations are authored in the character's root space (it faces +Z, Y up)
-// and converted into each bone's local space against its rest pose.
+// Character model: the rigged block-head character. Its body keeps the
+// model's own material; the head gets wood, an eye for a face and a traffic
+// cone for a hat. The skeleton is driven procedurally: rotations are authored
+// in the character's root space (faces +Z, Y up) and converted into each
+// bone's local space against its rest pose.
 // ---------------------------------------------------------------------------
 const BONES = {
-  armL: 'hand_l_1_04', elbowL: 'hand_l_2_05', armR: 'hand_r_1_09', elbowR: 'hand_r_2_010',
-  legL: 'foot_l_1_019', kneeL: 'foot_l_2_020', legR: 'foot_r_1_015', kneeR: 'foot_r_2_016',
-  spine: 'body2_01', head: 'head_014',
+  armL: 'top_arm_bone001_Armature', elbowL: 'lower_arm_bone001_Armature',
+  armR: 'top_arm_bone_Armature', elbowR: 'lower_arm_bone_Armature',
+  legL: 'lap001_Armature', kneeL: 'lower_leg_bone001_Armature',
+  legR: 'lap_Armature', kneeR: 'lower_leg_bone_Armature',
+  head: 'head_Armature',
 };
-const MODEL_HEIGHT = 621;          // raw units, feet to top of head
-const ARM_DOWN = 1.32;             // rotate the T-pose arms down to the sides
+const ARM_DOWN = 1.15;             // rotate the T-pose arms down to the sides
 
-export function buildCharacter(gltfScene, skin = null) {
+// Split the head triangles off into their own material with box-projected UVs.
+function woodenHead(mesh, headBone, woodTex) {
+  const headIdx = mesh.skeleton.bones.indexOf(headBone);
+  const geo = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry.clone();
+  const pos = geo.attributes.position, si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight;
+  const n = pos.count;
+  const M = mesh.matrixWorld;
+  const P = new Array(n);
+  const v = new THREE.Vector3();
+  for (let i = 0; i < n; i++) P[i] = v.fromBufferAttribute(pos, i).applyMatrix4(M).clone();
+
+  const headW = (i) => {
+    let w = 0;
+    for (let k = 0; k < 4; k++) if (si.getComponent(i, k) === headIdx) w += sw.getComponent(i, k);
+    return w;
+  };
+  const body = [], head = [];
+  const box = new THREE.Box3();
+  for (let t = 0; t < n; t += 3) {
+    const w = (headW(t) + headW(t + 1) + headW(t + 2)) / 3;
+    if (w > 0.5) { head.push(t, t + 1, t + 2); box.expandByPoint(P[t]).expandByPoint(P[t + 1]).expandByPoint(P[t + 2]); }
+    else body.push(t, t + 1, t + 2);
+  }
+  // Planar UVs per face, picked by the face's dominant axis.
+  const uv = new Float32Array(n * 2);
+  const size = box.getSize(new THREE.Vector3());
+  const e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nn = new THREE.Vector3();
+  for (let k = 0; k < head.length; k += 3) {
+    const a = P[head[k]], b = P[head[k + 1]], c = P[head[k + 2]];
+    nn.crossVectors(e1.subVectors(b, a), e2.subVectors(c, a));
+    const ax = Math.abs(nn.x), ay = Math.abs(nn.y), az = Math.abs(nn.z);
+    for (let j = 0; j < 3; j++) {
+      const p = P[head[k + j]], i = head[k + j];
+      let u, w;
+      if (ay >= ax && ay >= az) { u = (p.x - box.min.x) / size.x; w = (p.z - box.min.z) / size.z; }
+      else if (ax >= az) { u = (p.z - box.min.z) / size.z; w = (p.y - box.min.y) / size.y; }
+      else { u = (p.x - box.min.x) / size.x; w = (p.y - box.min.y) / size.y; }
+      uv[i * 2] = u; uv[i * 2 + 1] = w;
+    }
+  }
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  geo.setIndex([...body, ...head]);
+  geo.clearGroups();
+  geo.addGroup(0, body.length, 0);
+  geo.addGroup(body.length, head.length, 1);
+  mesh.geometry = geo;
+  const wood = new THREE.MeshStandardMaterial({ map: woodTex, roughness: 0.75, metalness: 0 });
+  mesh.material = [mesh.material, wood];
+  return box;  // head bounds in model space
+}
+
+export function buildCharacter(gltfScene, { wood, eye, cone } = {}) {
   const bones = {};
+  let skinned = null;
   gltfScene.traverse((o) => {
     if (o.isBone) bones[o.name] = o;
     if (o.isMesh) {
-      o.material = skin ? new THREE.MeshLambertMaterial({ map: skin }) : new THREE.MeshLambertMaterial({ color: 0x18181c });
       o.castShadow = true;
       o.frustumCulled = false;   // skinned bounds don't follow the pose
+      if (o.isSkinnedMesh) skinned = o;
     }
   });
   gltfScene.updateMatrixWorld(true);
+  const modelBox = new THREE.Box3().setFromObject(gltfScene, true);
+  const headBone = bones[BONES.head];
+
+  if (skinned && headBone && wood) {
+    const hb = woodenHead(skinned, headBone, wood);
+    const hs = hb.getSize(new THREE.Vector3());
+    // Eye on the front face
+    if (eye) {
+      eye.colorSpace = THREE.SRGBColorSpace;
+      const ew = hs.x * 0.95;
+      const decal = new THREE.Mesh(new THREE.PlaneGeometry(ew, ew), new THREE.MeshStandardMaterial({ map: eye, transparent: true, alphaTest: 0.3, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -2 }));
+      decal.position.set((hb.min.x + hb.max.x) / 2, hb.min.y + hs.y * 0.52, hb.max.z + 0.01);
+      gltfScene.add(decal);
+      headBone.attach(decal);
+    }
+    // Traffic cone hat
+    if (cone) {
+      const cb = new THREE.Box3().setFromObject(cone);
+      const cs = cb.getSize(new THREE.Vector3());
+      const k = (hs.x * 0.78) / cs.x;
+      const hat = new THREE.Group();
+      cone.position.set(-(cb.min.x + cb.max.x) / 2, -cb.min.y, -(cb.min.z + cb.max.z) / 2);
+      hat.add(cone);
+      hat.scale.setScalar(k);
+      hat.position.set((hb.min.x + hb.max.x) / 2, hb.max.y - hs.y * 0.04, (hb.min.z + hb.max.z) / 2);
+      hat.rotation.z = -0.08;
+      hat.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+      gltfScene.add(hat);
+      headBone.attach(hat);
+    }
+  }
 
   // Rest data for each driven bone: local rest rotation and its parent's
   // rest rotation in model space.
@@ -62,19 +148,19 @@ export function buildCharacter(gltfScene, skin = null) {
     rig[key] = { bone: b, rest: b.quaternion.clone(), P: parentQ, Pinv: parentQ.clone().invert() };
   }
 
-  const scale = 1.7 / MODEL_HEIGHT;
+  const height = modelBox.max.y - modelBox.min.y;
+  const scale = 1.7 / height;
   const root = new THREE.Group();
   const holder = new THREE.Group();
   holder.scale.setScalar(scale);
-  holder.position.y = 1.5 * scale - 0.85;   // feet at y=0 relative to the 0.85 pivot
+  holder.position.y = -modelBox.min.y * scale - 0.85;   // feet at y=0 relative to the 0.85 pivot
   holder.add(gltfScene);
   root.add(holder);
 
-  const e = new THREE.Euler();
   const q = new THREE.Quaternion();
   const qa = new THREE.Quaternion(), qb = new THREE.Quaternion();
   const X = new THREE.Vector3(1, 0, 0), Y = new THREE.Vector3(0, 1, 0), Z = new THREE.Vector3(0, 0, 1);
-  // Apply a model-space rotation `q` to a bone, relative to its rest pose.
+  // Apply a model-space rotation to a bone, relative to its rest pose.
   const apply = (key, qModel) => {
     const r = rig[key];
     if (!r) return;
@@ -84,11 +170,11 @@ export function buildCharacter(gltfScene, skin = null) {
   const smooth = (k, v, dt) => (state[k] = damp(state[k] ?? v, v, 18, dt));
 
   // p: armL/armR (forward swing, rad), armSpread, legL/legR (forward swing),
-  //    legSpread, kneeL/kneeR, elbowL/elbowR, lean
+  //    legSpread, kneeL/kneeR, elbowL/elbowR
   function pose(p, dt) {
     const v = {};
-    for (const k of ['armL', 'armR', 'legL', 'legR', 'armSpread', 'legSpread', 'kneeL', 'kneeR', 'elbowL', 'elbowR', 'lean']) v[k] = smooth(k, p[k] || 0, dt);
-    // Arms: the "l" arm points down -X in T-pose, "r" arm down +X.
+    for (const k of ['armL', 'armR', 'legL', 'legR', 'armSpread', 'legSpread', 'kneeL', 'kneeR', 'elbowL', 'elbowR']) v[k] = smooth(k, p[k] || 0, dt);
+    // Arms: the "L" arm points down -X in T-pose, "R" arm down +X.
     apply('armL', qa.setFromAxisAngle(X, -v.armL).multiply(qb.setFromAxisAngle(Z, ARM_DOWN - v.armSpread)));
     apply('armR', qa.setFromAxisAngle(X, -v.armR).multiply(qb.setFromAxisAngle(Z, -(ARM_DOWN - v.armSpread))));
     apply('elbowL', q.setFromAxisAngle(Y, v.elbowL));
@@ -97,7 +183,6 @@ export function buildCharacter(gltfScene, skin = null) {
     apply('legR', qa.setFromAxisAngle(X, -v.legR).multiply(qb.setFromAxisAngle(Z, v.legSpread * 0.5)));
     apply('kneeL', q.setFromAxisAngle(X, v.kneeL));
     apply('kneeR', q.setFromAxisAngle(X, v.kneeR));
-    apply('spine', q.setFromAxisAngle(X, v.lean));
   }
   pose({}, 1);
   return { root, pose };

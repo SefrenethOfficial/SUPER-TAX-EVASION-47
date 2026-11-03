@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Input } from './input.js?v=4';
-import { World } from './world.js?v=4';
-import { Player, buildCharacter } from './player.js?v=4';
-import { FX } from './fx.js?v=4';
-import { Coins } from './coins.js?v=4';
+import { Input } from './input.js?v=5';
+import { World } from './world.js?v=5';
+import { Player, buildCharacter } from './player.js?v=5';
+import { FX } from './fx.js?v=5';
+import { Coins } from './coins.js?v=5';
 
 // Bump VERSION (and the ?v= on the imports above) whenever files change,
 // so browsers never mix old and new code.
-const VERSION = '4';
+const VERSION = '5';
 
 const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -131,18 +131,19 @@ function updateCamera(dt, player) {
 
 // --- Load the character and go ----------------------------------------------
 let player = null;
-const skin = texLoader.load(`assets/character.jpg?v=${VERSION}`);
-skin.colorSpace = THREE.SRGBColorSpace;
-skin.wrapS = skin.wrapT = THREE.RepeatWrapping;
-skin.repeat.set(3, 3);
-skin.anisotropy = 8;
-new GLTFLoader().load(`assets/stickman.glb?v=${VERSION}`, (gltf) => {
-  const ch = buildCharacter(gltf.scene, skin);
+const wood = texLoader.load(`assets/wood.jpg?v=${VERSION}`);
+wood.colorSpace = THREE.SRGBColorSpace;
+wood.anisotropy = 8;
+const eye = texLoader.load(`assets/eye.png?v=${VERSION}`);
+const gltfLoader = new GLTFLoader();
+const loadGLB = (url) => new Promise((res, rej) => gltfLoader.load(url, res, undefined, rej));
+Promise.all([loadGLB(`assets/character.glb?v=${VERSION}`), loadGLB(`assets/cone.glb?v=${VERSION}`)]).then(([gltf, coneGltf]) => {
+  const ch = buildCharacter(gltf.scene, { wood, eye, cone: coneGltf.scene });
   player = new Player(world, ch, fx);
   window.__player = player; // handy for debugging in the console
   window.__game = { renderer, scene, camera, cam, updateCamera, fx, input, coins };
   document.body.classList.add('loaded');
-}, undefined, (err) => {
+}).catch((err) => {
   console.error(err);
   const why = (err && (err.message || err.target?.status && `HTTP ${err.target.status}`)) || String(err);
   document.getElementById('loading').textContent = `Could not load the character model (${why}). Try a hard refresh: Ctrl+Shift+R.`;
