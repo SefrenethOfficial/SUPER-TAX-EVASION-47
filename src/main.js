@@ -1,17 +1,17 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Input } from './input.js?v=6';
-import { World } from './world.js?v=6';
-import { Player, buildCharacter } from './player.js?v=6';
-import { FX } from './fx.js?v=6';
-import { Coins } from './coins.js?v=6';
-import { Star } from './star.js?v=6';
-import { GameAudio } from './audio.js?v=6';
-import * as stage from './stages/sunny-spire-hill.js?v=6';
+import { Input } from './input.js?v=7';
+import { World } from './world.js?v=7';
+import { Player, buildCharacter } from './player.js?v=7';
+import { FX } from './fx.js?v=7';
+import { Coins } from './coins.js?v=7';
+import { Star } from './star.js?v=7';
+import { GameAudio } from './audio.js?v=7';
+import * as stage from './stages/sunny-spire-hill.js?v=7';
 
 // Bump VERSION (and the ?v= on the imports above) whenever files change,
 // so browsers never mix old and new code.
-const VERSION = '6';
+const VERSION = '7';
 
 const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });

@@ -43,30 +43,6 @@ export class World {
 
     this.loader = new THREE.TextureLoader();
     this.version = version;
-
-    // Decorative: distant hills and a ring of clouds.
-    const hillMat = new THREE.MeshLambertMaterial({ color: 0x4f9a35 });
-    for (let i = 0; i < 14; i++) {
-      const a = (i / 14) * Math.PI * 2;
-      const r = 130 + (i % 3) * 15;
-      const h = new THREE.Mesh(new THREE.SphereGeometry(25 + (i % 4) * 8, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), hillMat);
-      h.position.set(Math.cos(a) * r, -2, Math.sin(a) * r);
-      h.scale.y = 0.6;
-      scene.add(h);
-    }
-    const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x666666 });
-    for (let i = 0; i < 10; i++) {
-      const g = new THREE.Group();
-      for (let j = 0; j < 4; j++) {
-        const s = new THREE.Mesh(new THREE.SphereGeometry(4 + Math.random() * 3, 10, 8), cloudMat);
-        s.position.set(j * 5 - 7, Math.random() * 2, Math.random() * 3);
-        g.add(s);
-      }
-      const a = (i / 10) * Math.PI * 2 + 0.3;
-      g.position.set(Math.cos(a) * 110, 45 + Math.random() * 15, Math.sin(a) * 110);
-      g.lookAt(0, g.position.y, 0);
-      scene.add(g);
-    }
   }
 
   // Load a tiling pixel-art texture.
