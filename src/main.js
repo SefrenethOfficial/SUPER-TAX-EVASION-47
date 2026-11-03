@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Input } from './input.js';
-import { World } from './world.js';
-import { Player, buildCharacter } from './player.js';
-import { FX } from './fx.js';
+import { Input } from './input.js?v=3';
+import { World } from './world.js?v=3';
+import { Player, buildCharacter } from './player.js?v=3';
+import { FX } from './fx.js?v=3';
 
 const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -95,9 +95,12 @@ function updateCamera(dt, player) {
   camera.lookAt(cam.focus);
 }
 
+// Bump VERSION whenever files change so browsers never mix old and new code.
+const VERSION = '3';
+
 // --- Load the character and go ----------------------------------------------
 let player = null;
-new GLTFLoader().load('assets/stickman.glb', (gltf) => {
+new GLTFLoader().load(`assets/stickman.glb?v=${VERSION}`, (gltf) => {
   const ch = buildCharacter(gltf.scene);
   player = new Player(world, ch, fx);
   window.__player = player; // handy for debugging in the console
@@ -105,7 +108,8 @@ new GLTFLoader().load('assets/stickman.glb', (gltf) => {
   document.body.classList.add('loaded');
 }, undefined, (err) => {
   console.error(err);
-  document.getElementById('loading').textContent = 'Could not load the character model.';
+  const why = (err && (err.message || err.target?.status && `HTTP ${err.target.status}`)) || String(err);
+  document.getElementById('loading').textContent = `Could not load the character model (${why}). Try a hard refresh: Ctrl+Shift+R.`;
 });
 
 const clock = new THREE.Clock();
