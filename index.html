@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>SUPER TAX EVASION 47</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.169.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.169.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="logo">
+    <span class="l1">SUPER</span>
+    <span class="l2">TAX EVASION</span>
+    <span class="l3">47</span>
+  </div>
+
+  <div id="popup"></div>
+  <pre id="debug" class="hidden"></pre>
+
+  <div id="help" class="hidden">
+    <h2>Moves</h2>
+    <table>
+      <tr><td>Run</td><td>WASD / stick <small>(hold C to walk)</small></td></tr>
+      <tr><td>Jump</td><td>Space <small>(hold for height)</small></td></tr>
+      <tr><td>Double / Triple jump</td><td>Jump again right as you land, while running</td></tr>
+      <tr><td>Backflip</td><td>Crouch, then Jump (standing still)</td></tr>
+      <tr><td>Long jump</td><td>Run, Crouch + Jump</td></tr>
+      <tr><td>Side somersault</td><td>Run, reverse direction, Jump during the skid</td></tr>
+      <tr><td>Wall kick</td><td>Jump into a wall, press Jump on contact</td></tr>
+      <tr><td>Ground pound</td><td>Crouch in mid-air</td></tr>
+      <tr><td>Dive</td><td>Attack while running fast or in mid-air</td></tr>
+      <tr><td>Rollout</td><td>Jump / Attack during a belly slide</td></tr>
+      <tr><td>Punch, punch, kick</td><td>Attack ×3</td></tr>
+      <tr><td>Jump kick</td><td>Attack in mid-air (slow)</td></tr>
+      <tr><td>Slide kick</td><td>Run, Crouch + Attack</td></tr>
+      <tr><td>Ledge grab</td><td>Fall onto an edge · forward climbs, Jump quick-climbs, back drops</td></tr>
+    </table>
+    <h2>Buttons</h2>
+    <table>
+      <tr><td>Jump (A)</td><td>Space · gamepad A</td></tr>
+      <tr><td>Attack (B)</td><td>J / X / left click · gamepad X or B</td></tr>
+      <tr><td>Crouch (Z)</td><td>Shift / K / right click · triggers or bumpers</td></tr>
+      <tr><td>Camera</td><td>Mouse · Q / E · R / F · wheel · right stick</td></tr>
+    </table>
+    <p>H to close · F3 for debug</p>
+  </div>
+  <div id="hint">H — moves list</div>
+
+  <div id="start">
+    <div class="card">
+      <div class="title">SUPER<br><b>TAX EVASION</b><br><i>47</i></div>
+      <div id="loading">Loading…</div>
+      <div class="go">Click to play</div>
+      <div class="small">Mouse looks around · H shows every move</div>
+    </div>
+  </div>
+
+  <div id="touch">
+    <div class="stick"><div class="knob"></div></div>
+    <div class="btns">
+      <div data-btn="Z">Z</div>
+      <div data-btn="B">B</div>
+      <div data-btn="A">A</div>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

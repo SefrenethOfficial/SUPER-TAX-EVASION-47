@@ -1,0 +1,53 @@
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #7fb8f0; font-family: 'Luckiest Guy', 'Arial Black', system-ui, sans-serif; color: #fff; user-select: none; -webkit-user-select: none; touch-action: none; }
+canvas#game { display: block; width: 100vw; height: 100vh; }
+.hidden { display: none !important; }
+
+.stroke { -webkit-text-stroke: 2px #1b1b3a; }
+
+#logo { position: fixed; top: 14px; left: 18px; line-height: 0.9; pointer-events: none; text-shadow: 3px 3px 0 #1b1b3a; letter-spacing: 1px; }
+#logo span { display: block; -webkit-text-stroke: 1.5px #1b1b3a; }
+#logo .l1 { font-size: 20px; color: #ffd23f; }
+#logo .l2 { font-size: 30px; color: #ff5a4e; }
+#logo .l3 { font-size: 34px; color: #4ec9ff; }
+
+#hint { position: fixed; bottom: 14px; right: 18px; font-size: 16px; opacity: 0.85; text-shadow: 2px 2px 0 #1b1b3a; pointer-events: none; }
+
+#popup { position: fixed; top: 22%; left: 50%; transform: translate(-50%, -50%) scale(0); font-size: clamp(28px, 6vw, 56px); color: #ffd23f; -webkit-text-stroke: 2px #1b1b3a; text-shadow: 4px 4px 0 #1b1b3a; pointer-events: none; white-space: nowrap; opacity: 0; transition: opacity .25s, transform .25s; }
+#popup.pop { opacity: 1; transform: translate(-50%, -50%) scale(1); animation: bounce .35s ease-out; }
+@keyframes bounce { 0% { transform: translate(-50%, -50%) scale(.4); } 60% { transform: translate(-50%, -50%) scale(1.15); } 100% { transform: translate(-50%, -50%) scale(1); } }
+
+#debug { position: fixed; top: 130px; left: 18px; margin: 0; font: 13px/1.4 ui-monospace, monospace; background: rgba(0,0,0,.45); padding: 8px 10px; border-radius: 6px; pointer-events: none; }
+
+#help { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(20, 24, 60, .88); border: 4px solid #ffd23f; border-radius: 16px; padding: 16px 22px; max-width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; font-family: system-ui, sans-serif; font-size: 14px; }
+#help h2 { font-family: 'Luckiest Guy', sans-serif; font-weight: normal; color: #ffd23f; margin: 6px 0 8px; letter-spacing: 1px; }
+#help table { border-collapse: collapse; width: 100%; }
+#help td { padding: 3px 8px 3px 0; vertical-align: top; }
+#help td:first-child { color: #ffd23f; white-space: nowrap; font-weight: 700; }
+#help small { opacity: .7; }
+#help p { opacity: .7; margin: 10px 0 0; }
+
+#start { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(ellipse at center, rgba(40,90,200,.35), rgba(10,20,60,.75)); cursor: pointer; }
+#start .card { text-align: center; padding: 16px; }
+#start .title { font-size: clamp(32px, 7vw, 64px); line-height: .95; color: #ffd23f; -webkit-text-stroke: 2px #1b1b3a; text-shadow: 5px 5px 0 #1b1b3a; }
+#start .title b { font-weight: normal; color: #ff5a4e; font-size: 1.25em; }
+#start .title i { font-style: normal; color: #4ec9ff; font-size: 1.5em; }
+#start .go { margin-top: 22px; font-size: 28px; animation: blink 1.1s infinite; text-shadow: 3px 3px 0 #1b1b3a; display: none; }
+#start .small { margin-top: 8px; font: 14px system-ui, sans-serif; opacity: .8; }
+#loading { margin-top: 22px; font-size: 22px; }
+body.loaded #loading { display: none; }
+body.loaded #start .go { display: block; }
+@keyframes blink { 50% { opacity: .35; } }
+
+#touch { display: none; }
+#touch.on { display: block; }
+#touch .stick { position: fixed; width: 140px; height: 140px; border-radius: 50%; background: rgba(255,255,255,.15); border: 3px solid rgba(255,255,255,.4); display: none; pointer-events: none; }
+#touch .stick.show { display: block; }
+#touch .knob { position: absolute; left: 40px; top: 40px; width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,.55); }
+#touch .btns { position: fixed; right: 16px; bottom: 24px; display: grid; grid-template-columns: repeat(3, 64px); gap: 10px; align-items: end; }
+#touch [data-btn] { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; font-size: 26px; color: #fff; text-shadow: 2px 2px 0 #1b1b3a; border: 3px solid rgba(255,255,255,.6); }
+#touch [data-btn="A"] { background: rgba(60, 110, 255, .65); width: 76px; height: 76px; }
+#touch [data-btn="B"] { background: rgba(40, 180, 80, .65); margin-bottom: 30px; }
+#touch [data-btn="Z"] { background: rgba(120, 120, 120, .65); }
+#touch [data-btn].down { filter: brightness(1.5); }
+@media (pointer: coarse) { #hint { display: none; } }
