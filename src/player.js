@@ -521,17 +521,29 @@ export class Player {
     }
 
     const dx = Math.sin(this.yaw), dz = Math.cos(this.yaw);
+    const px0 = this.pos.x, pz0 = this.pos.z;
     this.pos.x += dx * this.fwd * h;
     this.pos.z += dz * this.fwd * h;
 
     // Walls
     const hits = this.collideWalls(air ? 0.05 : STEP_UP);
+    this.terrainWalls(px0, pz0, air, hits);
 
     // Vertical
     if (!air) {
       const floor = w.floorBelow(this.pos.x, this.pos.z, this.pos.y + STEP_UP, R * 0.5);
       if (floor > -Infinity && floor >= this.pos.y - SNAP_DOWN) {
         this.pos.y = floor;
+        // Too steep to stand on: slide downhill.
+        const T = w.terrain;
+        if (T && Math.abs(T.height(this.pos.x, this.pos.z) - floor) < 1e-4) {
+          const g = T.gradient(this.pos.x, this.pos.z, this._g2 || (this._g2 = { x: 0, z: 0 }));
+          const gm = Math.hypot(g.x, g.z);
+          if (gm > 1.25) {
+            this.pos.x -= (g.x / gm) * 6 * h; this.pos.z -= (g.z / gm) * 6 * h;
+            this.pos.y = Math.max(this.pos.y - gm * 6 * h, T.height(this.pos.x, this.pos.z));
+          }
+        }
       } else {
         // walked off a ledge
         const keep = this.state;
@@ -542,7 +554,7 @@ export class Player {
     } else {
       const ny = this.pos.y + this.vy * h;
       if (this.vy <= 0) {
-        const floor = w.floorBelow(this.pos.x, this.pos.z, this.pos.y + 0.05, R * 0.5);
+        const floor = w.floorBelow(this.pos.x, this.pos.z, this.pos.y + 0.05, R * 0.5, 0.4);
         if (ny <= floor) {
           this.pos.y = floor;
           this.grounded = true;
@@ -557,6 +569,8 @@ export class Player {
         }
         if (ceil < Infinity) { this.pos.y = ceil - H; this.vy = 0; }
         else this.pos.y = ny;
+        // rising past a slope: don't sink into it
+        if (w.terrain) this.pos.y = Math.max(this.pos.y, w.terrain.height(this.pos.x, this.pos.z));
       }
     }
 
@@ -572,14 +586,14 @@ export class Player {
       }
       // Ledge grab
       if (LEDGE_OK.has(this.state) && this.vy <= 0 && into > 0.5 && this.ledgeCooldown <= 0) {
-        const top = hit.box.max.y;
+        const top = hit.top;
         const rel = top - this.pos.y;
         if (rel > 0.9 && rel < 1.9 && !w.blocked(this.pos.x - hit.nx * 0.6, top + 0.05, top + H, this.pos.z - hit.nz * 0.6)) {
           this.grabLedge(hit, top);
           return true;
         }
       }
-      if (WALL_KICKABLE.has(this.state) && into > 0.6 && this.fwd > 4 && this.clingCooldown <= 0 && hit.box.max.y > this.pos.y + 1.0) {
+      if (WALL_KICKABLE.has(this.state) && into > 0.6 && this.fwd > 4 && this.clingCooldown <= 0 && hit.top > this.pos.y + 1.0) {
         this.wallN.set(hit.nx, hit.nz);
         this.vy = 0;
         this.setState('wallcling');
@@ -601,7 +615,9 @@ export class Player {
     this.yaw = Math.atan2(-hit.nx, -hit.nz);
     this.pos.y = top - 1.45;
     this.ledgeStart = this.pos.clone();
-    this.ledgeEnd = new THREE.Vector3(this.pos.x - hit.nx * (R + 0.45), top, this.pos.z - hit.nz * (R + 0.45));
+    const back = hit.terrain ? R + 1.0 : R + 0.45;
+    this.ledgeEnd = new THREE.Vector3(this.pos.x - hit.nx * back, top, this.pos.z - hit.nz * back);
+    if (hit.terrain) this.ledgeEnd.y = Math.max(top, this.world.terrain.height(this.ledgeEnd.x, this.ledgeEnd.z));
     this.setState('ledgehang');
     this.anim.sq = -0.1;
   }
@@ -633,10 +649,45 @@ export class Player {
           nx = [-1, 1, 0, 0][m]; nz = [0, 0, -1, 1][m]; push = o[m] + R;
         }
         this.pos.x += nx * push; this.pos.z += nz * push;
-        if (iter === 0) hits.push({ nx, nz, box: b });
+        if (iter === 0) hits.push({ nx, nz, top: b.max.y, box: b });
       }
     }
     return hits;
+  }
+
+  // Terrain walls: slopes too steep to walk up (and cliffs) block movement.
+  // Slides along them, and reports them as wall hits for kicks / ledges.
+  terrainWalls(px0, pz0, air, hits) {
+    const T = this.world.terrain;
+    if (!T) return;
+    const feet = this.pos.y;
+    const allow = air ? 0.05 : STEP_UP;
+    const g = this._g || (this._g = { x: 0, z: 0 });
+    const probe = () => {
+      const mdx = this.pos.x - px0, mdz = this.pos.z - pz0, md = Math.hypot(mdx, mdz);
+      const ux = md > 1e-6 ? mdx / md : 0, uz = md > 1e-6 ? mdz / md : 0;
+      let best = -Infinity;
+      const pts = [[0, 0], [ux, uz], [ux * 0.7 - uz * 0.7, uz * 0.7 + ux * 0.7], [ux * 0.7 + uz * 0.7, uz * 0.7 - ux * 0.7]];
+      for (const [ox, oz] of pts) {
+        const x = this.pos.x + ox * R * 0.85, z = this.pos.z + oz * R * 0.85;
+        const th = T.height(x, z);
+        if (th > best) { best = th; this._px = x; this._pz = z; }
+      }
+      return best;
+    };
+    const gentle = (th, gm) => air && gm < 1.0 && th - feet < 0.45;
+    let th = probe();
+    if (th - feet <= allow) return;
+    T.gradient(this._px, this._pz, g);
+    const gm = Math.hypot(g.x, g.z);
+    if (gentle(th, gm)) return;  // the landing code will pick it up
+    if (gm < 1e-4) { this.pos.x = px0; this.pos.z = pz0; return; }
+    const nx = -g.x / gm, nz = -g.z / gm;   // downhill = away from the wall
+    const into = (this.pos.x - px0) * nx + (this.pos.z - pz0) * nz;
+    if (into < 0) { this.pos.x -= nx * into; this.pos.z -= nz * into; }
+    th = probe();
+    if (th - feet > allow && !gentle(th, gm)) { this.pos.x = px0; this.pos.z = pz0; }
+    hits.push({ nx, nz, top: T.height(this.pos.x - nx * 1.2, this.pos.z - nz * 1.2), terrain: true });
   }
 
   // -------------------------------------------------------------------------

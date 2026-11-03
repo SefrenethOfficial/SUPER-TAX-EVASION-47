@@ -20,12 +20,19 @@ export class Coins {
     this.sound = null;   // optional () => bool; falls back to a synth ding
   }
 
+  // Coins are drawn as one instanced mesh, created on the first update.
   add(x, y, z) {
-    const m = new THREE.Mesh(this.geo, this.mat);
-    m.position.set(x, y, z);
-    m.rotation.y = Math.random() * Math.PI;
-    this.scene.add(m);
+    const m = { position: new THREE.Vector3(x, y, z), rotation: { y: Math.random() * Math.PI } };
     this.items.push({ m, base: y, alive: true, phase: Math.random() * 6 });
+  }
+
+  ensureMesh() {
+    if (this.mesh) return;
+    this.mesh = new THREE.InstancedMesh(this.geo, this.mat, Math.max(1, this.items.length));
+    this.mesh.frustumCulled = false;
+    this.scene.add(this.mesh);
+    this._m4 = new THREE.Matrix4(); this._q = new THREE.Quaternion(); this._s = new THREE.Vector3(1, 1, 1);
+    this._zero = new THREE.Vector3(0, 0, 0); this._up = new THREE.Vector3(0, 1, 0);
   }
 
   line(from, to, n) {
@@ -45,22 +52,25 @@ export class Coins {
   get total() { return this.items.length; }
 
   update(dt, playerPos) {
+    this.ensureMesh();
     const px = playerPos.x, py = playerPos.y + 0.8, pz = playerPos.z;
-    for (const c of this.items) {
-      if (!c.alive) continue;
+    for (let i = 0; i < this.items.length; i++) {
+      const c = this.items[i];
+      if (!c.alive) { this.mesh.setMatrixAt(i, this._m4.compose(c.m.position, this._q, this._zero)); continue; }
       c.phase += dt;
       c.m.rotation.y += dt * 5;
       c.m.position.y = c.base + Math.sin(c.phase * 2.5) * 0.05;
       const dx = c.m.position.x - px, dy = c.m.position.y - py, dz = c.m.position.z - pz;
       if (dx * dx + dz * dz < PICKUP_RADIUS * PICKUP_RADIUS && Math.abs(dy) < 1.15) {
         c.alive = false;
-        c.m.visible = false;
         this.count++;
         this.fx.sparkle(c.m.position);
         if (!(this.sound && this.sound())) this.ding();
         this.onCollect(this.count);
       }
+      if (c.alive) this.mesh.setMatrixAt(i, this._m4.compose(c.m.position, this._q.setFromAxisAngle(this._up, c.m.rotation.y), this._s));
     }
+    this.mesh.instanceMatrix.needsUpdate = true;
   }
 
   // Unlock audio after a user gesture (browsers block it before that).

@@ -1,28 +1,33 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Input } from './input.js?v=7';
-import { World } from './world.js?v=7';
-import { Player, buildCharacter } from './player.js?v=7';
-import { FX } from './fx.js?v=7';
-import { Coins } from './coins.js?v=7';
-import { Star } from './star.js?v=7';
-import { GameAudio } from './audio.js?v=7';
-import * as stage from './stages/sunny-spire-hill.js?v=7';
+import { Input } from './input.js?v=8';
+import { World } from './world.js?v=8';
+import { Player, buildCharacter } from './player.js?v=8';
+import { FX } from './fx.js?v=8';
+import { Coins } from './coins.js?v=8';
+import { Star } from './star.js?v=8';
+import { GameAudio } from './audio.js?v=8';
+import * as stage from './stages/sunny-spire-hill.js?v=8';
 
 // Bump VERSION (and the ?v= on the imports above) whenever files change,
 // so browsers never mix old and new code.
-const VERSION = '7';
+const VERSION = '8';
 
 const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
-renderer.shadowMap.enabled = true;
+// Add ?low to the URL for weaker computers: no shadows, no grass tufts, 1x pixels.
+const LOW = new URLSearchParams(location.search).has('low');
+renderer.shadowMap.enabled = !LOW;
+if (LOW) renderer.setPixelRatio(1);
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 400);
+const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 600);
 addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
   camera.aspect = innerWidth / innerHeight;
@@ -30,6 +35,7 @@ addEventListener('resize', () => {
 });
 
 const world = new World(scene, VERSION);
+world.low = LOW;
 const fx = new FX(scene);
 const input = new Input(canvas);
 
@@ -82,7 +88,6 @@ const cam = {
   yaw: Math.PI, pitch: 0.32, dist: 9, targetDist: 9,
   focus: level.spawn.clone().add(new THREE.Vector3(0, 1.2, 0)), idle: 0,
 };
-const ray = new THREE.Raycaster();
 
 function updateCamera(dt, player) {
   const c = input.consumeCam();
@@ -116,12 +121,10 @@ function updateCamera(dt, player) {
     Math.cos(cam.yaw) * Math.cos(cam.pitch),
   );
   // Don't let walls get between camera and player.
-  ray.set(cam.focus, off);
-  ray.far = cam.dist;
-  const hit = ray.intersectObjects(world.meshes, false)[0];
-  const dist = hit ? Math.max(1.2, hit.distance - 0.3) : cam.dist;
+  const hitD = world.rayDistance(cam.focus, off, cam.dist);
+  const dist = hitD < cam.dist ? Math.max(1.2, hitD - 0.3) : cam.dist;
   camera.position.copy(cam.focus).addScaledVector(off, dist);
-  if (camera.position.y < 0.3) camera.position.y = 0.3;
+  if (world.terrain) camera.position.y = Math.max(camera.position.y, world.terrain.height(camera.position.x, camera.position.z) + 0.4);
 
   // Shake
   const tr = fx.trauma * fx.trauma;

@@ -25,7 +25,7 @@ export class World {
     this.meshes = [];
 
     scene.background = skyTexture();
-    scene.fog = new THREE.Fog(0xcfe6f7, 60, 190);
+    scene.fog = new THREE.Fog(0xcfe3f3, 90, 300);
 
     const hemi = new THREE.HemisphereLight(0xdff0ff, 0x5a7a3a, 1.3);
     scene.add(hemi);
@@ -94,16 +94,39 @@ export class World {
     m.position.set(cx, cy, cz);
     m.castShadow = sy < 50;
     m.receiveShadow = true;
-    m.visible = visible;
-    this.scene.add(m);
-    this.meshes.push(m);
+    // Invisible boxes are collision only (tree trunks, rocks): not drawn, and
+    // ignored by the camera.
+    if (visible) { this.scene.add(m); this.meshes.push(m); }
     const box = { min: new THREE.Vector3(...min), max: new THREE.Vector3(...max), mesh: m };
     this.boxes.push(box);
     return box;
   }
 
-  // Is any box occupying the vertical segment (x, y0..y1, z)?
+  setTerrain(terrain) {
+    this.terrain = terrain;
+    this.scene.add(terrain.mesh);
+  }
+
+  // Distance along a ray before it hits a box or the terrain (for the camera).
+  rayDistance(origin, dir, far) {
+    let d = far;
+    this._ray = this._ray || new THREE.Raycaster();
+    this._ray.set(origin, dir);
+    this._ray.far = far;
+    const hit = this._ray.intersectObjects(this.meshes, false)[0];
+    if (hit) d = hit.distance;
+    if (this.terrain) {
+      for (let t = 0.5; t < d; t += 0.4) {
+        const x = origin.x + dir.x * t, y = origin.y + dir.y * t, z = origin.z + dir.z * t;
+        if (this.terrain.height(x, z) > y - 0.25) { d = t; break; }
+      }
+    }
+    return d;
+  }
+
+  // Is any box (or the terrain) occupying the vertical segment (x, y0..y1, z)?
   blocked(x, y0, y1, z) {
+    if (this.terrain && this.terrain.height(x, z) > y0) return true;
     for (const b of this.boxes) {
       if (x > b.min.x && x < b.max.x && z > b.min.z && z < b.max.z && b.max.y > y0 && b.min.y < y1) return true;
     }
@@ -111,8 +134,14 @@ export class World {
   }
 
   // Highest floor top under point (x,z) that is at or below `y`.
-  floorBelow(x, z, y, margin = 0) {
+  // Terrain counts if it is at most `y + terrainTol` (lets you land on a slope
+  // that rises slightly into you).
+  floorBelow(x, z, y, margin = 0, terrainTol = 0) {
     let best = -Infinity;
+    if (this.terrain) {
+      const th = this.terrain.height(x, z);
+      if (th <= y + terrainTol) best = th;
+    }
     for (const b of this.boxes) {
       if (x < b.min.x - margin || x > b.max.x + margin || z < b.min.z - margin || z > b.max.z + margin) continue;
       if (b.max.y <= y && b.max.y > best) best = b.max.y;

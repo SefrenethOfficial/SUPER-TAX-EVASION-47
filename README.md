@@ -22,14 +22,19 @@ Touch screens get an on-screen stick plus A / B / Z buttons.
 
 ## Sunny Spire Hill
 
-A dirt path leads from spawn to a three-tier grassy hill. Stairs climb the first two tiers; the third takes a jump or the rock step on the west side. On top, an orange-rock spire has ledges spiralling up it to the star at the summit. Off to the side: a floating island reached by stepping stones, a two-wall chimney, trees and boulders. 67 coins are scattered around; the counters are top-right. Press **M** to mute the music.
+A long valley course in the style of Bob-omb Battlefield. From the spawn meadow a dirt path crosses a creek on a wooden bridge, climbs a ramp onto a raised plateau (a second slope drops east to a fenced pen with a stake), and reaches a big mountain. A road spirals 3.4 times round the mountain to the summit, where rock ledges wind up a spire to the star. Stepping stones lead off the mountain's west side to a floating island, and a pond sits in the back meadow. The cliffs between road levels can be shortcut with a triple jump and a ledge grab.
+
+The ground is a heightmap: gentle slopes are walkable, steep ones and cliffs block you (and work for wall kicks and ledge grabs). There are about 110 coins; the counters are top-right. Press **M** to mute the music.
+
+If the game runs slowly, add `?low` to the address (turns off shadows and grass tufts).
 
 ## Code layout
 
 - `src/main.js`: renderer, Lakitu-style camera, game loop
 - `src/player.js`: character rig setup and the movement state machine (collision, procedural animation)
-- `src/world.js`: sky, lighting and level-building helpers. Levels are axis-aligned boxes that double as collision
-- `src/stages/sunny-spire-hill.js`: the stage layout, coins and star position
+- `src/world.js`: sky, lighting and level-building helpers; boxes double as collision
+- `src/terrain.js`: heightmap terrain (mesh, collision, grass/cliff/path texture blending)
+- `src/stages/sunny-spire-hill.js`: the stage: height function, paths, props, coins and star
 - `src/star.js`, `src/audio.js`: the star goal; music and sound effects
 - `src/input.js`: keyboard, mouse, gamepad and touch
 - `src/fx.js`: dust, sparkles, impact shockwave, camera shake
