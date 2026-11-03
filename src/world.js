@@ -27,11 +27,12 @@ export class World {
     scene.background = skyTexture();
     scene.fog = new THREE.Fog(0xcfe3f3, 90, 300);
 
-    const hemi = new THREE.HemisphereLight(0xdff0ff, 0x5a7a3a, 1.3);
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x8a9a70, 1.6);
     scene.add(hemi);
-    const sun = new THREE.DirectionalLight(0xfff3dd, 2.4);
+    const sun = new THREE.DirectionalLight(0xffffff, 1.9);
     sun.position.set(30, 50, 20);
-    sun.castShadow = true;
+    // No real-time shadows: like SM64, everything uses round blob shadows.
+    sun.castShadow = false;
     sun.shadow.mapSize.set(2048, 2048);
     const sc = sun.shadow.camera;
     sc.left = -30; sc.right = 30; sc.top = 30; sc.bottom = -30; sc.near = 1; sc.far = 150;
@@ -50,7 +51,8 @@ export class World {
     const t = this.loader.load(`assets/${name}?v=${this.version}`);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.colorSpace = THREE.SRGBColorSpace;
-    t.magFilter = THREE.NearestFilter;
+    // N64-style: textures are smoothly (bilinear) filtered, not crisp pixels.
+    t.magFilter = THREE.LinearFilter;
     t.anisotropy = 8;
     return t;
   }

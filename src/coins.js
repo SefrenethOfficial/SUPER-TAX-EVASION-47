@@ -12,8 +12,6 @@ export class Coins {
     this.onCollect = () => {};
     this.items = [];
     texture.colorSpace = THREE.SRGBColorSpace;
-    texture.magFilter = THREE.NearestFilter;
-    texture.minFilter = THREE.NearestFilter;
     this.geo = new THREE.PlaneGeometry(SIZE, SIZE);
     this.mat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide, alphaTest: 0.5 });
     this.audio = null;

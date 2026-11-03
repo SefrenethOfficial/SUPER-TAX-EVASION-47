@@ -26,7 +26,7 @@ A long valley course in the style of Bob-omb Battlefield. From the spawn meadow 
 
 The ground is a heightmap: gentle slopes are walkable, steep ones and cliffs block you (and work for wall kicks and ledge grabs). There are about 110 coins; the counters are top-right. Press **M** to mute the music.
 
-If the game runs slowly, add `?low` to the address (turns off shadows and grass tufts).
+The look aims for the N64: smoothly filtered textures, blob shadows instead of real-time shadows, and trees as flat sprites that always face the camera. If the game runs slowly, add `?low` to the address (renders at 1x pixel density).
 
 ## Code layout
 

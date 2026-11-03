@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Terrain } from '../terrain.js?v=8';
+import { Terrain } from '../terrain.js?v=9';
 
 // ---------------------------------------------------------------------------
 // SUNNY SPIRE HILL
@@ -143,7 +143,6 @@ export function build(world, coins) {
   const H = (x, z) => terrain.height(x, z);
 
   const wood = world.mat(world.tile('wood.jpg'), { uvScale: 1.6 });
-  wood.map.magFilter = THREE.LinearFilter;
   wood.color.set(0xa9835a);
   const rock = world.mat(rockT, { uvScale: 2 });
   const grass = world.mat(grassT, { uvScale: 2.5 });
@@ -248,44 +247,41 @@ export function build(world, coins) {
     return im;
   };
 
-  // Broadleaf trees: trunk + clustered leaf blobs
-  const trees = place(70, 5);
-  const pines = place(40, 4.5);
-  const trunkGeo = new THREE.CylinderGeometry(0.22, 0.34, 1, 7); trunkGeo.translate(0, 0.5, 0);
-  const trunkMat = new THREE.MeshLambertMaterial({ color: 0x6b4a2e });
-  const trunks = instanced(trunkGeo, trunkMat, trees.length + pines.length);
-  const blobGeo = new THREE.IcosahedronGeometry(1, 1);
-  const leafMat = new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true });
-  const blobs = instanced(blobGeo, leafMat, trees.length * 4);
-  const coneGeo = new THREE.ConeGeometry(1, 1, 8); coneGeo.translate(0, 0.5, 0);
-  const pineMat = new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true });
-  const cones = instanced(coneGeo, pineMat, pines.length * 3);
-  let ti = 0, bi = 0, ci = 0;
-  for (const [x, z] of trees) {
-    const y = H(x, z), s = 0.8 + R() * 0.6, th = 3 * s;
-    m4.compose(ps.set(x, y - 0.2, z), q.identity(), sc.set(s, th, s)); trunks.setMatrixAt(ti++, m4);
-    world.addBox([x - 0.3 * s, y - 0.5, z - 0.3 * s], [x + 0.3 * s, y + th, z + 0.3 * s], cliff, { visible: false });
-    for (let k = 0; k < 4; k++) {
-      const a = R() * Math.PI * 2, rr = k === 0 ? 0 : 0.9 * s;
-      const bs = (k === 0 ? 1.8 : 1.3 + R() * 0.4) * s;
-      m4.compose(ps.set(x + Math.cos(a) * rr, y + th + (k === 0 ? 0.6 : 0.1 + R() * 0.6) * s, z + Math.sin(a) * rr),
-        q.setFromEuler(new THREE.Euler(R() * 3, R() * 3, R() * 3)), sc.set(bs, bs * 0.85, bs));
-      blobs.setMatrixAt(bi, m4);
-      blobs.setColorAt(bi++, col.setHSL(0.27 + R() * 0.06, 0.55 + R() * 0.15, 0.27 + R() * 0.1));
-    }
-  }
-  for (const [x, z] of pines) {
-    const y = H(x, z), s = 0.9 + R() * 0.5;
-    m4.compose(ps.set(x, y - 0.2, z), q.identity(), sc.set(s * 0.8, 1.6 * s, s * 0.8)); trunks.setMatrixAt(ti++, m4);
-    world.addBox([x - 0.25 * s, y - 0.5, z - 0.25 * s], [x + 0.25 * s, y + 3 * s, z + 0.25 * s], cliff, { visible: false });
-    const c = col.setHSL(0.33 + R() * 0.04, 0.5, 0.2 + R() * 0.06).clone();
-    for (let k = 0; k < 3; k++) {
-      const r = (2.1 - k * 0.55) * s, h = (2.6 - k * 0.3) * s;
-      m4.compose(ps.set(x, y + (1.1 + k * 1.35) * s, z), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), R() * 3), sc.set(r, h, r));
-      cones.setMatrixAt(ci, m4); cones.setColorAt(ci++, c);
-    }
-  }
-  [trunks, blobs, cones].forEach((m) => { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; });
+  // Trees: flat sprites that turn to face the camera (like SM64), each with a
+  // round blob shadow. Trunks are solid.
+  const treeSpots = place(110, 4.5);
+  const treeTex = world.loader.load(`assets/tree.png?v=${world.version}`);
+  treeTex.colorSpace = THREE.SRGBColorSpace;
+  const TREE_ASPECT = 181 / 256;
+  const treeGeo = new THREE.PlaneGeometry(TREE_ASPECT, 1); treeGeo.translate(0, 0.5, 0);
+  const treeMat = new THREE.MeshBasicMaterial({ map: treeTex, alphaTest: 0.5, side: THREE.DoubleSide });
+  treeMat.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader.replace('#include <project_vertex>', `
+vec3 tc = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+float tsx = length(instanceMatrix[0].xyz), tsy = length(instanceMatrix[1].xyz);
+vec3 camR = normalize(vec3(viewMatrix[0][0], 0.0, viewMatrix[2][0]));
+vec3 tw = tc + camR * position.x * tsx + vec3(0.0, position.y * tsy, 0.0);
+vec4 mvPosition = viewMatrix * vec4(tw, 1.0);
+gl_Position = projectionMatrix * mvPosition;`);
+  };
+  const treeMesh = instanced(treeGeo, treeMat, treeSpots.length, false);
+  const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.32, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+  const shadowGeo = new THREE.CircleGeometry(1, 20); shadowGeo.rotateX(-Math.PI / 2);
+  const treeShadows = instanced(shadowGeo, shadowMat, treeSpots.length, false);
+  const up = new THREE.Vector3(0, 1, 0), nrm = new THREE.Vector3();
+  treeSpots.forEach(([x, z], i) => {
+    const y = H(x, z), s = 0.85 + R() * 0.45, th = 6.2 * s;
+    m4.compose(ps.set(x, y - 0.15, z), q.identity(), sc.set(th, th, th));
+    treeMesh.setMatrixAt(i, m4);
+    terrain.gradient(x, z, g2);
+    nrm.set(-g2.x, 1, -g2.z).normalize();
+    m4.compose(ps.set(x, y + 0.04, z), q.setFromUnitVectors(up, nrm), sc.set(1.7 * s, 1, 1.7 * s));
+    treeShadows.setMatrixAt(i, m4);
+    world.addBox([x - 0.22 * s, y - 0.5, z - 0.22 * s], [x + 0.22 * s, y + th * 0.75, z + 0.22 * s], cliff, { visible: false });
+  });
+  treeMesh.instanceMatrix.needsUpdate = true;
+  treeShadows.instanceMatrix.needsUpdate = true;
+  treeMesh.frustumCulled = false;
 
   // Boulders
   const rockGeo = new THREE.IcosahedronGeometry(1, 1);
@@ -301,50 +297,6 @@ export function build(world, coins) {
     world.addBox([x - e, y - 0.5, z - e], [x + e, y + s * 0.95, z + e], rock, { visible: false });
   });
   rocks.instanceMatrix.needsUpdate = true;
-
-  // Grass tufts and flowers (decoration only)
-  const tuftGeo = new THREE.BufferGeometry();
-  {
-    const v = [];
-    for (let k = 0; k < 3; k++) {
-      const a = (k / 3) * Math.PI;
-      const cx = Math.cos(a) * 0.22, cz = Math.sin(a) * 0.22;
-      v.push(-cx, 0, -cz, cx, 0, cz, 0, 0.45, 0);
-    }
-    tuftGeo.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
-    tuftGeo.computeVertexNormals();
-  }
-  const tuftMat = new THREE.MeshLambertMaterial({ color: 0xffffff, side: THREE.DoubleSide });
-  const tuftsAt = [];
-  const maxTufts = world.low ? 0 : 7000;
-  for (let i = 0; i < 60000 && tuftsAt.length < maxTufts; i++) {
-    const x = BOUNDS.minX + R() * (BOUNDS.maxX - BOUNDS.minX), z = BOUNDS.minZ + R() * (BOUNDS.maxZ - BOUNDS.minZ);
-    if (Math.abs(x) > BOUNDS.maxX - 20 || Math.abs(z) > BOUNDS.maxZ - 20 || onPath(x, z, 3.2)) continue;
-    if (Math.abs(z - creekZ(x)) < 6 || Math.hypot(x - POND.x, z - POND.z) < POND.r + 1) continue;
-    terrain.gradient(x, z, g2);
-    if (Math.hypot(g2.x, g2.z) > 0.5) continue;
-    tuftsAt.push([x, z]);
-  }
-  const tufts = instanced(tuftGeo, tuftMat, Math.max(1, tuftsAt.length), false);
-  tufts.count = tuftsAt.length;
-  tuftsAt.forEach(([x, z], i) => {
-    const s = 0.7 + R() * 0.8;
-    m4.compose(ps.set(x, H(x, z) - 0.02, z), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), R() * 3), sc.set(s, s * (0.8 + R() * 0.6), s));
-    tufts.setMatrixAt(i, m4);
-    tufts.setColorAt(i, col.setHSL(0.25 + R() * 0.06, 0.6, 0.3 + R() * 0.12));
-  });
-  tufts.instanceMatrix.needsUpdate = true; if (tufts.instanceColor) tufts.instanceColor.needsUpdate = true;
-  const flowerGeo = new THREE.IcosahedronGeometry(0.09, 0);
-  const flowers = instanced(flowerGeo, new THREE.MeshLambertMaterial({ color: 0xffffff }), 900, false);
-  for (let i = 0; i < 900; i++) {
-    if (!tuftsAt.length) { flowers.count = 0; break; }
-    const [x, z] = tuftsAt[Math.floor(R() * tuftsAt.length)];
-    const fx = x + (R() - 0.5), fz = z + (R() - 0.5);
-    m4.compose(ps.set(fx, H(fx, fz) + 0.3, fz), q.identity(), sc.set(1, 1, 1));
-    flowers.setMatrixAt(i, m4);
-    flowers.setColorAt(i, col.set([0xfff6a8, 0xffffff, 0xff8fb8, 0xb6a8ff][i % 4]));
-  }
-  flowers.instanceMatrix.needsUpdate = true; if (flowers.instanceColor) flowers.instanceColor.needsUpdate = true;
 
   // --- Coins ----------------------------------------------------------------------------
   const onGround = (x, z, up = 0.9) => coins.add(x, H(x, z) + up, z);

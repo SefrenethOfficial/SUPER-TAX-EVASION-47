@@ -1,30 +1,28 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Input } from './input.js?v=8';
-import { World } from './world.js?v=8';
-import { Player, buildCharacter } from './player.js?v=8';
-import { FX } from './fx.js?v=8';
-import { Coins } from './coins.js?v=8';
-import { Star } from './star.js?v=8';
-import { GameAudio } from './audio.js?v=8';
-import * as stage from './stages/sunny-spire-hill.js?v=8';
+import { Input } from './input.js?v=9';
+import { World } from './world.js?v=9';
+import { Player, buildCharacter } from './player.js?v=9';
+import { FX } from './fx.js?v=9';
+import { Coins } from './coins.js?v=9';
+import { Star } from './star.js?v=9';
+import { GameAudio } from './audio.js?v=9';
+import * as stage from './stages/sunny-spire-hill.js?v=9';
 
 // Bump VERSION (and the ?v= on the imports above) whenever files change,
 // so browsers never mix old and new code.
-const VERSION = '8';
+const VERSION = '9';
 
 const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
-// Add ?low to the URL for weaker computers: no shadows, no grass tufts, 1x pixels.
+// Add ?low to the URL for weaker computers: renders at 1x pixel density.
 const LOW = new URLSearchParams(location.search).has('low');
-renderer.shadowMap.enabled = !LOW;
+renderer.shadowMap.enabled = false;   // blob shadows only, like SM64
 if (LOW) renderer.setPixelRatio(1);
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.1;
+// Plain colour output (no film tone mapping), for the N64 look.
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 600);
