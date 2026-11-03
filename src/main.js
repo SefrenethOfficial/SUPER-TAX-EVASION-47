@@ -1,14 +1,17 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Input } from './input.js?v=5';
-import { World } from './world.js?v=5';
-import { Player, buildCharacter } from './player.js?v=5';
-import { FX } from './fx.js?v=5';
-import { Coins } from './coins.js?v=5';
+import { Input } from './input.js?v=6';
+import { World } from './world.js?v=6';
+import { Player, buildCharacter } from './player.js?v=6';
+import { FX } from './fx.js?v=6';
+import { Coins } from './coins.js?v=6';
+import { Star } from './star.js?v=6';
+import { GameAudio } from './audio.js?v=6';
+import * as stage from './stages/sunny-spire-hill.js?v=6';
 
 // Bump VERSION (and the ?v= on the imports above) whenever files change,
 // so browsers never mix old and new code.
-const VERSION = '5';
+const VERSION = '6';
 
 const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -38,24 +41,19 @@ coins.onCollect = (n) => {
   coinCount.textContent = n;
   coinCount.parentElement.classList.remove('bump'); void coinCount.offsetWidth; coinCount.parentElement.classList.add('bump');
 };
-{
-  // around spawn
-  coins.ring(0, 0.9, 5, 2, 8);
-  // up the stairs
-  for (let i = 0; i < 6; i++) coins.add(-5.4 - i * 1.2, 0.25 * (i + 1) + 0.9, 9.5);
-  // on the platforms
-  coins.ring(8.5, 3.5, 10.5, 1.5, 6);
-  coins.line([14, 5.1, 10], [16, 5.1, 10], 3);
-  // up the wall-kick chimney, and on the ledge at the top
-  coins.line([-17.25, 2.5, 0], [-17.25, 12.5, 0], 6);
-  coins.line([-25, 14.9, 0], [-21, 14.9, 0], 3);
-  // floating stepping stones
-  for (const [x, y, z] of [[0, 3, -12], [4, 4.5, -15], [8, 6, -17], [12, 7.5, -16], [15, 9, -12]]) coins.add(x, y + 0.9, z);
-  // tower top
-  coins.ring(20, 9.9, -6, 1, 4);
-  // arc over the runway gap
-  coins.add(0, 3.2, 20); coins.add(1.75, 3.6, 20); coins.add(3.5, 3.2, 20);
-}
+const level = stage.build(world, coins);
+const audio = new GameAudio(VERSION, stage.MUSIC);
+coins.sound = () => audio.play('coin');
+const star = new Star(scene, level.star, fx);
+const starCount = document.getElementById('star-count');
+star.onGet = () => {
+  audio.play('coin', 0.8);
+  setTimeout(() => audio.play('coin', 0.8), 120);
+  setTimeout(() => audio.play('coin', 0.8), 240);
+  starCount.textContent = '1';
+  starCount.parentElement.classList.remove('bump'); void starCount.offsetWidth; starCount.parentElement.classList.add('bump');
+};
+document.querySelectorAll('.course-name').forEach((el) => { el.textContent = stage.NAME; });
 document.getElementById('coin-total').textContent = coins.total;
 
 // --- HUD -------------------------------------------------------------------
@@ -63,6 +61,7 @@ const debug = document.getElementById('debug');
 const help = document.getElementById('help');
 addEventListener('keydown', (e) => {
   if (e.code === 'KeyH') help.classList.toggle('hidden');
+  if (e.code === 'KeyM') audio.toggleMute();
   if (e.code === 'F3' || e.code === 'Backquote') { e.preventDefault(); debug.classList.toggle('hidden'); }
 });
 
@@ -70,6 +69,9 @@ const start = document.getElementById('start');
 function begin() {
   start.classList.add('hidden');
   coins.unlockAudio();
+  audio.unlock();
+  const card = document.getElementById('course-card');
+  card.classList.remove('show'); void card.offsetWidth; card.classList.add('show');
   input.requestLock();
 }
 start.addEventListener('click', begin);
@@ -78,7 +80,7 @@ canvas.addEventListener('click', () => { if (!input.pointerLocked && start.class
 // --- Lakitu-style camera ----------------------------------------------------
 const cam = {
   yaw: Math.PI, pitch: 0.32, dist: 9, targetDist: 9,
-  focus: new THREE.Vector3(0, 1.2, 0), idle: 0,
+  focus: level.spawn.clone().add(new THREE.Vector3(0, 1.2, 0)), idle: 0,
 };
 const ray = new THREE.Raycaster();
 
@@ -140,8 +142,12 @@ const loadGLB = (url) => new Promise((res, rej) => gltfLoader.load(url, res, und
 Promise.all([loadGLB(`assets/character.glb?v=${VERSION}`), loadGLB(`assets/cone.glb?v=${VERSION}`)]).then(([gltf, coneGltf]) => {
   const ch = buildCharacter(gltf.scene, { wood, eye, cone: coneGltf.scene });
   player = new Player(world, ch, fx);
+  player.spawn.copy(level.spawn);
+  player.reset();
+  player.spawnYaw = level.spawnYaw;
+  player.yaw = level.spawnYaw;
   window.__player = player; // handy for debugging in the console
-  window.__game = { renderer, scene, camera, cam, updateCamera, fx, input, coins };
+  window.__game = { renderer, scene, camera, cam, updateCamera, fx, input, coins, star, audio };
   document.body.classList.add('loaded');
 }).catch((err) => {
   console.error(err);
@@ -164,7 +170,7 @@ function frame() {
       debug.textContent = `state ${player.state}\nspeed ${player.fwd.toFixed(2)}\nvy ${player.vy.toFixed(2)}\npos ${player.pos.x.toFixed(1)}, ${player.pos.y.toFixed(2)}, ${player.pos.z.toFixed(1)}`;
     }
   }
-  if (player) coins.update(dt, player.pos);
+  if (player) { coins.update(dt, player.pos); star.update(dt, player.pos); }
   fx.update(dt);
   renderer.render(scene, camera);
 }

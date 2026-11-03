@@ -3,25 +3,6 @@ import * as THREE from 'three';
 // The world is a list of axis-aligned boxes. They are both the visuals and
 // the collision, which keeps platforming precise and predictable.
 
-function checkerTexture(a, b, n = 8, size = 256) {
-  const c = document.createElement('canvas');
-  c.width = c.height = size;
-  const g = c.getContext('2d');
-  const s = size / n;
-  for (let y = 0; y < n; y++) {
-    for (let x = 0; x < n; x++) {
-      g.fillStyle = (x + y) % 2 ? a : b;
-      g.fillRect(x * s, y * s, s, s);
-    }
-  }
-  const t = new THREE.CanvasTexture(c);
-  t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.magFilter = THREE.NearestFilter;
-  t.anisotropy = 8;
-  return t;
-}
-
 function skyTexture() {
   const c = document.createElement('canvas');
   c.width = 2; c.height = 512;
@@ -60,42 +41,8 @@ export class World {
     scene.add(sun.target);
     this.sun = sun;
 
-    // Ground: a big grassy checkerboard.
-    const groundTex = new THREE.TextureLoader().load(`assets/grass.webp?v=${version}`);
-    groundTex.wrapS = groundTex.wrapT = THREE.RepeatWrapping;
-    groundTex.colorSpace = THREE.SRGBColorSpace;
-    groundTex.magFilter = THREE.NearestFilter;
-    groundTex.anisotropy = 8;
-    const groundMat = new THREE.MeshLambertMaterial({ map: groundTex });
-    groundMat.userData.uvScale = 2.5;   // metres per grass tile
-    this.addBox([-100, -4, -100], [100, 0, 100], groundMat);
-
-    // A small "test yard" next to spawn so every move has something to try on.
-    const stone = (c) => new THREE.MeshLambertMaterial({ color: c });
-    const blockTex = checkerTexture('#e8d6a8', '#d8c290', 2, 64);
-    const sharedBlock = new THREE.MeshLambertMaterial({ map: blockTex });
-    const blockMat = () => sharedBlock;
-
-    // Low steps (walk-up height)
-    for (let i = 0; i < 6; i++) {
-      this.addBox([-6 - i * 1.2, 0, 8], [-4.8 - i * 1.2, 0.25 * (i + 1), 11], blockMat());
-    }
-    // Ledge-grab platform (just out of single-jump reach on top, grab the edge)
-    this.addBox([6, 0, 8], [11, 2.6, 13], blockMat());
-    // Higher platform reachable with a double/triple jump or backflip
-    this.addBox([13, 0, 8], [17, 4.2, 12], blockMat());
-    // Wall-kick chimney: two tall walls facing each other
-    this.addBox([-20, 0, -6], [-19, 14, 6], stone(0xb9a37a));
-    this.addBox([-15.5, 0, -6], [-14.5, 14, 6], stone(0xb9a37a));
-    this.addBox([-27, 13.4, -6], [-19, 14, 6], blockMat());
-    // Floating stepping stones
-    const stones = [[0, 3, -12], [4, 4.5, -15], [8, 6, -17], [12, 7.5, -16], [15, 9, -12]];
-    for (const [x, y, z] of stones) this.addBox([x - 1.2, y - 0.5, z - 1.2], [x + 1.2, y, z + 1.2], blockMat());
-    // A tower to ground-pound off of
-    this.addBox([18, 0, -8], [22, 9, -4], stone(0xc7b18a));
-    // Long-jump gap: two runways with a pit between
-    this.addBox([-12, 0, 18], [-2, 1.5, 22], blockMat());
-    this.addBox([5.5, 0, 18], [15.5, 1.5, 22], blockMat());
+    this.loader = new THREE.TextureLoader();
+    this.version = version;
 
     // Decorative: distant hills and a ring of clouds.
     const hillMat = new THREE.MeshLambertMaterial({ color: 0x4f9a35 });
@@ -122,27 +69,56 @@ export class World {
     }
   }
 
-  addBox(min, max, material) {
+  // Load a tiling pixel-art texture.
+  tile(name) {
+    const t = this.loader.load(`assets/${name}?v=${this.version}`);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.magFilter = THREE.NearestFilter;
+    t.anisotropy = 8;
+    return t;
+  }
+
+  // Material helper. uvScale = metres per texture repeat. strip = the path
+  // texture spans the box's width once (grass edges on both sides).
+  mat(map, { uvScale = 2, strip = false, color } = {}) {
+    const m = new THREE.MeshLambertMaterial(map ? { map } : { color });
+    m.userData.uvScale = uvScale;
+    m.userData.strip = strip;
+    return m;
+  }
+
+  // Add a solid box. `material` is one material, or { top, side, bottom }.
+  addBox(min, max, material, { visible = true } = {}) {
     const sx = max[0] - min[0], sy = max[1] - min[1], sz = max[2] - min[2];
     const geo = new THREE.BoxGeometry(sx, sy, sz);
-    // World-space UVs so checker textures tile at a constant size.
-    if (material.map) {
-      const k = material.userData.uvScale || 2;
-      const uv = geo.attributes.uv, pos = geo.attributes.position, nrm = geo.attributes.normal;
-      for (let i = 0; i < uv.count; i++) {
-        const px = pos.getX(i) + (min[0] + max[0]) / 2;
-        const py = pos.getY(i) + (min[1] + max[1]) / 2;
-        const pz = pos.getZ(i) + (min[2] + max[2]) / 2;
-        const ax = Math.abs(nrm.getX(i)), ay = Math.abs(nrm.getY(i));
-        let u, v;
-        if (ay > 0.5) { u = px; v = pz; } else if (ax > 0.5) { u = pz; v = py; } else { u = px; v = py; }
-        uv.setXY(i, u / k, v / k);
-      }
+    const mats = material.isMaterial
+      ? [material, material, material, material, material, material]
+      : [material.side, material.side, material.top, material.bottom || material.side, material.side, material.side];
+    // BoxGeometry faces: +x, -x, +y, -y, +z, -z (4 vertices each).
+    const uv = geo.attributes.uv, pos = geo.attributes.position;
+    const cx = (min[0] + max[0]) / 2, cy = (min[1] + max[1]) / 2, cz = (min[2] + max[2]) / 2;
+    for (let i = 0; i < uv.count; i++) {
+      const face = Math.floor(i / 4), m = mats[face];
+      const k = m.userData.uvScale || 2;
+      const px = pos.getX(i) + cx, py = pos.getY(i) + cy, pz = pos.getZ(i) + cz;
+      let u, v;
+      if (face === 2 || face === 3) {
+        if (m.userData.strip) {
+          // run the strip along the box's long axis
+          if (sz >= sx) { u = (px - min[0]) / sx; v = pz / k; } else { u = (pz - min[2]) / sz; v = px / k; }
+          uv.setXY(i, u, v);
+          continue;
+        }
+        u = px; v = pz;
+      } else if (face < 2) { u = pz; v = py; } else { u = px; v = py; }
+      uv.setXY(i, u / k, v / k);
     }
-    const m = new THREE.Mesh(geo, material);
-    m.position.set((min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2);
+    const m = new THREE.Mesh(geo, mats);
+    m.position.set(cx, cy, cz);
     m.castShadow = sy < 50;
     m.receiveShadow = true;
+    m.visible = visible;
     this.scene.add(m);
     this.meshes.push(m);
     const box = { min: new THREE.Vector3(...min), max: new THREE.Vector3(...max), mesh: m };

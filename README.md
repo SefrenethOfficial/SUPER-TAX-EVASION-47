@@ -2,7 +2,7 @@
 
 ![SUPER TAX EVASION 47](assets/logo.png)
 
-A three.js 3D platformer in the spirit of Super Mario 64. Right now it's a blank slate: a big grassy field and a small test yard to jump around in.
+A three.js 3D platformer in the spirit of Super Mario 64. The first stage is **Sunny Spire Hill**.
 
 **Play:** open `index.html` through any static server (or GitHub Pages). No build step; three.js loads from a CDN.
 
@@ -15,19 +15,22 @@ A three.js 3D platformer in the spirit of Super Mario 64. Right now it's a blank
 | Z | Shift, K, right click | Triggers or bumpers |
 | Camera | Mouse (click to lock), Q/E rotate, R/F tilt, wheel zoom | Right stick |
 | Controls list | H | |
+| Mute music | M | |
 | Debug readout | F3 or ` | |
 
 Touch screens get an on-screen stick plus A / B / Z buttons.
 
-## Test yard
+## Sunny Spire Hill
 
-Next to spawn: stairs, a couple of raised platforms, a tall two-wall chimney, floating stepping stones, a tower, and two raised runways with a gap between them. There are 44 coins scattered around it; the counter is in the top-right.
+A dirt path leads from spawn to a three-tier grassy hill. Stairs climb the first two tiers; the third takes a jump or the rock step on the west side. On top, an orange-rock spire has ledges spiralling up it to the star at the summit. Off to the side: a floating island reached by stepping stones, a two-wall chimney, trees and boulders. 67 coins are scattered around; the counters are top-right. Press **M** to mute the music.
 
 ## Code layout
 
 - `src/main.js`: renderer, Lakitu-style camera, game loop
 - `src/player.js`: character rig setup and the movement state machine (collision, procedural animation)
-- `src/world.js`: level geometry. The level is axis-aligned boxes that double as collision
+- `src/world.js`: sky, lighting and level-building helpers. Levels are axis-aligned boxes that double as collision
+- `src/stages/sunny-spire-hill.js`: the stage layout, coins and star position
+- `src/star.js`, `src/audio.js`: the star goal; music and sound effects
 - `src/input.js`: keyboard, mouse, gamepad and touch
 - `src/fx.js`: dust, sparkles, impact shockwave, camera shake
 - `src/coins.js`: collectible coins and the coin sound
@@ -41,3 +44,5 @@ When you change any file, bump `VERSION` and the `?v=` numbers in `src/main.js` 
 Character model: "Fully Rigged Low Poly Character for blender" by [satyasrichaitanya360](https://sketchfab.com/satyasrichaitanya360) on [Sketchfab](https://sketchfab.com/3d-models/fully-rigged-low-poly-character-for-blender-dd918a1760be4849ac1026daa2c58b75), licensed [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/).
 
 Traffic cone hat: "Traffic Cone" by [hinndia](https://sketchfab.com/hinndia) on [Sketchfab](https://sketchfab.com/3d-models/traffic-cone-573feef839d7450cb3e12da9986e7a98), licensed [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/).
+
+Music and coin sound effect: supplied by the project owner; based on Nintendo's Super Mario 64.

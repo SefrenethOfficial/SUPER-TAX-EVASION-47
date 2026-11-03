@@ -325,7 +325,7 @@ export class Player {
         if (this.physics(h, input)) break;
       }
     }
-    if (this.pos.y < -40) this.reset();
+    if (this.pos.y < -40) { const y = this.spawnYaw || 0; this.reset(); this.yaw = y; }
     this.animate(dt);
   }
 

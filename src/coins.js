@@ -17,6 +17,7 @@ export class Coins {
     this.geo = new THREE.PlaneGeometry(SIZE, SIZE);
     this.mat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide, alphaTest: 0.5 });
     this.audio = null;
+    this.sound = null;   // optional () => bool; falls back to a synth ding
   }
 
   add(x, y, z) {
@@ -56,7 +57,7 @@ export class Coins {
         c.m.visible = false;
         this.count++;
         this.fx.sparkle(c.m.position);
-        this.ding();
+        if (!(this.sound && this.sound())) this.ding();
         this.onCollect(this.count);
       }
     }

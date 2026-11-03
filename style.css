@@ -51,3 +51,14 @@ body.loaded #start .go { display: block; }
 #coins.bump #coin-count { display: inline-block; animation: cbump .25s ease-out; }
 @keyframes cbump { 50% { transform: scale(1.35); } }
 body:has(#start:not(.hidden)) #coins { display: none; }
+
+#stars { position: fixed; top: 56px; right: 18px; display: flex; align-items: center; gap: 6px; font-size: 30px; color: #fff; -webkit-text-stroke: 1.5px #1b1b3a; text-shadow: 3px 3px 0 #1b1b3a; pointer-events: none; }
+#stars .icon { color: #ffd23f; font-size: 34px; font-family: system-ui, sans-serif; -webkit-text-stroke: 1.5px #1b1b3a; }
+#stars .x { font-size: 22px; }
+#stars.bump #star-count { display: inline-block; animation: cbump .25s ease-out; }
+body:has(#start:not(.hidden)) #stars { display: none; }
+
+#start .course { margin-top: 10px; font-size: clamp(22px, 4vw, 34px); color: #ffd23f; -webkit-text-stroke: 1.5px #1b1b3a; text-shadow: 3px 3px 0 #1b1b3a; letter-spacing: 1px; }
+#course-card { position: fixed; top: 30%; left: 0; right: 0; text-align: center; pointer-events: none; opacity: 0; font-size: clamp(30px, 6vw, 60px); color: #ffd23f; -webkit-text-stroke: 2px #1b1b3a; text-shadow: 4px 4px 0 #1b1b3a; letter-spacing: 2px; }
+#course-card.show { animation: card 3.2s ease-out forwards; }
+@keyframes card { 0% { opacity: 0; transform: translateY(12px) scale(.9); } 12% { opacity: 1; transform: none; } 75% { opacity: 1; } 100% { opacity: 0; } }
