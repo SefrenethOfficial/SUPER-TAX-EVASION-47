@@ -9,8 +9,6 @@ export class Input {
     this.move = { x: 0, y: 0 };          // stick, y = forward
     this.cam = { x: 0, y: 0 };           // accumulated camera delta (radians-ish)
     this.zoom = 0;
-    this.camStep = 0;           // C-button style 45° camera turns (-1 / +1 per press)
-    this.prevC = { L: false, R: false, U: false, D: false };
     this.buttons = { A: false, B: false, Z: false };
     this.prev = { A: false, B: false, Z: false };
     this.pressed = { A: false, B: false, Z: false };
@@ -135,8 +133,10 @@ export class Input {
     let B = k.has('KeyJ') || k.has('KeyX') || this.mouseButtons.B;
     let Z = k.has('ShiftLeft') || k.has('ShiftRight') || k.has('KeyK') || this.mouseButtons.Z;
 
-    // SM64 C-buttons: Q/E turn the camera 45°, R/F zoom in/out (one step per press)
-    let cL = k.has('KeyQ'), cR = k.has('KeyE'), cU = k.has('KeyR'), cD = k.has('KeyF');
+    if (k.has('KeyQ')) this.cam.x -= 2.6 * dt;
+    if (k.has('KeyE')) this.cam.x += 2.6 * dt;
+    if (k.has('KeyR')) this.cam.y -= 1.5 * dt;
+    if (k.has('KeyF')) this.cam.y += 1.5 * dt;
 
     // Gamepad
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
@@ -146,21 +146,14 @@ export class Input {
       const gx = dz(p.axes[0] || 0), gy = -dz(p.axes[1] || 0);
       if (Math.hypot(gx, gy) > 0.01) { mx = gx; my = gy; this.usingGamepad = true; }
       const cx = dz(p.axes[2] || 0), cy = dz(p.axes[3] || 0);
-      // right stick works like the C-buttons: flick to turn / zoom
-      if (cx < -0.6) cL = true; if (cx > 0.6) cR = true;
-      if (cy < -0.6) cU = true; if (cy > 0.6) cD = true;
+      this.cam.x += cx * 3.0 * dt;
+      this.cam.y += cy * 1.8 * dt;
       const b = (i) => !!(p.buttons[i] && p.buttons[i].pressed);
       if (b(0)) { A = true; this.usingGamepad = true; }
       if (b(2) || b(1)) { B = true; this.usingGamepad = true; }
       if (b(6) || b(7) || b(4) || b(5)) { Z = true; this.usingGamepad = true; }
       break;
     }
-
-    if (cL && !this.prevC.L) this.camStep -= 1;
-    if (cR && !this.prevC.R) this.camStep += 1;
-    if (cU && !this.prevC.U) this.zoom -= 1;
-    if (cD && !this.prevC.D) this.zoom += 1;
-    this.prevC = { L: cL, R: cR, U: cU, D: cD };
 
     // Touch
     if (this.touch.active) {
@@ -180,8 +173,8 @@ export class Input {
   }
 
   consumeCam() {
-    const c = { x: this.cam.x, y: this.cam.y, zoom: this.zoom, step: this.camStep };
-    this.cam.x = 0; this.cam.y = 0; this.zoom = 0; this.camStep = 0;
+    const c = { x: this.cam.x, y: this.cam.y, zoom: this.zoom };
+    this.cam.x = 0; this.cam.y = 0; this.zoom = 0;
     return c;
   }
 }

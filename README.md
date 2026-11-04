@@ -13,7 +13,7 @@ A three.js 3D platformer in the spirit of Super Mario 64. The first stage is **S
 | A | Space | A |
 | B | J, X, left click | X or B |
 | Z | Shift, K, right click | Triggers or bumpers |
-| Camera | Q/E turn 45°, R/F or wheel zoom (3 levels), mouse turns freely (click to lock) | Right stick: flick left/right to turn, up/down to zoom |
+| Camera | Mouse (click to lock), Q/E rotate, R/F tilt, wheel zoom | Right stick |
 | Controls list | H | |
 | Mute music | M | |
 | Debug readout | F3 or ` | |
@@ -50,7 +50,7 @@ The look aims for the N64: smoothly filtered textures, blob shadows, rigid limbs
 
 ## Code layout
 
-- `src/main.js`: renderer, SM64-style Lakitu camera (it trails on a leash; C-button style 45° turns and 3 zoom levels), stage switching, game loop
+- `src/main.js`: renderer, Lakitu-style camera, stage switching, game loop
 - `src/player.js`: character rig setup and the movement state machine (collision, procedural animation)
 - `src/world.js`: sky, lighting and level-building helpers; boxes double as collision
 - `src/terrain.js`: heightmap terrain (mesh, collision, grass/cliff/path texture blending)
