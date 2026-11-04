@@ -7,7 +7,7 @@ import * as THREE from 'three';
 // ---------------------------------------------------------------------------
 
 export const NAME = 'Tax Haven';
-export const MUSIC = 'sunny-spire-hill.mp3';
+export const MUSIC = null;   // the castle is quiet for now
 
 const ROOM = { x: 16, z0: -22, z1: 20, h: 12 };   // half width, back/front walls, height
 const WALL_Z = ROOM.z1;                              // inner face of the painting wall

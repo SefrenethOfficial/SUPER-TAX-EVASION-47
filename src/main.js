@@ -1,19 +1,19 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Input } from './input.js?v=15';
-import { World } from './world.js?v=15';
-import { Player, buildCharacter } from './player.js?v=15';
-import { FX } from './fx.js?v=15';
-import { Coins } from './coins.js?v=15';
-import { Star } from './star.js?v=15';
-import { GameAudio } from './audio.js?v=15';
-import { CherryBomb, KingCherryBomb } from './enemies.js?v=15';
-import * as hub from './stages/hub.js?v=15';
-import * as sunny from './stages/sunny-spire-hill.js?v=15';
+import { Input } from './input.js?v=16';
+import { World } from './world.js?v=16';
+import { Player, buildCharacter } from './player.js?v=16';
+import { FX } from './fx.js?v=16';
+import { Coins } from './coins.js?v=16';
+import { Star } from './star.js?v=16';
+import { GameAudio } from './audio.js?v=16';
+import { CherryBomb, KingCherryBomb } from './enemies.js?v=16';
+import * as hub from './stages/hub.js?v=16';
+import * as sunny from './stages/sunny-spire-hill.js?v=16';
 
 // Bump VERSION (and the ?v= on every local import) whenever files change,
 // so browsers never mix old and new code.
-const VERSION = '15';
+const VERSION = '16';
 const STAGES = { hub, sunny };
 
 const canvas = document.getElementById('game');
@@ -230,6 +230,8 @@ const start = $('start');
 start.addEventListener('click', () => {
   start.classList.add('hidden');
   audio.unlock();
+  // decode the course music now so it starts the moment you enter the painting
+  for (const m of Object.values(STAGES)) if (m.MUSIC) audio.buffer(m.MUSIC);
   const card = $('course-card');
   card.classList.remove('show'); void card.offsetWidth; card.classList.add('show');
   input.requestLock();
