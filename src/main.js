@@ -1,19 +1,19 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Input } from './input.js?v=13';
-import { World } from './world.js?v=13';
-import { Player, buildCharacter } from './player.js?v=13';
-import { FX } from './fx.js?v=13';
-import { Coins } from './coins.js?v=13';
-import { Star } from './star.js?v=13';
-import { GameAudio } from './audio.js?v=13';
-import { CherryBomb, KingCherryBomb } from './enemies.js?v=13';
-import * as hub from './stages/hub.js?v=13';
-import * as sunny from './stages/sunny-spire-hill.js?v=13';
+import { Input } from './input.js?v=14';
+import { World } from './world.js?v=14';
+import { Player, buildCharacter } from './player.js?v=14';
+import { FX } from './fx.js?v=14';
+import { Coins } from './coins.js?v=14';
+import { Star } from './star.js?v=14';
+import { GameAudio } from './audio.js?v=14';
+import { CherryBomb, KingCherryBomb } from './enemies.js?v=14';
+import * as hub from './stages/hub.js?v=14';
+import * as sunny from './stages/sunny-spire-hill.js?v=14';
 
 // Bump VERSION (and the ?v= on every local import) whenever files change,
 // so browsers never mix old and new code.
-const VERSION = '13';
+const VERSION = '14';
 const STAGES = { hub, sunny };
 
 const canvas = document.getElementById('game');
@@ -71,39 +71,62 @@ addEventListener('keydown', (e) => {
   if (e.code === 'F3' || e.code === 'Backquote') { e.preventDefault(); debug.classList.toggle('hidden'); }
 });
 
-// --- Camera (Lakitu-style) -------------------------------------------------------
-const cam = { yaw: Math.PI, pitch: 0.32, dist: 9, targetDist: 9, focus: new THREE.Vector3(0, 1.2, 0), idle: 0 };
+// --- Camera (SM64 Lakitu-style) -------------------------------------------------
+// The camera hangs back on a "leash": it keeps its place and turns to look at
+// the player, so it trails behind as you run and swings round when you run
+// sideways. Q/E (C-left/right) turn it 45°, R/F or the wheel step between
+// three zoom levels. The mouse can still turn it freely.
+const ZOOMS = [{ dist: 6, pitch: 0.24 }, { dist: 9.5, pitch: 0.33 }, { dist: 14, pitch: 0.45 }];
+const cam = {
+  yaw: Math.PI, pitch: 0.33, dist: 9.5, zoom: 1, turn: 0, pitchAdj: 0,
+  focus: new THREE.Vector3(0, 1.2, 0), pos: new THREE.Vector3(), close: 0,   // close: star-get zoom (0..1)
+};
+
+function resetCamera(player) {
+  cam.yaw = player.yaw + Math.PI; cam.turn = 0; cam.zoom = 1; cam.close = 0; cam.pitchAdj = 0;
+  cam.dist = ZOOMS[1].dist; cam.pitch = ZOOMS[1].pitch;
+  cam.focus.copy(player.pos).add(new THREE.Vector3(0, 1.2, 0));
+  cam.pos.set(cam.focus.x + Math.sin(cam.yaw) * cam.dist, cam.focus.y, cam.focus.z + Math.cos(cam.yaw) * cam.dist);
+}
 
 function updateCamera(dt, player) {
   const c = input.consumeCam();
-  if (!player.locked) {
-    cam.yaw -= c.x;
-    cam.pitch = Math.max(-0.25, Math.min(1.25, cam.pitch + c.y));
-    cam.targetDist = Math.max(4, Math.min(18, cam.targetDist + c.zoom * 1.2));
-  }
-  if (Math.abs(c.x) + Math.abs(c.y) > 1e-4) cam.idle = 0; else cam.idle += dt;
-  // Gently swing behind the player while running, after the stick has been left alone.
-  if (cam.idle > 1.2 && player.grounded && player.fwd > 4 && player.state === 'ground') {
-    const behind = player.yaw + Math.PI;
-    const d = Math.atan2(Math.sin(behind - cam.yaw), Math.cos(behind - cam.yaw));
-    cam.yaw += d * Math.min(1, dt * 0.9) * (player.fwd / 9);
-  }
-  // Follow x/z tightly; follow height lazily mid-air so jumps don't bob the view.
   const p = player.pos;
-  const k = 1 - Math.exp(-10 * dt);
+  if (!player.locked) {
+    cam.turn += c.step * (Math.PI / 4);
+    cam.zoom = Math.max(0, Math.min(2, cam.zoom + Math.sign(c.zoom)));
+    cam.yaw -= c.x;
+    cam.pitchAdj = Math.max(-0.3, Math.min(0.6, cam.pitchAdj + c.y));
+  }
+  // Leash: aim from where the camera already is, so it drags along behind.
+  const lx = cam.pos.x - p.x, lz = cam.pos.z - p.z;
+  if (lx * lx + lz * lz > 0.25 && !player.locked) cam.yaw = Math.atan2(lx, lz);
+  // C-button turns ease in
+  const tStep = cam.turn * Math.min(1, dt * 9);
+  cam.yaw += tStep; cam.turn -= tStep;
+
+  // Follow x/z tightly; follow height lazily mid-air so jumps don't bob the view.
+  const k = 1 - Math.exp(-12 * dt);
   cam.focus.x += (p.x - cam.focus.x) * k;
   cam.focus.z += (p.z - cam.focus.z) * k;
-  const dy = p.y + 1.2 - cam.focus.y;
+  const fy = p.y + 1.2 - cam.close * 0.2;
+  const dy = fy - cam.focus.y;
   const onGround = player.grounded || player.state === 'ledgehang' || player.state === 'wallcling';
   const ky = onGround || dy < -2.5 || dy > 3.5 ? 1 - Math.exp(-6 * dt) : 1 - Math.exp(-1.2 * dt);
   cam.focus.y += dy * ky;
-  cam.dist += (cam.targetDist - cam.dist) * (1 - Math.exp(-6 * dt));
+
+  const z = ZOOMS[cam.zoom];
+  const kz = 1 - Math.exp(-5 * dt);
+  cam.dist += (z.dist * (1 - cam.close * 0.72) - cam.dist) * kz;
+  cam.pitch += (z.pitch + cam.pitchAdj - cam.close * 0.2 - cam.pitch) * kz;
   const off = new THREE.Vector3(Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch));
   const w = S.world;
   const hitD = w.rayDistance(cam.focus, off, cam.dist);
   const dist = hitD < cam.dist ? Math.max(1.2, hitD - 0.3) : cam.dist;
   camera.position.copy(cam.focus).addScaledVector(off, dist);
   if (w.terrain) camera.position.y = Math.max(camera.position.y, w.terrain.height(camera.position.x, camera.position.z) + 0.4);
+  // remember the unshaken position for next frame's leash
+  cam.pos.set(cam.focus.x + Math.sin(cam.yaw) * cam.dist, camera.position.y, cam.focus.z + Math.cos(cam.yaw) * cam.dist);
   const tr = S.fx.trauma * S.fx.trauma, t = performance.now() / 1000;
   camera.position.x += Math.sin(t * 53) * tr * 0.35;
   camera.position.y += Math.sin(t * 61 + 1) * tr * 0.35;
@@ -169,8 +192,7 @@ function loadStage(key, { from } = {}) {
   S = { key, mod, scene, world, fx, coins, reds, enemies, boss, level, stars: [], held: null, coinCount: 0, portals: level.portals || [], busy: false, clear: false };
   for (const d of level.stars || []) spawnStar(d.n, d.pos, { sound: false });
 
-  cam.yaw = player.yaw + Math.PI; cam.pitch = 0.32; cam.dist = cam.targetDist = 9; cam.idle = 0;
-  cam.focus.copy(player.pos).add(new THREE.Vector3(0, 1.2, 0));
+  resetCamera(player);
   $('coin-count').textContent = '0';
   $('coin-total').textContent = coins.total;
   document.body.classList.toggle('no-coins', coins.total === 0);
@@ -196,20 +218,28 @@ function spawnStar(n, pos, { drop = false, sound = true } = {}) {
   if (sound) audio.play('star-appears', 0.7);
 }
 
+// Star get: cut any sound effects (e.g. the long star-appears chime), then the
+// course clear song and "here we go" start together. The pose lasts as long as
+// the song; then the camera closes in and the screen irises out to the hub.
 function onStarGet(st) {
   S.clear = true;
   S.held = st;
   stars.add(`${S.key}:${st.n}`); saveStars(); updateStarHud(); bump($('star-count'));
+  audio.stopSfx();
   player.starGet();
-  audio.jingle('course-clear.mp3', () => setTimeout(() => go('hub', { from: 'clear' }), 1500));
+  audio.jingle('course-clear.mp3', () => {
+    S.closeStart = performance.now();
+    setTimeout(() => go('hub', { from: 'clear', iris: true }), 1000);
+  });
 }
 
-// Fade to black, switch stage, fade back in.
-function go(key, opts) {
+// Switch stage behind a fade (or an SM64-style iris).
+function go(key, opts = {}) {
   if (S && S.busy) return;
   if (S) S.busy = true;
-  fade.classList.add('on');
-  setTimeout(() => { loadStage(key, opts); setTimeout(() => fade.classList.remove('on'), 80); }, 450);
+  const cover = opts.iris ? $('iris') : fade;
+  cover.classList.add('on');
+  setTimeout(() => { loadStage(key, opts); setTimeout(() => cover.classList.remove('on'), 120); }, opts.iris ? 800 : 450);
 }
 
 // --- Start screen ------------------------------------------------------------------
@@ -257,6 +287,7 @@ function step(dt) {
   if (player && S) {
     player.update(dt, input, cam.yaw);
     if (S.clear && S.held) S.held.hold(tmp.copy(player.pos).add(new THREE.Vector3(Math.cos(player.yaw) * 0.45, 2.75, -Math.sin(player.yaw) * 0.45)), dt);
+    cam.close = S.closeStart ? Math.min(1, (performance.now() - S.closeStart) / 900) : 0;
     updateCamera(dt, player);
     S.coins.update(dt, player.pos);
     if (!S.clear) for (const st of S.stars) st.update(dt, player.pos);

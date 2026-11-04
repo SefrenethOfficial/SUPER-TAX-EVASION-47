@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Terrain } from '../terrain.js?v=13';
+import { Terrain } from '../terrain.js?v=14';
 
 // ---------------------------------------------------------------------------
 // SUNNY SPIRE HILL

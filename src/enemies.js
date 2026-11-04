@@ -216,7 +216,7 @@ class ThrownBomb {
       const { player, fx } = this.ctx;
       fx.explode(this.pos);
       if (this.ctx.onExplode) this.ctx.onExplode();
-      if (this.pos.distanceTo(tmp.copy(player.pos).setY(player.pos.y + 0.8)) < 2.8) player.hurt(2, this.pos.x, this.pos.z);
+      if (this.pos.distanceTo(tmp.copy(player.pos).setY(player.pos.y + 0.8)) < 2.4) player.hurt(1, this.pos.x, this.pos.z);
       this.remove();
     }
   }
@@ -298,7 +298,7 @@ export class KingCherryBomb {
     ctx.world.scene.add(this.group);
     this.shadow = blobShadow(ctx.world.scene, this.R * 1.2);
     this.hp = 3;
-    this.state = 'sleep'; this.t = 0; this.throwT = 2.5; this.walkPhase = 0;
+    this.state = 'sleep'; this.t = 0; this.throwT = 4; this.walkPhase = 0;
     this.yaw = Math.PI;
     this.thrown = [];
     this.place();
@@ -318,8 +318,8 @@ export class KingCherryBomb {
     const p = this.ctx.player.pos;
     if (!['walk', 'windup'].includes(this.state)) return false;
     const dist = Math.hypot(p.x - this.pos.x, p.z - this.pos.z);
-    if (dist > this.R + 1.3 || Math.abs(p.y - this.pos.y) > 1.5) return false;
-    if (this.facing(p.x, p.z) > -0.3) return false;   // not behind him
+    if (dist > this.R + 1.7 || Math.abs(p.y - this.pos.y) > 1.8) return false;
+    if (this.facing(p.x, p.z) > 0.1) return false;   // not behind him (sides count)
     this.state = 'held'; this.t = 0;
     for (const b of this.thrown) b.remove();
     this.bodyG.rotation.y = 0;
@@ -347,7 +347,7 @@ export class KingCherryBomb {
     const turn = (rate) => { const d = Math.atan2(Math.sin(faceYaw - this.yaw), Math.cos(faceYaw - this.yaw)); this.yaw += Math.max(-rate * dt, Math.min(rate * dt, d)); };
     const groundY = () => floorAt(this.ctx.world, this.pos.x, this.pos.z, this.pos.y + 2);
     // he turns faster as he gets angrier
-    const turnRate = [3.4, 3.0, 2.6, 2.2][this.hp];
+    const turnRate = [2.0, 1.8, 1.55, 1.35][this.hp];
 
     switch (this.state) {
       case 'sleep':
@@ -362,7 +362,7 @@ export class KingCherryBomb {
       case 'walk': {
         turn(turnRate);
         if (dist > this.R + 0.6) {
-          const sp = (this.hp === 1 ? 3.0 : 2.4) * dt;
+          const sp = (this.hp === 1 ? 2.3 : 1.9) * dt;
           let nx = this.pos.x + Math.sin(this.yaw) * sp, nz = this.pos.z + Math.cos(this.yaw) * sp;
           const ax = nx - c.x, az = nz - c.z, ar = Math.hypot(ax, az);
           if (ar > c.arena) { nx = c.x + ax / ar * c.arena; nz = c.z + az / ar * c.arena; }
@@ -373,7 +373,7 @@ export class KingCherryBomb {
         this.throwT -= dt;
         if (this.throwT <= 0 && playerInArena) { this.state = 'windup'; this.t = 0; }
         // Walk up to his face and he grabs you
-        if (this.grabCooldown <= 0 && dist < this.R + 1.1 && Math.abs(p.y - this.pos.y) < 2.2 && this.facing(p.x, p.z) > 0.35 && player.state !== 'grabbed' && player.invuln <= 0) {
+        if (this.grabCooldown <= 0 && dist < this.R + 0.8 && Math.abs(p.y - this.pos.y) < 2.2 && this.facing(p.x, p.z) > 0.7 && player.state !== 'grabbed' && player.invuln <= 0) {
           this.state = 'grabbing'; this.t = 0;
           player.setState('grabbed'); player.fwd = 0; player.vy = 0; player.say('whoa');
         }
@@ -385,7 +385,7 @@ export class KingCherryBomb {
           const from = new THREE.Vector3(this.pos.x, this.top + 0.6, this.pos.z);
           const to = new THREE.Vector3(p.x + player.inDir.x * 1.5, p.y, p.z + player.inDir.y * 1.5);
           this.thrown.push(new ThrownBomb(this.ctx, from, to, 1.1));
-          this.state = 'walk'; this.t = 0; this.throwT = this.hp === 1 ? 2.2 : 3.2;
+          this.state = 'walk'; this.t = 0; this.throwT = this.hp === 1 ? 3.8 : 5;
         }
         break;
       case 'grabbing': {
@@ -396,8 +396,8 @@ export class KingCherryBomb {
         if (this.t > 1.1) {
           player.setState('fall');
           player.invuln = 0;
-          player.hurt(2, this.pos.x, this.pos.z, 2.2);
-          this.state = 'walk'; this.t = 0; this.grabCooldown = 1.5; this.throwT = Math.max(this.throwT, 1.5);
+          player.hurt(1, this.pos.x, this.pos.z, 2.0);
+          this.state = 'walk'; this.t = 0; this.grabCooldown = 3.5; this.throwT = Math.max(this.throwT, 2.5);
         }
         break;
       }
@@ -410,7 +410,7 @@ export class KingCherryBomb {
         if (player.state !== 'carry' && player.state !== 'throwing') {
           // dropped (player got hit or fell)
           this.vel = new THREE.Vector3(0, 0, 0); this.state = 'thrown'; this.t = 0; this.goodThrow = false;
-        } else if (this.t > 5) {
+        } else if (this.t > 8) {
           player.setState('ground');
           this.vel = new THREE.Vector3(Math.sin(yaw) * 3, 6, Math.cos(yaw) * 3); this.state = 'thrown'; this.t = 0; this.goodThrow = false;
         }
@@ -445,7 +445,7 @@ export class KingCherryBomb {
       case 'stunned':
         setGlow(this.body, Math.floor(this.t * 12) % 2 ? 1.2 : 0);
         this.bodyG.rotation.z = Math.sin(this.t * 25) * 0.08;
-        if (this.t > 1.6) { setGlow(this.body, 0); this.state = 'walk'; this.t = 0; this.throwT = 1.0; }
+        if (this.t > 2.4) { setGlow(this.body, 0); this.state = 'walk'; this.t = 0; this.throwT = 3.0; }
         break;
       case 'defeated': {
         const k = Math.min(1, this.t / 2.2);

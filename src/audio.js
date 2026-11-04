@@ -13,6 +13,7 @@ export class GameAudio {
     this.loading = {};     // name -> Promise<AudioBuffer>
     this.want = null;      // music we want playing
     this.src = null;       // current music source
+    this.sfxSrcs = new Set();   // sound effects currently playing
     this.muted = false;
     try { this.muted = localStorage.getItem('ste47-muted') === '1'; } catch (_) { /* storage blocked */ }
   }
@@ -25,6 +26,8 @@ export class GameAudio {
         this.musicGain.gain.value = this.muted ? 0 : MUSIC_VOL;
         this.musicGain.connect(this.ctx.destination);
         for (const n of SFX) this.buffer(`${n}.wav`);
+        // preload the jingle and boss music so they start right on cue
+        this.buffer('course-clear.mp3'); this.buffer('boss.mp3');
       } catch (_) { this.ctx = null; return; }
     }
     if (this.ctx.state === 'suspended') this.ctx.resume();
@@ -92,8 +95,17 @@ export class GameAudio {
     const g = this.ctx.createGain();
     g.gain.value = volume;
     src.connect(g); g.connect(this.ctx.destination);
+    src.onended = () => this.sfxSrcs.delete(src);
+    this.sfxSrcs.add(src);
     src.start();
     return true;
+  }
+
+  // Stop every sound effect and voice line that's playing (e.g. before a jingle).
+  stopSfx() {
+    for (const s of this.sfxSrcs) { try { s.stop(); } catch (_) { /* done */ } }
+    this.sfxSrcs.clear();
+    if (this.voiceSrc) { try { this.voiceSrc.stop(); } catch (_) { /* done */ } this.voiceSrc = null; }
   }
 
   // A voice line: cuts off the previous one so they never pile up.

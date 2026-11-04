@@ -13,7 +13,7 @@ A three.js 3D platformer in the spirit of Super Mario 64. The first stage is **S
 | A | Space | A |
 | B | J, X, left click | X or B |
 | Z | Shift, K, right click | Triggers or bumpers |
-| Camera | Mouse (click to lock), Q/E rotate, R/F tilt, wheel zoom | Right stick |
+| Camera | Q/E turn 45°, R/F or wheel zoom (3 levels), mouse turns freely (click to lock) | Right stick: flick left/right to turn, up/down to zoom |
 | Controls list | H | |
 | Mute music | M | |
 | Debug readout | F3 or ` | |
@@ -22,7 +22,7 @@ Touch screens get an on-screen stick plus A / B / Z buttons.
 
 ## Tax Haven (hub)
 
-The game starts on the castle grounds. Jump into the painting on the castle's front wall to enter Sunny Spire Hill. When you clear the course you come back out of the painting. Stars you collect are saved in your browser.
+The game starts in the castle lobby. Jump into the painting on the far wall to enter Sunny Spire Hill. When you clear the course you come back out of the painting. Stars you collect are saved in your browser.
 
 ## Sunny Spire Hill
 
@@ -42,7 +42,7 @@ A long valley course in the style of Bob-omb Battlefield. From the spawn meadow 
 6. **The stake** in the fenced pen: ground-pound it three times.
 7. **The spire** in the back meadow: climb the spiral of rock ledges.
 
-Each star ends the course and returns you to the hub. Stars you already have show see-through blue; the course card shows how many of the 7 you've got.
+Grabbing a star plays the course clear song while you celebrate; then the camera closes in and the screen irises out back to the hub. Stars you already have show see-through blue; the course card shows how many of the 7 you've got.
 
 Your health is the meter at the top; coins refill it. Lose it all and the course restarts. About 110 coins; counters are top-right. Press **M** to mute the music.
 
@@ -50,12 +50,12 @@ The look aims for the N64: smoothly filtered textures, blob shadows, rigid limbs
 
 ## Code layout
 
-- `src/main.js`: renderer, Lakitu-style camera, game loop
+- `src/main.js`: renderer, SM64-style Lakitu camera (it trails on a leash; C-button style 45° turns and 3 zoom levels), stage switching, game loop
 - `src/player.js`: character rig setup and the movement state machine (collision, procedural animation)
 - `src/world.js`: sky, lighting and level-building helpers; boxes double as collision
 - `src/terrain.js`: heightmap terrain (mesh, collision, grass/cliff/path texture blending)
 - `src/stages/sunny-spire-hill.js`: the stage: height function, paths, props, coins and star
-- `src/stages/hub.js`: the hub (castle grounds and paintings)
+- `src/stages/hub.js`: the hub (castle lobby and paintings)
 - `src/enemies.js`: Cherry Bomb and King Cherry Bomb
 - `src/star.js`, `src/audio.js`: the star; music, jingles and sound effects
 - `src/input.js`: keyboard, mouse, gamepad and touch
