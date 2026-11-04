@@ -1,19 +1,20 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Input } from './input.js?v=16';
-import { World } from './world.js?v=16';
-import { Player, buildCharacter } from './player.js?v=16';
-import { FX } from './fx.js?v=16';
-import { Coins } from './coins.js?v=16';
-import { Star } from './star.js?v=16';
-import { GameAudio } from './audio.js?v=16';
-import { CherryBomb, KingCherryBomb } from './enemies.js?v=16';
-import * as hub from './stages/hub.js?v=16';
-import * as sunny from './stages/sunny-spire-hill.js?v=16';
+import { Input } from './input.js?v=19';
+import { World } from './world.js?v=19';
+import { Player, buildCharacter } from './player.js?v=19';
+import { FX } from './fx.js?v=19';
+import { Coins } from './coins.js?v=19';
+import { Star } from './star.js?v=19';
+import { GameAudio } from './audio.js?v=19';
+import { CherryBomb, KingCherryBomb } from './enemies.js?v=19';
+import { Cannon } from './cannon.js?v=19';
+import * as hub from './stages/hub.js?v=19';
+import * as sunny from './stages/sunny-spire-hill.js?v=19';
 
 // Bump VERSION (and the ?v= on every local import) whenever files change,
 // so browsers never mix old and new code.
-const VERSION = '16';
+const VERSION = '19';
 const STAGES = { hub, sunny };
 
 const canvas = document.getElementById('game');
@@ -87,6 +88,11 @@ function updateCamera(dt, player) {
     cam.targetDist = Math.max(4, Math.min(18, cam.targetDist + c.zoom * 1.2));
   }
   if (Math.abs(c.x) + Math.abs(c.y) > 1e-4) cam.idle = 0; else cam.idle += dt;
+  // Swing in behind a cannon shot
+  if (player.state === 'cannonfly') {
+    const behind = player.yaw + Math.PI;
+    cam.yaw += Math.atan2(Math.sin(behind - cam.yaw), Math.cos(behind - cam.yaw)) * Math.min(1, dt * 4);
+  }
   // Gently swing behind the player while running, after the stick has been left alone.
   if (cam.idle > 1.2 && player.grounded && player.fwd > 4 && player.state === 'ground') {
     const behind = player.yaw + Math.PI;
@@ -118,6 +124,7 @@ function updateCamera(dt, player) {
 
 // --- Stages ----------------------------------------------------------------------
 let player = null, character = null, bombModel = null, starModel = null;
+const models = {};   // stage key -> level model (gltf scene)
 let S = null;   // the running stage
 
 function loadStage(key, { from } = {}) {
@@ -143,7 +150,7 @@ function loadStage(key, { from } = {}) {
     $('red-count').textContent = n; document.body.classList.add('has-reds'); bump($('red-count'));
     if (n === reds.total && S.level.redStar) spawnStar(3, S.level.redStar, { drop: true });
   };
-  const level = mod.build(world, coins, reds);
+  const level = mod.build(world, coins, reds, { model: models[key] });
 
   if (!player) {
     player = new Player(world, character, fx);
@@ -172,7 +179,8 @@ function loadStage(key, { from } = {}) {
     boss.onDefeat = (p) => { audio.music(mod.MUSIC); spawnStar(1, p.clone().add(new THREE.Vector3(0, 1.4, 0)), { drop: true }); };
   }
 
-  S = { key, mod, scene, world, fx, coins, reds, enemies, boss, level, stars: [], held: null, coinCount: 0, portals: level.portals || [], busy: false, clear: false };
+  const cannons = (level.cannons || []).map((c) => new Cannon(scene, c));
+  S = { key, mod, scene, world, fx, coins, reds, enemies, boss, level, cannons, inCannon: null, stars: [], held: null, coinCount: 0, portals: level.portals || [], busy: false, clear: false };
   for (const d of level.stars || []) spawnStar(d.n, d.pos, { sound: false });
 
   resetCamera(player);
@@ -244,7 +252,9 @@ wood.colorSpace = THREE.SRGBColorSpace;
 const eye = texLoader.load(`assets/eye.png?v=${VERSION}`);
 const gltfLoader = new GLTFLoader();
 const loadGLB = (url) => new Promise((res, rej) => gltfLoader.load(`assets/${url}?v=${VERSION}`, res, undefined, rej));
-Promise.all([loadGLB('character.glb'), loadGLB('cone.glb'), loadGLB('cherry-bomb.glb'), loadGLB('star.glb')]).then(([ch, cone, bomb, star]) => {
+const stageModels = Object.entries(STAGES).filter(([, m]) => m.MODEL);
+Promise.all([loadGLB('character.glb'), loadGLB('cone.glb'), loadGLB('cherry-bomb.glb'), loadGLB('star.glb'), ...stageModels.map(([, m]) => loadGLB(m.MODEL))]).then(([ch, cone, bomb, star, ...levels]) => {
+  stageModels.forEach(([k], i) => { models[k] = levels[i].scene; });
   character = buildCharacter(ch.scene, { wood, eye, cone: cone.scene });
   bomb.scene.traverse((o) => { if (o.isLight) o.visible = false; });
   bombModel = bomb.scene;
@@ -273,7 +283,23 @@ function step(dt) {
     player.update(dt, input, cam.yaw);
     if (S.clear && S.held) S.held.hold(tmp.copy(player.pos).add(new THREE.Vector3(Math.cos(player.yaw) * 0.45, 2.75, -Math.sin(player.yaw) * 0.45)), dt);
     cam.close = S.closeStart ? Math.min(1, (performance.now() - S.closeStart) / 900) : 0;
-    updateCamera(dt, player);
+    // Cannons: climb in by standing in the hole, aim, A fires, B climbs out
+    for (const c of S.cannons) c.update(dt);
+    if (S.inCannon) {
+      const c = S.inCannon, look = input.consumeCam();
+      c.aim(dt, input.move, look);
+      if (input.pressed.A) { c.fire(player, S.fx); S.inCannon = null; cam.yaw = player.yaw + Math.PI; cam.pitch = 0.25; }
+      else if (input.pressed.B) { c.exit(player); S.inCannon = null; }
+      else c.camera(camera);
+    } else if (!S.clear) {
+      for (const c of S.cannons) {
+        // after climbing out you have to leave the hole before you can get back in
+        if (c.left && Math.hypot(player.pos.x - c.pos.x, player.pos.z - c.pos.z) > 3.4) c.left = false;
+        if (!c.left && c.cool <= 0 && player.grounded && player.state === 'ground' && c.near(player)) { c.enter(player); S.inCannon = c; break; }
+      }
+    }
+    document.body.classList.toggle('aiming', !!S.inCannon);
+    if (!S.inCannon) updateCamera(dt, player);
     S.coins.update(dt, player.pos);
     if (!S.clear) for (const st of S.stars) st.update(dt, player.pos);
     S.reds.update(dt, player.pos);

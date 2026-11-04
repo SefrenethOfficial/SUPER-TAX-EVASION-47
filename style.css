@@ -88,3 +88,10 @@ body:has(#start:not(.hidden)) #reds { display: none; }
 #iris { position: fixed; left: 50%; top: 50%; width: 300vmax; height: 300vmax; border-radius: 50%; transform: translate(-50%, -50%);
   box-shadow: 0 0 0 300vmax #000; pointer-events: none; transition: width .75s ease-in, height .75s ease-in; }
 #iris.on { width: 0; height: 0; }
+
+/* cannon aiming */
+#crosshair { position: fixed; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 0 0 2px #1b1b3a, inset 0 0 0 2px #1b1b3a; pointer-events: none; display: none; }
+#crosshair::before, #crosshair::after { content: ''; position: absolute; background: #fff; box-shadow: 0 0 0 1px #1b1b3a; }
+#crosshair::before { left: 50%; top: -12px; bottom: -12px; width: 3px; margin-left: -1.5px; }
+#crosshair::after { top: 50%; left: -12px; right: -12px; height: 3px; margin-top: -1.5px; }
+body.aiming #crosshair { display: block; }

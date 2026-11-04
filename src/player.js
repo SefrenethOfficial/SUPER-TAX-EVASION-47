@@ -9,18 +9,19 @@ const G = 38;              // gravity
 const MAX_FALL = 45;
 const RUN = 9;             // top running speed
 const STEP_UP = 0.3;       // walkable step height
+const MESH_STEP = 0.6;     // the level model's paths have taller little steps
 const SNAP_DOWN = 0.4;     // stick to ground over small drops
 const SUB_DT = 1 / 120;    // physics sub-step
 
 const JUMP_V = { jump: 12, double: 15, triple: 19.5, backflip: 20, sideflip: 18, longjump: 10, wallkick: 15.5, rollout: 10.5 };
 
-const AIR = new Set(['jump', 'double', 'triple', 'backflip', 'sideflip', 'longjump', 'wallkick', 'fall', 'hurt', 'starjump',
+const AIR = new Set(['jump', 'double', 'triple', 'backflip', 'sideflip', 'longjump', 'wallkick', 'fall', 'hurt', 'starjump', 'cannonfly',
   'gp_spin', 'gp_fall', 'dive', 'jumpkick', 'rollout', 'bonk', 'slidekick', 'wallcling']);
 const WALL_KICKABLE = new Set(['jump', 'double', 'triple', 'sideflip', 'longjump', 'wallkick', 'fall', 'rollout', 'backflip', 'jumpkick']);
 const LEDGE_OK = new Set(['jump', 'double', 'triple', 'sideflip', 'backflip', 'wallkick', 'fall', 'rollout', 'jumpkick']);
 
 
-const NO_PHYSICS = new Set(['ledgehang', 'ledgeclimb', 'wallcling', 'gp_spin', 'grabbed']);
+const NO_PHYSICS = new Set(['ledgehang', 'ledgeclimb', 'wallcling', 'gp_spin', 'grabbed', 'incannon']);
 const NO_INPUT = { move: { x: 0, y: 0 }, buttons: { A: false, B: false, Z: false }, pressed: { A: false, B: false, Z: false } };
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const approach = (v, t, d) => (v < t ? Math.min(v + d, t) : Math.max(v - d, t));
@@ -266,6 +267,16 @@ export class Player {
     if (this.onHurt) this.onHurt(this.health);
   }
 
+  // Fired out of a cannon.
+  launch(yaw, pitch, speed) {
+    this.yaw = yaw;
+    this.fwd = speed * Math.cos(pitch); this.vy = speed * Math.sin(pitch);
+    this.airMax = this.fwd; this.airControl = 0.15;
+    this.setState('cannonfly'); this.grounded = false;
+    this.root.visible = true;
+    this.say('yahoo');
+  }
+
   // Bounce off an enemy's head.
   bounce(v = 11) {
     this.vy = v; this.airControl = 1; this.airMax = Math.max(RUN, this.fwd);
@@ -356,6 +367,7 @@ export class Player {
         if (from === 'hurt' && this.bigHurt) this.say('oof');
         this.setState('stun'); this.fwd = 0; return;
       case 'starjump': this.setState('starpose'); this.fwd = 0; return;
+      case 'cannonfly': this.fwd *= 0.3; this.landLock = 0.15; this.fx.dust(this.pos, 10); this.fx.shake(0.2); break;
       case 'jump': this.combo = 1; this.comboTimer = 0.22; break;
       case 'double': this.combo = 2; this.comboTimer = 0.22; break;
       case 'triple': this.landLock = 0.18; this.fwd *= 0.5; this.fx.dust(this.pos, 8); break;
@@ -392,8 +404,10 @@ export class Player {
     this.logic(dt, input);
     if (!NO_PHYSICS.has(this.state)) {
       let remaining = dt;
+      // smaller steps at high speed (cannon shots) so nothing tunnels through walls
+      const sub = Math.min(SUB_DT, 0.25 / Math.max(1, Math.abs(this.fwd), Math.abs(this.vy)));
       while (remaining > 1e-6) {
-        const h = Math.min(SUB_DT, remaining);
+        const h = Math.min(sub, remaining);
         remaining -= h;
         if (this.physics(h, input)) break;
       }
@@ -483,7 +497,11 @@ export class Player {
         this.yaw = this.turnToward(this.yaw, this.camYaw ?? this.yaw, 7 * dt);
         break;
       }
-      case 'hurt': case 'starjump': case 'grabbed':
+      case 'hurt': case 'starjump': case 'grabbed': case 'incannon':
+        break;
+      case 'cannonfly':
+        if (Zp) { this.groundPound(); break; }
+        this.airMove(dt);
         break;
       case 'carry': {
         // heavy: slow walk, no jumping; B throws
@@ -626,7 +644,8 @@ export class Player {
 
     // Vertical
     if (!air) {
-      const floor = w.floorBelow(this.pos.x, this.pos.z, this.pos.y + STEP_UP, R * 0.5);
+      let floor = w.floorBelow(this.pos.x, this.pos.z, this.pos.y + STEP_UP, R * 0.5);
+      if (w.collider) floor = Math.max(floor, w.collider.floor(this.pos.x, this.pos.z, this.pos.y + MESH_STEP));
       if (floor > -Infinity && floor >= this.pos.y - SNAP_DOWN) {
         this.pos.y = floor;
         // Too steep to stand on: slide downhill.
@@ -661,6 +680,10 @@ export class Player {
         for (const b of w.boxes) {
           if (!this.circleOverlaps(b, R * 0.8)) continue;
           if (b.min.y >= head - 0.05 && b.min.y < ny + H && b.min.y < ceil) ceil = b.min.y;
+        }
+        if (w.collider) {
+          const cc = w.collider.ceiling(this.pos.x, this.pos.z, head - 0.05, ny + H);
+          if (cc < ceil) ceil = cc;
         }
         if (ceil < Infinity) { this.pos.y = ceil - H; this.vy = 0; }
         else this.pos.y = ny;
@@ -748,6 +771,8 @@ export class Player {
         if (iter === 0) hits.push({ nx, nz, top: b.max.y, box: b });
       }
     }
+    // level model triangles
+    if (this.world.collider) this.world.collider.walls(this.pos, feet, head, R, step > 0.1 ? MESH_STEP : step, hits);
     return hits;
   }
 
@@ -855,6 +880,7 @@ export class Player {
       }
       case 'throwing': { const k = Math.min(1, t / 0.2); armL = armR = 2.3 - k * 1.5; pitch = 0.25 * k; legL = 0.5 * k; break; }
       case 'grabbed': armL = 1.5 + Math.sin(t * 20) * 0.8; armR = 1.5 - Math.sin(t * 20) * 0.8; legL = Math.sin(t * 18) * 0.7; legR = -legL; armSpread = 0.6; break;
+      case 'cannonfly': pitch = Math.PI / 2 - Math.atan2(this.vy, Math.max(0.1, this.fwd)); armL = armR = 3.0; legL = legR = -0.1; break;
       case 'hurt': pitch = -0.7; armL = armR = 1.2; armSpread = 1.3; legL = 0.6; legR = 0.2; break;
       case 'starjump': armR = 3.0; armL = 0.6; armSpread = 0.4; legL = 0.8; legR = 0.1; yawOff = ease(flip(0.6)) * Math.PI * 2; direct = true; break;
       case 'starpose': {
@@ -899,7 +925,7 @@ export class Player {
 
     // Blob shadow on the floor below
     const fy = this.world.floorBelow(this.pos.x, this.pos.z, this.pos.y + 0.1, 0);
-    if (fy > -Infinity) {
+    if (fy > -Infinity && this.state !== 'incannon') {
       this.blob.visible = true;
       this.blob.position.set(this.pos.x, fy + 0.02, this.pos.z);
       const hgt = this.pos.y - fy;

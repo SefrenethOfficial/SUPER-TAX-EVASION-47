@@ -26,7 +26,9 @@ The game starts in the castle lobby. Jump into the painting on the far wall to e
 
 ## Sunny Spire Hill
 
-A long valley course in the style of Bob-omb Battlefield. From the spawn meadow a dirt path crosses a ravine on a wooden bridge (fall in and you can walk out at its shallow east end), climbs a ramp onto a raised plateau (a second slope drops east to a fenced pen with a stake), and reaches a big red-rock mountain. A road spirals 3.4 times round the mountain to the summit. Stepping stones lead off the mountain's west side to a floating island, and a pond sits in the back meadow. The cliffs between road levels can be shortcut with a triple jump and a ledge grab.
+The course is a full level model in the style of Bob-omb Battlefield. You start at the north edge next to a cannon. A dirt path crosses a wooden plank bridge, runs along a ridge to a fenced pen with a stake, and climbs a white stone slope to the mountain. A road winds round the mountain's terraces to the summit. Stone staircases climb the two cliffs on the mountain's west and south sides that have no road. A wooden bridge spans the little valley by the small stone spire. A big stone spire stands in the north-west meadow, and an island floats above the field west of the mountain.
+
+**Cannons:** three holes in the ground hold cannons. Walk into a hole and you climb in, and the view switches to looking down the barrel. Aim with the stick, WASD or the mouse. Press **A** to fire yourself out, or **B** to climb back out. Every cannon starts aimed at the floating island: the one by the start, and two in the south-east field.
 
 **Cherry Bombs** wait around the course. Get close and they roll after you; stay next to one too long and it explodes. Punch, kick or dive into one to send it flying, or stomp it flat.
 
@@ -36,15 +38,15 @@ A long valley course in the style of Bob-omb Battlefield. From the spawn meadow 
 
 1. **King Cherry Bomb** on the summit drops one when beaten.
 2. **100 coins**: collect 100 in one visit and a star appears (red coins count as 2).
-3. **Red coins**: find all 8 and a star appears on the plateau. They're on the bridge rail, along the ravine, over the pond, on a pen fence post, above a stepping stone, halfway up the spire, on the north-east hill and high on the mountain road.
-4. **The floating island** off the mountain's west side.
-5. **Down in the ravine**, at its deep west end.
+3. **Red coins**: find all 8 and a star appears on top of the stone slope. They're on the small stone spire, above the plank bridge, under the valley bridge, on the stone bridge in the south-east, behind the fenced pen, in the far north-west and far south-east corners, and on a mountain terrace.
+4. **The floating island**: fire yourself there from any cannon.
+5. **Under the valley bridge**, down in the little valley.
 6. **The stake** in the fenced pen: ground-pound it three times.
-7. **The spire** in the back meadow: climb the spiral of rock ledges.
+7. **The big stone spire**: climb the steps up its south face.
 
 Grabbing a star plays the course clear song while you celebrate; then the camera closes in and the screen irises out back to the hub. Stars you already have show see-through blue; the course card shows how many of the 7 you've got.
 
-Your health is the meter at the top; coins refill it. Lose it all and the course restarts. About 110 coins; counters are top-right. Press **M** to mute the music.
+Your health is the meter at the top; coins refill it. Lose it all and the course restarts. 113 coins; counters are top-right. Press **M** to mute the music.
 
 The look aims for the N64: smoothly filtered textures, blob shadows, rigid limbs posed at 30 fps, and trees as flat sprites that always face the camera. If the game runs slowly, add `?low` to the address. `?stage=sunny` jumps straight into the course.
 
@@ -53,8 +55,10 @@ The look aims for the N64: smoothly filtered textures, blob shadows, rigid limbs
 - `src/main.js`: renderer, Lakitu-style camera, stage switching, game loop
 - `src/player.js`: character rig setup and the movement state machine (collision, procedural animation)
 - `src/world.js`: sky, lighting and level-building helpers; boxes double as collision
-- `src/terrain.js`: heightmap terrain (mesh, collision, grass/cliff/path texture blending)
-- `src/stages/sunny-spire-hill.js`: the stage: height function, paths, props, coins and star
+- `src/collider.js`: triangle collision for level models: floors, walls and ceilings, SM64-style
+- `src/cannon.js`: the cannons (climb in, aim, fire)
+- `src/terrain.js`: heightmap terrain (not used by the current stages)
+- `src/stages/sunny-spire-hill.js`: the stage: loads the level model, adds the bridge, staircases, cannons, coins, enemies and stars
 - `src/stages/hub.js`: the hub (castle lobby and paintings)
 - `src/enemies.js`: Cherry Bomb and King Cherry Bomb
 - `src/star.js`, `src/audio.js`: the star; music, jingles and sound effects
@@ -67,6 +71,8 @@ The character's skeleton is posed in code every frame; there are no baked animat
 When you change any file, bump `VERSION` and the `?v=` numbers in `src/main.js` and `index.html` so players' browsers don't mix old and new files.
 
 ## Credits
+
+Sunny Spire Hill level model: "Super Mario 64 - Bob-omb Battlefield FULL LEVEL" by [Dynamic Light](https://sketchfab.com/DynamicL) on [Sketchfab](https://sketchfab.com/3d-models/super-mario-64-bob-omb-battlefield-full-level-99f4d6df290f478b9b2a87d71115e669), licensed [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/).
 
 Character model: "Fully Rigged Low Poly Character for blender" by [satyasrichaitanya360](https://sketchfab.com/satyasrichaitanya360) on [Sketchfab](https://sketchfab.com/3d-models/fully-rigged-low-poly-character-for-blender-dd918a1760be4849ac1026daa2c58b75), licensed [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/).
 

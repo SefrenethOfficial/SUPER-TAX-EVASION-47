@@ -104,6 +104,13 @@ export class World {
     return box;
   }
 
+  // Level geometry from a model: triangle collision + the visible meshes
+  // (which the camera also collides with).
+  setCollider(collider, meshes = []) {
+    this.collider = collider;
+    for (const m of meshes) this.meshes.push(m);
+  }
+
   setTerrain(terrain) {
     this.terrain = terrain;
     this.scene.add(terrain.mesh);
@@ -129,6 +136,7 @@ export class World {
   // Is any box (or the terrain) occupying the vertical segment (x, y0..y1, z)?
   blocked(x, y0, y1, z) {
     if (this.terrain && this.terrain.height(x, z) > y0) return true;
+    if (this.collider && this.collider.ceiling(x, z, y0, y1) < Infinity) return true;
     for (const b of this.boxes) {
       if (x > b.min.x && x < b.max.x && z > b.min.z && z < b.max.z && b.max.y > y0 && b.min.y < y1) return true;
     }
@@ -144,6 +152,7 @@ export class World {
       const th = this.terrain.height(x, z);
       if (th <= y + terrainTol) best = th;
     }
+    if (this.collider) best = Math.max(best, this.collider.floor(x, z, y + terrainTol));
     for (const b of this.boxes) {
       if (x < b.min.x - margin || x > b.max.x + margin || z < b.min.z - margin || z > b.max.z + margin) continue;
       if (b.max.y <= y && b.max.y > best) best = b.max.y;
