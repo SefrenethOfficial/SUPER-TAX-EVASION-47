@@ -26,9 +26,9 @@ The game starts in the castle lobby. Jump into the painting on the far wall to e
 
 ## Sunny Spire Hill
 
-The course is a full level model in the style of Bob-omb Battlefield. You start at the north edge next to a cannon. A dirt path crosses a wooden plank bridge, runs along a ridge to a fenced pen with a stake, and climbs a white stone slope to the mountain. A road winds round the mountain's terraces to the summit. Stone staircases climb the two cliffs on the mountain's west and south sides that have no road. A wooden bridge spans the little valley by the small stone spire. A big stone spire stands in the north-west meadow, and an island floats above the field west of the mountain.
+The course is a full level model in the style of Bob-omb Battlefield. You start at the north edge. A wooden plank bridge runs down into the lowland, where a stake stands in front of a gate. A ridge leads east to a round stone plaza, and a dirt path climbs a white stone slope to the mountain. A road winds round the mountain's terraces to the summit. Stone staircases climb the two cliffs on the mountain's west and south sides that have no road. A wooden bridge spans the little valley by the small stone spire. A big stone spire stands in the north-west meadow, and an island floats above the field west of the mountain.
 
-**Cannons:** three holes in the ground hold cannons. Walk into a hole and you climb in, and the view switches to looking down the barrel. Aim with the stick, WASD or the mouse. Press **A** to fire yourself out, or **B** to climb back out. Every cannon starts aimed at the floating island: the one by the start, and two in the south-east field.
+**Cannons:** each little grey hole in the ground has a cannon at the bottom. Drop in and you climb aboard; the cannon rises to the top of the hole and the view switches to looking out past the barrel. Aim with the stick, WASD or the mouse. Press **A** to fire yourself out, or **B** to hop back out. The holes are in the middle of the stone plaza, on top of the big boulder and on two of the mountain's terraces, and they all start aimed at the floating island. The island has a cannon too, aimed at the summit.
 
 **Cherry Bombs** wait around the course. Get close and they roll after you; stay next to one too long and it explodes. Punch, kick or dive into one to send it flying, or stomp it flat.
 
@@ -38,15 +38,15 @@ The course is a full level model in the style of Bob-omb Battlefield. You start 
 
 1. **King Cherry Bomb** on the summit drops one when beaten.
 2. **100 coins**: collect 100 in one visit and a star appears (red coins count as 2).
-3. **Red coins**: find all 8 and a star appears on top of the stone slope. They're on the small stone spire, above the plank bridge, under the valley bridge, on the stone bridge in the south-east, behind the fenced pen, in the far north-west and far south-east corners, and on a mountain terrace.
+3. **Red coins**: find all 8 and a star appears on top of the stone slope. They're on the small stone spire, above the plank bridge, under the valley bridge, on the stone bridge in the south-east, behind the stone plaza, in the far north-west and far south-east corners, and on a mountain terrace.
 4. **The floating island**: fire yourself there from any cannon.
 5. **Under the valley bridge**, down in the little valley.
-6. **The stake** in the fenced pen: ground-pound it three times.
+6. **The stake** in the lowland: ground-pound it three times and a star appears at the gate.
 7. **The big stone spire**: climb the steps up its south face.
 
 Grabbing a star plays the course clear song while you celebrate; then the camera closes in and the screen irises out back to the hub. Stars you already have show see-through blue; the course card shows how many of the 7 you've got.
 
-Your health is the meter at the top; coins refill it. Lose it all and the course restarts. 113 coins; counters are top-right. Press **M** to mute the music.
+Your health is the meter at the top; coins refill it. Lose it all and the course restarts. 121 coins; counters are top-right. Press **M** to mute the music.
 
 The look aims for the N64: smoothly filtered textures, blob shadows, rigid limbs posed at 30 fps, and trees as flat sprites that always face the camera. If the game runs slowly, add `?low` to the address. `?stage=sunny` jumps straight into the course.
 
@@ -71,6 +71,8 @@ The character's skeleton is posed in code every frame; there are no baked animat
 When you change any file, bump `VERSION` and the `?v=` numbers in `src/main.js` and `index.html` so players' browsers don't mix old and new files.
 
 ## Credits
+
+Sunny Spire Hill sky: Super Mario 64 skyboxes ripped by Booscaster.
 
 Sunny Spire Hill level model: "Super Mario 64 - Bob-omb Battlefield FULL LEVEL" by [Dynamic Light](https://sketchfab.com/DynamicL) on [Sketchfab](https://sketchfab.com/3d-models/super-mario-64-bob-omb-battlefield-full-level-99f4d6df290f478b9b2a87d71115e669), licensed [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/).
 

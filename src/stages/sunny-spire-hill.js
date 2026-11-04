@@ -1,15 +1,15 @@
 import * as THREE from 'three';
-import { MeshCollider } from '../collider.js?v=19';
+import { MeshCollider } from '../collider.js?v=20';
 
 // ---------------------------------------------------------------------------
 // SUNNY SPIRE HILL, built on the level model (assets/sunny-spire-hill.glb).
 //
-// You start at the north edge by a cannon. A dirt path crosses a wooden
-// plank bridge and runs along a ridge to the Chain Chomp pen with its stake.
+// You start at the north edge. A wooden plank bridge runs down into the
+// lowland where the stake stands by the gate; a ridge leads to a stone plaza.
 // Another path skirts the orange lowland to the pale stone slope, which
 // climbs to the terraced mountain; King Cherry Bomb waits on the summit. A
-// little wooden bridge crosses the valley by the small stone spire, and the
-// cannons in the ground fire you up to the floating island.
+// little wooden bridge crosses the valley by the small stone spire, and
+// cannons in the little grey holes fire you up to the floating island.
 //
 // The model's triangles are the collision (see collider.js).
 // ---------------------------------------------------------------------------
@@ -20,35 +20,53 @@ export const MODEL = 'sunny-spire-hill.glb';
 export const STARS = 7;
 
 const SCALE = 10.6;                                  // model units -> metres
-const LID_MATERIAL = 'Shape.018';                    // the closed cannon lids (replaced by our cannons)
 const SUMMIT = { x: -24, z: 42 };
 const ISLAND = { x: -38, z: -21 };
-const CHOMP = { x: 69, z: -67 };
+const PLAZA = { x: 69.2, z: -66.9 };                 // the round stone plaza (a cannon hole in its middle)
+const STAKE = { x: 4, z: -58 };                      // in the lowland, in front of the gate
+const GATE = { x: -6, z: -56.4 };
 const BIG_SPIRE = { x: -48, z: -56 };                // the big cobblestone spire
 const SMALL_SPIRE = { x: 44, z: -9 };                // the small one, by the little valley
-// x, z, initial aim (yaw, pitch), shot speed. All three start aimed at the
-// floating island; the two far ones fire harder.
-const CANNONS = [[-12, -78, -0.46, 0.85, 62], [73, 49, -2.13, 0.63, 80], [79, 28, -1.97, 0.63, 80]];
+// The little grey holes in the ground: x, z, initial aim (yaw, pitch), shot
+// speed. The ground ones start aimed at the floating island; the island's own
+// cannon is aimed at the summit.
+const CANNONS = [
+  [69.2, -66.9, -1.19, 0.72, 80],   // stone plaza
+  [62.1, 29.8, -2.04, 0.55, 80],    // on top of the big boulder
+  [-58.4, 67.3, 2.885, 0.8, 62],    // mountain, outer terrace
+  [-36.1, 18.4, -3.093, 0.55, 40],  // mountain, upper terrace
+  [-37.2, -20.6, 0.208, 0.55, 62],  // the floating island (aimed at the summit)
+];
 
 export function build(world, coins, reds, { model }) {
   const scene = world.scene;
 
   // --- The level model ------------------------------------------------------
+  // --- Sky: the sunny SM64 skybox wrapped round a big sphere that follows the camera
+  {
+    const tex = world.loader.load(`assets/sky-sunny.png?v=${world.version}`);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.repeat.x = -4;                     // four times round; negative because we see it from inside
+    tex.magFilter = THREE.LinearFilter;
+    const sky = new THREE.Mesh(new THREE.SphereGeometry(500, 48, 24),
+      new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false, depthWrite: false }));
+    sky.renderOrder = -1;
+    sky.frustumCulled = false;
+    sky.onBeforeRender = (r, sc, cam) => { sky.position.copy(cam.position); sky.updateMatrixWorld(); };
+    scene.add(sky);
+    scene.fog.color.set(0xd6eefa);
+  }
+
   const level = model.clone(true);
   level.scale.setScalar(SCALE);
   scene.add(level);
   level.updateMatrixWorld(true);
-  const meshes = [], tris = [], lidPts = [];
+  const meshes = [], tris = [];
   const v = new THREE.Vector3();
   level.traverse((o) => {
     if (!o.isMesh) return;
     const src = o.material;
-    if (src.name === LID_MATERIAL) {
-      o.visible = false;
-      const p = o.geometry.attributes.position;
-      for (let i = 0; i < p.count; i++) lidPts.push(v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld).clone());
-      return;
-    }
     const map = src.map;
     if (map) { map.magFilter = THREE.LinearFilter; map.anisotropy = 8; map.colorSpace = THREE.SRGBColorSpace; }
     o.material = new THREE.MeshLambertMaterial({ map, color: src.color, side: THREE.DoubleSide, alphaTest: src.transparent ? 0.5 : 0 });
@@ -126,13 +144,12 @@ export function build(world, coins, reds, { model }) {
       z += RUN;
     }
   }
-  // stone caps over the two lid holes that have no cannon (island and spire tops)
-  box([ISLAND.x - 0.3, G(ISLAND.x - 3, ISLAND.z) - 0.6, ISLAND.z - 0.8], [ISLAND.x + 1.8, G(ISLAND.x - 3, ISLAND.z) + 0.02, ISLAND.z + 1.3], stone);
+  // stone cap over the hole in the spire's top
   box([BIG_SPIRE.x - 1.3, G(BIG_SPIRE.x + 1.5, BIG_SPIRE.z) - 0.6, BIG_SPIRE.z - 1.8], [BIG_SPIRE.x + 0.8, G(BIG_SPIRE.x + 1.5, BIG_SPIRE.z) + 0.02, BIG_SPIRE.z + 0.8], stone);
 
-  // --- The Chain Chomp's stake (ground-pound it three times for a star) -------
-  const penFloor = G(CHOMP.x + 4, CHOMP.z, 20);
-  const stake = box([CHOMP.x - 0.45, G(CHOMP.x, CHOMP.z, 20) - 0.5, CHOMP.z - 0.45], [CHOMP.x + 0.45, penFloor + 2.0, CHOMP.z + 0.45], wood);
+  // --- The stake in the lowland by the gate (ground-pound it three times) -----
+  const penFloor = G(STAKE.x, STAKE.z, 5);
+  const stake = box([STAKE.x - 0.45, penFloor - 0.5, STAKE.z - 0.45], [STAKE.x + 0.45, penFloor + 2.0, STAKE.z + 0.45], wood);
 
   // --- Trees (camera-facing sprites with blob shadows) ------------------------
   const treeSpots = [[-70, -86], [-62, -78], [-74, -70], [-30, -88], [-40, -80], [20, -88], [36, -84], [48, -88],
@@ -171,7 +188,8 @@ gl_Position = projectionMatrix * mvPosition;`);
   line([-12, -88], [-14, -66], 5);                 // from the start
   line([-8, -70], [10, -70], 5);                   // over the plank bridge
   line([16, -70], [56, -69], 8);                   // along the ridge to the pen
-  ring(CHOMP.x, CHOMP.z, 5.5, 8);                  // round the stake
+  ring(STAKE.x, STAKE.z, 4.5, 8);                  // round the stake
+  ring(PLAZA.x, PLAZA.z, 5.5, 8);                  // round the stone plaza
   line([-12, -58], [18, -34], 6);                  // the path beside the lowland
   line([22, -10], [40, -14], 5, 5);                // down in the little valley
   line([0, -30], [-14, 2], 6);                     // up the stone slope
@@ -200,7 +218,7 @@ gl_Position = projectionMatrix * mvPosition;`);
   let pounds = 0, pounding = false;
   const update = (dt, game) => {
     const P = game.player;
-    const onStake = Math.abs(P.pos.x - CHOMP.x) < 0.8 && Math.abs(P.pos.z - CHOMP.z) < 0.8 && Math.abs(P.pos.y - stake.max.y) < 0.08;
+    const onStake = Math.abs(P.pos.x - STAKE.x) < 0.8 && Math.abs(P.pos.z - STAKE.z) < 0.8 && Math.abs(P.pos.y - stake.max.y) < 0.08;
     if (P.state === 'gp_land' && onStake && !pounding && pounds < 3) {
       pounding = true;
       pounds++;
@@ -209,17 +227,15 @@ gl_Position = projectionMatrix * mvPosition;`);
       stake.mesh.position.y = (stake.min.y + stake.max.y) / 2;
       P.pos.y = stake.max.y;
       game.fx.shake(0.3); game.fx.dust(P.pos, 10);
-      if (pounds === 3) game.spawnStar(6, new THREE.Vector3(CHOMP.x, penFloor + 3.2, CHOMP.z + 3));
+      if (pounds === 3) game.spawnStar(6, new THREE.Vector3(GATE.x, G(GATE.x, GATE.z, 5) + 1.6, GATE.z));   // the gate's star
     }
     if (P.state !== 'gp_land') pounding = false;
   };
 
-  // --- Cannon holes: a floor at the bottom of each hole for the cannon to sit on
+  // --- Cannons, down in the grey holes: drop in to climb aboard ----------------
   const cannons = CANNONS.map(([x, z, yaw, pitch, speed]) => {
-    const lidY = Math.max(...lidPts.filter((p) => Math.hypot(p.x - x, p.z - z) < 5).map((p) => p.y));
-    const y = lidY - 0.5;
-    world.addBox([x - 1.8, y - 0.6, z - 1.8], [x + 1.8, y, z + 1.8], wood, { visible: false });
-    return { x, z, y: Math.max(y, G(x, z, lidY)), yaw, pitch, speed };
+    const top = G(x + 2.4, z);                  // the ground round the hole
+    return { x, z, y: G(x, z, top - 1), top, yaw, pitch, speed };
   });
 
   const top = G(SUMMIT.x, SUMMIT.z);
@@ -243,4 +259,4 @@ gl_Position = projectionMatrix * mvPosition;`);
 }
 
 // For tests and tooling.
-export const layout = { SUMMIT, ISLAND, CHOMP, BIG_SPIRE, SMALL_SPIRE, CANNONS };
+export const layout = { SUMMIT, ISLAND, PLAZA, STAKE, GATE, BIG_SPIRE, SMALL_SPIRE, CANNONS };
