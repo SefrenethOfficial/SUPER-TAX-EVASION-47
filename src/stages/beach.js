@@ -1,8 +1,13 @@
 import * as THREE from 'three';
-import { Terrain } from '../terrain.js?v=40';
-import { ShyGhost } from '../ghost.js?v=40';
-import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture, obsidianTexture } from '../textures.js?v=40';
-import * as Fieldlands from './obsidian-fieldlands.js?v=40';
+import { Terrain } from '../terrain.js?v=42';
+import { ShyGhost } from '../ghost.js?v=42';
+import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture, obsidianTexture } from '../textures.js?v=42';
+import * as Fieldlands from './obsidian-fieldlands.js?v=42';
+import * as Hollow from './lantern-hollow.js?v=42';
+import * as Throne from './hollow-throne.js?v=42';
+import { NPC } from '../npc.js?v=42';
+import { Pickup } from '../pickup.js?v=42';
+import { save, store, flag, learn, addWeapon, addItem } from '../save.js?v=42';
 
 // ---------------------------------------------------------------------------
 // THE WASHED-UP BEACH: the first area of the open world. You wake up face down
@@ -40,7 +45,7 @@ const basics = () => [
 
 const SEA = 0;                 // water level
 const SAND_TOP = 2.6;          // sand below this height, grass above
-const AREA = { minX: -150, maxX: 150, minZ: -46, maxZ: 482 };   // the beach, the slope and the fieldlands
+const AREA = { minX: -262, maxX: 274, minZ: -46, maxZ: 482 };   // the beach, the slope, the fieldlands, Lantern Hollow and the Hollow Throne
 
 // The shoreline wobbles along x; d = distance inland from it.
 const shoreZ = (x) => -20 + 6 * Math.sin(x * 0.05) + 3 * Math.sin(x * 0.13 + 1);
@@ -51,6 +56,12 @@ const bump = (x, z, cx, cz, r, h) => { const d = Math.hypot(x - cx, z - cz) / r;
 const rock = (x, z, cx, cz, r, h) => h * (1 - smooth(r * 0.55, r, Math.hypot(x - cx, z - cz)));
 
 function height(x, z) {
+  // far out to the sides of the beach it's all mountain
+  const outer = 46 * smooth(96, 120, Math.abs(x)) * (1 - smooth(230, 260, z));
+  return beachHeight(x, z) + outer;
+}
+
+function beachHeight(x, z) {
   const d = z - shoreZ(x);
   let h;
   if (d < 0) h = Math.max(-1.1, d * 0.09);                      // into the sea (waist deep at most)
@@ -161,8 +172,11 @@ export function build(world, { models = {} } = {}) {
 
   // --- Ground ------------------------------------------------------------------
   const terrain = new Terrain({
-    ...AREA, res: 1.25, height: Fieldlands.withFieldlands(height),
-    paths: [Fieldlands.PATH],
+    ...AREA, res: 1.5, height: Throne.withThrone(Hollow.withHollow(Fieldlands.withFieldlands(height))),
+    paths: [Fieldlands.PATH,
+      { width: 3.5, points: [[40, 300], [90, 284], [120, 280], [184, 281], [214, 299]] },               // east, to the tavern
+      { width: 3.5, points: [[-20, 340], [-70, 396], [-112, 404], [-180, 404], [Throne.GATE.x + 2, 404]] },   // west, to the throne
+    ],
     grass: grassTexture(), cliff: rockTexture(), path: dirtTexture(),
     rock: obsidianTexture(), rockZone: new THREE.Vector3(Fieldlands.CENTRE.x, Fieldlands.CENTRE.z, 175),   // obsidian cliffs round the basin
     fields: { x: Fieldlands.CENTRE.x, z: Fieldlands.CENTRE.z, r: 150 },
@@ -294,6 +308,123 @@ export function build(world, { models = {} } = {}) {
 
   // --- Down the slope: the Obsidian Fieldlands ---------------------------------------
   const fields = Fieldlands.build({ world, scene, G, terrain, overcast: skyMesh, rng, box });
+  const hollow = Hollow.build({ world, scene, G, box, rng });
+  const throne = Throne.build({ scene, G, box, rng });
+
+  // --- Things to pick up around the world ------------------------------------------
+  const pickups = [
+    { id: 'club', weapon: 'club', x: 11, z: -6 },                       // driftwood by the wreck
+    { id: 'herb-beach', item: 'herb', x: -30, z: 6 },
+    { id: 'herb-f1', item: 'herb', x: 22, z: 312 },
+    { id: 'herb-f2', item: 'herb', x: -46, z: 372 },
+    { id: 'herb-f3', item: 'herb', count: 2, x: 66, z: 418 },
+    { id: 'tonic-west', item: 'tonic', x: -86, z: 312 },               // up the West Peak
+    { id: 'tonic-east', item: 'tonic', x: 96, z: 392 },                // up the East Range
+    { id: 'dagger', weapon: 'dagger', x: 54, z: 459 },                  // on top of Obsidian Peak
+    { id: 'ember-flat', item: 'ember', x: -36, z: 300 },
+  ].map((p) => new Pickup(scene, { ...p, pos: new THREE.Vector3(p.x, G(p.x, p.z), p.z) }));
+
+  // --- The hermit on the West Peak: teaches Skybreaker to anyone who climbs up --------
+  const peak = Fieldlands.MOUNTAINS[0];
+  const hermit = new NPC(scene, { name: 'Hermit', pos: { x: peak.x + 2.5, z: peak.z + 1 }, ground: G, yaw: Math.PI / 2,
+    look: { skin: 0xb89a80, shirt: 0x6a6a5a, pants: 0x4a4a40, cloak: 0x5a5448, hat: 'wide', hatColor: 0x5a5040, beard: 0xe8e8e0, height: 1.7 } });
+  const talkHermit = (game) => game.talk(save.learned.includes('skybreaker') ? [
+    { who: 'Hermit', text: 'Still here? The view is the same as ever. Go on, use what I showed you.' },
+  ] : [
+    { who: 'Hermit', text: '...Someone climbed all this way? For an old man and a lot of wind?' },
+    { who: 'Hermit', text: "Then you've legs, and you've stubbornness. That's half of what I teach." },
+    { who: 'Hermit', text: "Watch. You leap, you hang there, and you bring the whole sky down with you. Skybreaker, my master called it." },
+    { who: '', text: 'You learned Skybreaker! (7 Stamina: a leap and a crash, 9-11 damage.)', onShow: () => learn('skybreaker') },
+  ], { with: hermit.root.position });
+
+  // --- Your party: Vivian, and Marrow once he joins --------------------------------
+  const marrow = hollow.npcs.marrow;
+  const inParty = (who) => save.recruits.includes(who);
+  const setRecruit = (who, on) => {
+    save.recruits = save.recruits.filter((r) => r !== who);
+    if (on) save.recruits.push(who);
+    store();
+  };
+  // Marrow walks along behind your other shoulder
+  const followMarrow = (dt, P) => {
+    const s = Math.sin(P.yaw), c = Math.cos(P.yaw);
+    const tx = P.pos.x - s * 2.6 - c * 1.5, tz = P.pos.z - c * 2.6 + s * 1.5;
+    const fx = tx - marrow.pos.x, fz = tz - marrow.pos.z, fd = Math.hypot(fx, fz);
+    if (fd > 40) { marrow.pos.x = tx; marrow.pos.z = tz; }
+    else if (fd > 0.05) { const sp = Math.min(fd * 2.4, 16) * dt; marrow.pos.x += (fx / fd) * Math.min(sp, fd); marrow.pos.z += (fz / fd) * Math.min(sp, fd); }
+    const fy = world.floorBelow(marrow.pos.x, marrow.pos.z, P.pos.y + 4);
+    marrow.pos.y = Number.isFinite(fy) && fy > -1e3 ? fy : P.pos.y;
+    marrow.root.position.copy(marrow.pos);
+    const yaw = fd > 1 ? Math.atan2(fx, fz) : P.yaw;
+    marrow.yaw += Math.atan2(Math.sin(yaw - marrow.yaw), Math.cos(yaw - marrow.yaw)) * Math.min(1, dt * 6);
+    marrow.root.rotation.y = marrow.yaw;
+    // a bit of a stride when walking
+    const parts = marrow.model.userData.parts, walk = Math.min(1, fd / 1.5);
+    parts.armL.rotation.x = Math.sin(t * 9) * 0.5 * walk; parts.armR.rotation.x = -Math.sin(t * 9) * 0.5 * walk;
+    marrow.model.position.y = Math.abs(Math.sin(t * 9)) * 0.06 * walk;
+  };
+  const marrowHome = { pos: marrow.pos.clone(), yaw: marrow.homeYaw };
+  if (save.flags.marrowAt) { marrow.pos.set(save.flags.marrowAt.x, save.flags.marrowAt.y, save.flags.marrowAt.z); marrow.root.position.copy(marrow.pos); }
+  const MARROW_MOVES = [
+    { name: 'Lantern Bash', cost: 2, desc: 'A clout with his lantern. 3-4 damage.', hits: [{ at: 0.2, dur: 0.5, dmg: [3, 4] }] },
+    { name: 'Cleave', cost: 5, desc: 'A great two-handed cut. 5-7 damage.', hits: [{ at: 0.3, dur: 0.7, dmg: [5, 7] }] },
+    { name: 'Guard', cost: 1, guard: true, desc: 'He braces: half damage until his next turn.' },
+    { name: 'Catch Breath', cost: 0, rest: 3, desc: 'Skip his attack and get 3 Stamina back.' },
+  ];
+  // party HP is kept between fights (until you rest)
+  const partyHp = save.flags.partyHp || {};
+  const member = (key, def) => ({ ...def, hp: partyHp[key] ?? def.maxHp, key });
+
+  // --- Region names and music ------------------------------------------------------
+  const regionOf = (P) => (Throne.contains(P.pos.x, P.pos.z) ? 'throne' : Hollow.contains(P.pos.x, P.pos.z) ? 'hollow' : fields.inside ? 'fields' : 'beach');
+  const REGION = {
+    beach: { name: NAME, music: MUSIC },
+    fields: { name: Fieldlands.NAME, music: Fieldlands.MUSIC },
+    hollow: { name: Hollow.NAME, music: Fieldlands.MUSIC },
+    throne: { name: Throne.NAME, music: null },
+  };
+  let region = 'beach';
+
+  // --- The Hollow Warden -------------------------------------------------------------
+  let bossBusy = false;
+  if (save.flags.wardenDead) { throne.remove(); throne.openGate(); }
+  const bossReward = new Pickup(scene, { id: 'blade', weapon: 'blade', pos: new THREE.Vector3(Throne.ARENA.x, Throne.PLATEAU.y, Throne.ARENA.z) });
+  if (!save.flags.wardenDead && !bossReward.taken) scene.remove(bossReward.root);
+  pickups.push(bossReward);
+  const enterFog = (game) => {
+    bossBusy = true;
+    const P = game.player;
+    P.locked = true;
+    game.fade(() => { P.pos.copy(throne.gateIn); P.pos.y = G(P.pos.x, P.pos.z); P.yaw = -Math.PI / 2; P.fwd = 0; });
+    setTimeout(() => { throne.rise(); game.banner('THE HOLLOW WARDEN'); }, 900);
+    setTimeout(() => {
+      const sp = throne.playerSpot.clone(); sp.y = G(sp.x, sp.z);
+      const ep = throne.standPos.clone();
+      game.fight({
+        spots: { player: sp, enemy: ep },
+        enemy: Throne.wardenFighter(throne.warden, Math.PI / 2),
+        allies: allies(),
+      }).then((res) => {
+        const { won, lost } = res;
+        keepHp(res);
+        bossBusy = false;
+        if (won) {
+          flag('wardenDead');
+          throne.remove(); throne.openGate();
+          scene.add(bossReward.root);
+          game.banner('WARDEN FELLED', 'felled');
+          game.toast('The fog clears from the throne.');
+        } else if (lost) {
+          game.banner('YOU FELL', 'died');
+          setTimeout(() => game.respawn(), 2200);
+        } else {
+          // ran: back out through the fog
+          P.pos.set(Throne.GATE.x + 3, Throne.PLATEAU.y, Throne.GATE.z);
+          P.locked = false;
+        }
+      });
+    }, 3600);
+  };
 
   // --- Waves lapping: drift the water textures --------------------------------------
   let t = 0;
@@ -304,13 +435,28 @@ export function build(world, { models = {} } = {}) {
       if (ghost.state === 'cornered' && !talking) meet(game);
     }
     if (game) {
-      // the fog lifts as you come down into the fieldlands
-      if (fields.update(dt, game.player)) {
-        game.music(fields.inside ? Fieldlands.MUSIC : MUSIC);
-        game.card(fields.inside ? Fieldlands.NAME : NAME);
+      const P = game.player;
+      // the weather: the fog lifts as you come down into the fieldlands, and
+      // closes in, dark, round the Hollow Throne
+      fields.update(dt, P, Throne.contains(P.pos.x, P.pos.z));
+      const r = regionOf(P);
+      if (r !== region) {
+        const was = REGION[region];
+        region = r;
+        if (REGION[r].music !== was.music) game.music(REGION[r].music);
+        game.card(REGION[r].name);
       }
+      hollow.update(dt, P);
+      throne.update(dt);
+      hermit.update(dt, P);
+      for (const p of pickups) p.update(dt);
+      if (inParty('marrow') && !game.battling) followMarrow(dt, P);
+      game.partyInfo = () => [
+        ...(ghost && progress.party ? [{ name: GHOST, hp: partyHp.vivian ?? 10, maxHp: 10 }] : []),
+        ...(inParty('marrow') ? [{ name: 'Marrow', hp: partyHp.marrow ?? 14, maxHp: 14 }] : []),
+      ];
       // enemies: touch one and it's a fight
-      const busy = game.battling || game.talking || fighting;
+      const busy = game.battling || game.talking || fighting || bossBusy || (game.bag && game.bag.open);
       for (const e of fields.enemies) if (e.update(dt, game.player, busy) && !busy) { fightEnemy(game, e); break; }
     }
     wt.offset.set(t * 0.004, t * 0.012);
@@ -390,7 +536,15 @@ export function build(world, { models = {} } = {}) {
     { name: 'Dark Flame', cost: 5, desc: 'A burst of ghostly fire. 4-6 damage.', hits: [{ at: 0.3, dur: 0.75, dmg: [4, 6] }] },
     { name: 'Catch Breath', cost: 0, rest: 3, desc: 'Skip her attack and get 3 Stamina back.' },
   ];
-  const allies = () => (ghost && progress.party ? [{ name: GHOST, maxHp: 10, maxSp: 8, moves: VIVIAN_MOVES, node: ghost.root, lift: 1.1, top: 3.1, picture: { height: 2.55, dist: 3.0 } }] : []);
+  const allies = () => [
+    ...(ghost && progress.party ? [member('vivian', { name: GHOST, maxHp: 10, maxSp: 8, moves: VIVIAN_MOVES, node: ghost.root, lift: 1.1, top: 3.1, picture: { height: 2.55, dist: 3.0 } })] : []),
+    ...(inParty('marrow') ? [member('marrow', { name: 'Marrow', maxHp: 14, maxSp: 6, moves: MARROW_MOVES, node: marrow.root, lift: 0, top: 2.5, picture: { height: 1.65, dist: 2.2 } })] : []),
+  ];
+  // after a fight: remember how hurt everyone is
+  const keepHp = (result) => {
+    for (const f of result.party || []) if (f.key) partyHp[f.key] = Math.max(1, f.hp);
+    save.flags.partyHp = partyHp; store();
+  };
 
   // --- Fighting the fieldlands' enemies ---------------------------------------------
   let fighting = false;
@@ -404,11 +558,13 @@ export function build(world, { models = {} } = {}) {
       spots: { player: new THREE.Vector3(px, G(px, pz), pz), enemy: new THREE.Vector3(e.pos.x, e.pos.y, e.pos.z) },
       enemy: e.fighter(Math.atan2(dx, dz)),
       allies: allies(),
-    }).then(({ won, lost }) => {
+    }).then((res) => {
+      const { won, lost } = res;
+      keepHp(res);
       if (won) e.remove();
       else e.cool = 4;                               // ran away: it leaves you alone for a bit
       fighting = false;
-      if (lost) game.respawn();                      // knocked out: you come round on the beach again
+      if (lost) { game.banner('YOU FELL', 'died'); setTimeout(() => game.respawn(), 2200); }   // knocked out: you come round where you last rested
     });
   };
 
@@ -440,14 +596,43 @@ export function build(world, { models = {} } = {}) {
 
   // You wash up face down a few metres from the water, head towards the land.
   const sx = 0, sz = shoreZ(0) + 6;
+  const rested = save.flags.restAt === 'tavern';
+  // resting by Hesta's fire heals everyone and makes it where you come round
+  const partyHeal = () => { for (const k of Object.keys(partyHp)) delete partyHp[k]; save.flags.partyHp = partyHp; store(); if (gameRef) { gameRef.player.health = 8; gameRef.player.stamina = gameRef.player.maxStamina; } };
+  const setRest = () => flag('restAt', 'tavern');
+  let gameRef = null;
+  const near = (P, n, r = 2.6) => Math.hypot(P.pos.x - n.pos.x, P.pos.z - n.pos.z) < r && Math.abs(P.pos.y - n.pos.y) < 2.2;
+  const say = (game, fn) => { talking = true; Promise.resolve(fn()).then(() => { talking = false; }); };
+  const interact = (game) => {
+    gameRef = game;
+    const P = game.player;
+    if (talking || bossBusy) return null;
+    for (const p of pickups) if (p.near(P)) return { text: `B \u2014 Pick up ${p.label}`, go: () => { const what = p.take(); game.toast(`Got ${what}`); } };
+    for (const [key, n] of Object.entries(hollow.npcs)) {
+      if (near(P, n)) return { text: `B \u2014 Talk to ${n.name}`, go: () => say(game, () => hollow.talks[key]({ game, npc: n, partyHeal, setRest,
+        inParty: () => inParty('marrow'),
+        setParty: (on) => {
+          setRecruit('marrow', on);
+          marrow.following = on;
+          if (!on) { save.flags.marrowAt = { x: marrow.pos.x, y: marrow.pos.y, z: marrow.pos.z }; marrow.homeYaw = marrow.yaw; store(); }
+        } })) };
+    }
+    if (near(P, hermit)) return { text: 'B \u2014 Talk to the Hermit', go: () => say(game, () => talkHermit(game)) };
+    if (!save.flags.wardenDead && Math.hypot(P.pos.x - (Throne.GATE.x + 1.2), P.pos.z - Throne.GATE.z) < 3.2) return { text: 'B \u2014 Step through the fog', go: () => enterFog(game) };
+    // Vivian last: she's often right beside you
+    if (ghostNear(P)) return { text: `B \u2014 Talk to ${GHOST}`, go: () => chat(game) };
+    return null;
+  };
+  marrow.following = inParty('marrow');
   return {
-    spawn: new THREE.Vector3(sx, G(sx, sz), sz),
+    spawn: rested ? hollow.restSpot.clone() : new THREE.Vector3(sx, G(sx, sz), sz),
+    spawnYaw: rested ? hollow.restYaw : 0,
     spawnYaw: 0,
-    startLying: true,
+    startLying: !rested,
     update,
-    ghost, fields,   // for tests
+    ghost, fields, hollow, throne, pickups, hermit,   // for tests
     // B near the ghost: talk
-    interact: (game) => (ghostNear(game.player) && !talking ? { text: 'B — Talk', go: () => chat(game) } : null),
+    interact,
   };
 }
 

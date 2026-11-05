@@ -189,7 +189,8 @@ export function buildCharacter(gltfScene, { wood, eye, cone } = {}) {
     apply('kneeR', q.setFromAxisAngle(X, v.kneeR));
   }
   pose({}, 1);
-  return { root, pose };
+  // the right forearm: things held in the hand hang off this (see setWeapon)
+  return { root, pose, hand: bones[BONES.elbowR] };
 }
 
 // ---------------------------------------------------------------------------

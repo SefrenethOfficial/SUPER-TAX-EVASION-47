@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { ITEMS } from './items.js?v=42';
+import { save, useItem } from './save.js?v=42';
 
 // ---------------------------------------------------------------------------
 // Turn-based battles. Exploring stops, the camera swings round to a side view
@@ -12,7 +14,10 @@ import * as THREE from 'three';
 // Fight opens that fighter's moves; each attack costs Stamina: they go up,
 // strike and come back. Then the enemy attacks one of you. A fighter at 0
 // Health is down and skips their turns; you lose if the whole party is down.
-// Everyone gets a little Stamina back every round.
+// Everyone gets a little Stamina back every round. Item uses something from
+// your bag instead of a move; Guard halves the damage you take until your next
+// turn. Bigger enemies can have several attacks (some hit the whole party, some
+// are wound up a turn ahead) and a second phase.
 // ---------------------------------------------------------------------------
 
 const REGEN = 1;           // Stamina back at the end of each round
@@ -120,7 +125,7 @@ export class Battle {
       ? [['Fight', () => this.showMenu('fight')], ['Item', () => this.showMenu('items')], ['Run', () => this.run()]]
       : kind === 'fight'
         ? [...P.moves.map((m) => [m.name, P.sp >= m.cost ? () => this.useMove(m) : null, m.cost ? `${m.cost} SP` : '', m.desc]), ['Back', () => this.showMenu('main'), '', '']]
-        : [['(no items)', null], ['Back', () => this.showMenu('main')]];
+        : [...this.bag(), ['Back', () => this.showMenu('main'), '', '']];
     this.items = items;
     this.cmds.innerHTML = '';
     this.cmds.classList.toggle('wide', kind === 'fight');
@@ -137,10 +142,30 @@ export class Battle {
     this.highlight();
   }
 
+  // the Item menu: what's in your bag
+  bag() {
+    const ids = Object.keys(save.items).filter((id) => ITEMS[id] && save.items[id] > 0);
+    if (!ids.length) return [['(no items)', null, '', 'Your bag is empty.']];
+    return ids.map((id) => [ITEMS[id].name, () => this.useBagItem(id), `x${save.items[id]}`, ITEMS[id].desc]);
+  }
+
+  useBagItem(id) {
+    const it = ITEMS[id], P = this.me, E = this.enemy;
+    if (!useItem(id)) return;
+    this.busy(true);
+    this.menu = 'none';
+    const who = this.cur === 0 ? 'You use' : `${P.name} uses`;
+    if (it.heal) { const n = Math.min(it.heal, P.maxHp - P.hp); P.hp += n; this.popup(P, `+${n}`, 'heal'); this.say(`${who} a ${it.name}. +${n} Health.`); if (this.onDamage) this.onDamage(P); }
+    if (it.stamina) { const n = Math.min(it.stamina, P.maxSp - P.sp); P.sp += n; this.popup(P, `+${n} SP`, 'sp'); this.say(`${who} a ${it.name}. +${n} Stamina.`); }
+    if (it.damage) { this.damage(E, it.damage); this.wobbleV += 10; this.fx.shake(0.4); this.say(`${who} an ${it.name}! It bursts for ${it.damage}.`); }
+    this.refresh();
+    this.setPhase('rest');
+  }
+
   highlight() {
     [...this.cmds.children].forEach((b, i) => b.classList.toggle('sel', i === this.sel));
     // in the moves list, describe the one you're on
-    if (this.menu === 'fight') {
+    if (this.menu === 'fight' || this.menu === 'items') {
       const [, fn, , desc] = this.items[this.sel];
       this.say(desc ? (fn ? desc : `${desc} Not enough Stamina.`) : this.ask());
     } else if (this.menu === 'main' && (this.t > 0 || this.cur > 0)) this.say(this.ask());
@@ -155,6 +180,14 @@ export class Battle {
     const P = this.me;
     this.busy(true);
     this.menu = 'none';
+    if (m.guard) {
+      P.sp -= m.cost;
+      P.guard = true;
+      this.popup(P, 'Guard', 'sp');
+      this.say(this.cur === 0 ? 'You brace yourself.' : `${P.name} braces herself.`);
+      this.setPhase('rest');
+      return;
+    }
     if (m.rest) {
       P.sp = Math.min(P.maxSp, P.sp + m.rest);
       this.popup(P, `+${m.rest} SP`, 'sp');
@@ -191,6 +224,12 @@ export class Battle {
     this.popup(f, `-${n}`, f === this.enemy ? 'good' : 'bad');
     this.refresh();
     if (this.onDamage) this.onDamage(f);
+    // a second phase when it's down to half
+    if (f === this.enemy && f.onHalf && !this.halved && f.hp > 0 && f.hp <= f.maxHp / 2) {
+      this.halved = true;
+      const msg = f.onHalf(this);
+      if (msg) setTimeout(() => { if (!this.ending) this.say(msg); }, 900);
+    }
   }
 
   // Move a fighter towards a point; true once there.
@@ -253,7 +292,7 @@ export class Battle {
         }
         if (this.pt > h.at && !this.hit) {
           this.hit = true;
-          const n = h.dmg[0] + Math.floor(Math.random() * (h.dmg[1] - h.dmg[0] + 1));
+          const n = h.dmg[0] + Math.floor(Math.random() * (h.dmg[1] - h.dmg[0] + 1)) + (P.atkBonus || 0);
           this.dealt += n;
           this.damage(E, n);
           this.wobbleV += 4 + n;
@@ -280,27 +319,44 @@ export class Battle {
         break;
       case 'enemyTurn': {
         if (this.pt === dt) {
+          // pick the attack: a wound-up one lands now, otherwise the enemy chooses
           const up = this.party.filter((f) => f.hp > 0);
-          this.target = up[Math.floor(Math.random() * up.length)];
-          this.say(`The ${E.name} ${E.attackText || 'attacks'}!`);
+          this.atk = this.windup || (E.choose ? E.choose(this) : { text: E.attackText || 'attacks', dmg: E.atk });
+          this.windup = null;
+          if (this.atk.charge) {             // telegraph: it lands next turn
+            this.windup = this.atk.then;
+            this.say(`The ${E.name} ${this.atk.text}...`);
+            this.targets = [];
+          } else {
+            this.targets = this.atk.all ? up : [up[Math.floor(Math.random() * up.length)]];
+            this.say(`The ${E.name} ${this.atk.text}!`);
+          }
         }
-        const T = this.target;
-        if (this.pt > 0.45 && !this.swung) { this.swung = true; this.wobbleV -= 9; }   // lurch towards them
-        if (this.pt > 0.75 && !this.hit) {
+        const A = this.atk;
+        if (this.pt > 0.45 && !this.swung && this.targets.length) { this.swung = true; this.wobbleV -= 9; }   // lurch towards them
+        if (this.pt > 0.75 && !this.hit && this.targets.length) {
           this.hit = true;
-          this.damage(T, E.atk);
-          if (T.actor) { T.actor.anim.sq = -0.3; T.actor.invuln = 0.7; T.actor.say('hurt'); }
-          else this.allyFlinch = 0.5;
-          this.fx.shake(0.35);
-          this.say(T === this.player ? `The ${E.name} hits you for ${E.atk}.` : `The ${E.name} hits ${T.name} for ${E.atk}.`);
+          const hits = [];
+          for (const T of this.targets) {
+            const n = T.guard ? Math.ceil(A.dmg / 2) : A.dmg;
+            this.damage(T, n);
+            hits.push(T === this.player ? `you for ${n}` : `${T.name} for ${n}`);
+            if (T.actor) { T.actor.anim.sq = -0.3; T.actor.invuln = 0.7; T.actor.say('hurt'); }
+            else { this.allyFlinch = 0.5; this.flinching = T; }
+          }
+          this.fx.shake(0.35 + A.dmg * 0.04);
+          this.say(`The ${E.name} hits ${hits.join(' and ')}.`);
         }
-        if (this.allyFlinch > 0 && T.node) {
+        const T = this.flinching;
+        if (this.allyFlinch > 0 && T) {
           this.allyFlinch -= dt;
           T.node.position.x = T.home.x + Math.sin(this.allyFlinch * 60) * 0.08 * this.allyFlinch * 2;
         }
-        if (this.pt > 1.7) {
+        if (this.pt > (this.targets.length ? 1.7 : 1.4)) {
           this.hit = false; this.swung = false;
-          if (T.node) T.node.position.copy(T.home);
+          if (T && T.node) T.node.position.copy(T.home);
+          this.flinching = null;
+          for (const f of this.party) f.guard = false;
           if (this.party.every((f) => f.hp <= 0)) { this.setPhase('lose'); break; }
           for (const f of this.party) if (f.hp > 0) f.sp = Math.min(f.maxSp, f.sp + REGEN);
           this.cur = this.party.findIndex((f) => f.hp > 0);
@@ -350,7 +406,7 @@ export class Battle {
     this.ui.classList.remove('on');
     if (this.enemy.model) this.enemy.model.rotation.set(0, this.enemy.model.rotation.y, 0);
     for (const f of this.party) if (f.node) f.node.position.copy(f.home);
-    this.onEnd({ won: this.enemy.hp <= 0, lost: this.party.every((f) => f.hp <= 0) });
+    this.onEnd({ won: this.enemy.hp <= 0, lost: this.party.every((f) => f.hp <= 0), party: this.party });
   }
 
   // Draw the fighter pictures into their frames (call after the main render).

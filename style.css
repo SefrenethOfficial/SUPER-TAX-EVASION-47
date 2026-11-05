@@ -159,3 +159,40 @@ body.in-battle #logo, body.in-battle #hint, body.in-battle #health { display: no
 #dialogue .dchoices button.sel { border-color: #e8dfc4; background: rgba(60,58,50,.95); }
 #dialogue .dchoices button.sel::before { content: '\25B8  '; }
 body.talking #logo, body.talking #hint { opacity: .35; }
+
+.bdmg.heal { color: #8fe08a; }
+.bparty.n3 .bslot { width: min(170px, 17vw); }
+.bparty.n3 .bpic, .bparty.n2 .bpic { width: 64px; height: 64px; }
+.bparty.n3 .bpanel { padding: 12px 8px 8px; }
+.bparty.n3 .bname { font-size: 14px; margin-bottom: 4px; }
+.bparty.n3 .bstat { font-size: 11px; margin: 3px 0; }
+.bstat .num { white-space: nowrap; }
+@media (max-height: 480px) { .bpic { width: 56px; height: 56px; } .bparty.n3 .bpic, .bparty.n2 .bpic { width: 44px; height: 44px; } .bpanel { padding: 10px 10px 8px; } .bname { font-size: 14px; margin-bottom: 4px; } .bstat { margin: 3px 0; font-size: 11px; } .blog { top: 12px; font-size: 15px; padding: 7px 14px; } }
+
+/* --- Bag ------------------------------------------------------------------------------ */
+#bag { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(8,9,10,.55); z-index: 30; font-family: Georgia, 'Times New Roman', serif; color: #ece9e0; }
+#bag.on { display: flex; }
+#bag .ipanel { width: min(720px, calc(100vw - 32px)); max-height: calc(100vh - 40px); overflow: auto; box-sizing: border-box; padding: 22px 26px; background-color: #1d1f21; background-image: repeating-conic-gradient(#232628 0 25%, #1b1d1f 0 50%); background-size: 18px 18px; border: 2px solid rgba(201,195,178,.6); border-radius: 4px; box-shadow: 0 12px 40px rgba(0,0,0,.6); }
+#bag .ititle { font-size: 22px; font-weight: 700; letter-spacing: .12em; text-align: center; margin-bottom: 10px; }
+#bag .icols { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+@media (max-width: 600px) { #bag .icols { grid-template-columns: 1fr; } }
+#bag h3 { font-size: 13px; letter-spacing: .14em; text-transform: uppercase; opacity: .7; margin: 12px 0 6px; font-weight: 400; }
+#bag .irow { display: flex; justify-content: space-between; width: 100%; padding: 7px 10px; margin: 3px 0; font: 16px Georgia, serif; color: #ece9e0; background: rgba(20,22,24,.85); border: 1px solid rgba(201,195,178,.3); border-radius: 3px; cursor: pointer; text-align: left; }
+#bag .irow.sel { border-color: #e8dfc4; background: rgba(60,58,50,.92); }
+#bag .irow.dim { color: #9a978e; }
+#bag .itag { opacity: .75; font-size: 13px; }
+#bag .inone { opacity: .55; font-style: italic; font-size: 14px; }
+#bag .imoves { font-size: 15px; line-height: 1.5; }
+#bag .iparty { display: flex; justify-content: space-between; font-size: 15px; padding: 3px 0; }
+#bag .idesc { margin-top: 16px; min-height: 22px; padding: 10px 12px; border-top: 1px solid rgba(201,195,178,.3); font-size: 15px; }
+#bag .ihint { margin-top: 8px; font-size: 12px; opacity: .6; text-align: right; }
+/* --- Banners and notices ------------------------------------------------------------- */
+#banner { position: fixed; left: 0; right: 0; top: 38%; text-align: center; pointer-events: none; z-index: 25; opacity: 0; font: 400 clamp(28px, 6vw, 64px) Georgia, 'Times New Roman', serif; letter-spacing: .18em; color: #e9e2cc; text-shadow: 0 0 18px rgba(0,0,0,.9), 0 2px 2px #000; }
+#banner::before, #banner::after { content: ''; display: block; height: 1px; margin: 10px auto; width: min(560px, 70vw); background: linear-gradient(90deg, transparent, rgba(233,226,204,.6), transparent); }
+#banner.show { animation: banner 3.6s ease forwards; }
+#banner.died { color: #b8322a; letter-spacing: .24em; }
+#banner.felled { color: #e8c46a; }
+@keyframes banner { 0% { opacity: 0; transform: scale(1.04); } 18% { opacity: 1; transform: scale(1); } 75% { opacity: 1; } 100% { opacity: 0; } }
+#toast { position: fixed; right: 20px; top: 76px; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; pointer-events: none; z-index: 22; }
+.toastline { padding: 7px 14px; background: rgba(14,16,18,.82); border: 1px solid rgba(220,220,210,.35); border-radius: 3px; color: #e8e6df; font: 15px Georgia, serif; animation: toastline 3.2s ease forwards; }
+@keyframes toastline { 0% { opacity: 0; transform: translateX(16px); } 10% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; } }

@@ -14,6 +14,30 @@ Past the grassland north of the beach, a dirt path runs down a long slope to a w
 
 **Enemies** roam the fields: **Shardlings** (little hopping shards of obsidian; 8 Health, hit for 2) and **Thornbacks** (mossy grazers with obsidian spines; 15 Health, hit for 3). They wander, chase you when you get close, and touching one starts a battle. Beaten enemies are gone; run away and they leave you alone for a few seconds. If your party is knocked out you come round on the beach again, and the enemies are back. Out of battle your Health slowly comes back.
 
+## Lantern Hollow
+
+Through a pass in the east wall of the fieldlands (follow the path east), a green valley with the **Sunken Lantern** tavern, lit by a fire and lanterns along the road. Inside:
+
+- **Hesta**, the barkeep. **Rest by the fire** to heal your whole party, and from then on you come round here when you're knocked out (souls-style). She'll also spare you some supplies once (Herbs, a Hearth Salve, an Ember Flask), and tell you about the place.
+- **Marrow**, a sellsword with a lantern: **recruitable**. He walks behind you and fights in your party (14 Health; Lantern Bash, Cleave, Guard, Catch Breath). Ask him to wait and he stays where you leave him.
+- **Old Bruno**, a retired guardsman: a **move teacher**. Teaches **Guard** (1 SP, half damage until your next turn) and **Heavy Swing** (5 SP, 6–8 damage; he wants you to have a weapon first).
+
+A **Hermit** at the top of the **West Peak** teaches **Skybreaker** (7 SP, a two-hit leap and crash, 9–11) to anyone who makes the climb.
+
+## The Hollow Throne
+
+Up a pass in the west wall of the fieldlands (follow the path west), a dark, smoky plateau with a ruined ring of pillars around a throne. Step through the wall of fog at the entrance and the **Hollow Warden** rises: a soulslike boss fight with his own music. He has 60 Health and two phases. He brings his greatsword down on one of you, sweeps across the whole party, and every third turn winds up a huge blow a turn ahead (a good time to Guard). At half Health his armour splits and he fights with fire. Beat him (**WARDEN FELLED**) and his **Ashen Blade** is yours; fall (**YOU FELL**) and you come round where you last rested.
+
+## Items, weapons and moves
+
+Press **I** (or **Tab**) to open your **bag**: equip a weapon, use Herbs and the like on yourself, and see your moves and party. Items can also be used in battle with **Item**.
+
+- **Weapons** add damage to every blow you land, and you hold the one you've equipped: **Driftwood Club** (+1, washed up by the wreck), **Obsidian Dagger** (+2, on top of Obsidian Peak), **Ashen Blade** (+4, from the Warden).
+- **Items**: **Herb** (+4 Health), **Hearth Salve** (+8 Health), **Tonic** (+5 Stamina), **Ember Flask** (thrown in battle for 7 damage). Look for the glints: around the beach and fields, up the West Peak and the East Range, and from Hesta.
+- **Moves**: Punch, Kick, Flurry and Catch Breath to start, plus whatever the teachers show you.
+
+Your party's Health carries over between fights until you rest. Everything (items, weapons, moves, recruits, the Warden) is saved in the browser.
+
 ### The shy ghost
 
 When you get up, a dark figure is floating up ahead. Walk towards it and it backs away, always facing you, as fast as you can run. Chase it until it's pinned against the edge of the beach, and the darkness fades: it's Vivian, a shy ghost, who apologises for running and offers to teach you the basics (moving, jumping, the camera, and how battles work). Afterwards, walk up to her and press **B** to talk: she'll go over the basics again, have a practice fight with you, or **join your party**. In your party she floats along behind you everywhere and fights at your side (10 Health; Shadow Fist 2 SP for 2–3, Dark Flame 5 SP for 4–6, Catch Breath). Ask her to wait and she'll stay where you left her. Meeting and the lesson are remembered between visits (clear the site's storage to meet again). The ghost's name is `GHOST` at the top of `src/stages/beach.js`.
@@ -53,6 +77,10 @@ Touch screens get an on-screen stick plus A / B / Z buttons.
 - `src/audio.js`: music and voice lines
 - `src/stages/obsidian-fieldlands.js`: the basin below the beach (shares the beach's ground): slope, fields, obsidian, tall grass, enemies, the fog lifting
 - `src/fieldenemy.js`: enemies out in the world (Shardling, Thornback): wander, chase, start a battle on touch
+- `src/stages/lantern-hollow.js`: the valley and tavern east of the fieldlands, with Hesta, Marrow and Old Bruno
+- `src/stages/hollow-throne.js`: the boss arena west of the fieldlands, the fog gate and the Hollow Warden
+- `src/npc.js`: people built from simple shapes, who look at you when you come near
+- `src/items.js`, `src/save.js`, `src/inventory.js`, `src/pickup.js`: items, weapons and learnable moves; the save; the bag screen; things to pick up
 - `src/ghost.js`: the shy ghost (backs away until cornered, darkness fading off)
 - `src/dialogue.js`: dialogue box with typed-out text and choices
 - `src/battle.js`: turn-based battles: battle slots, fighter pictures, the Fight / Item / Run menu, battle camera
@@ -72,6 +100,6 @@ Traffic cone hat: "Traffic Cone" by [hinndia](https://sketchfab.com/hinndia) on 
 
 Ghost model: "Vivian" by [Peardian](https://sketchfab.com/Peardian) on [Sketchfab](https://sketchfab.com/3d-models/vivian-8a2afe0fea6f4e558c24289bf40d5ad4), licensed [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/).
 
-Battle music ("Enemy") and Obsidian Fieldlands music ("Steam Gardens", from Nintendo's Super Mario Odyssey): supplied by the project owner.
+Battle music ("Enemy"), the Hollow Warden's music ("The Filthy Mind" ft. SixteenMono) and Obsidian Fieldlands music ("Steam Gardens", from Nintendo's Super Mario Odyssey): supplied by the project owner.
 
 Voice lines: supplied by the project owner; from Nintendo's Super Mario 64.

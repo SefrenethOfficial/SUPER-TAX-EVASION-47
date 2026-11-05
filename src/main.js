@@ -1,19 +1,23 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Input } from './input.js?v=40';
-import { World } from './world.js?v=40';
-import { Player, buildCharacter } from './player.js?v=40';
-import { FX } from './fx.js?v=40';
-import { GameAudio } from './audio.js?v=40';
-import { Battle } from './battle.js?v=40';
-import { Dialogue } from './dialogue.js?v=40';
+import { Input } from './input.js?v=42';
+import { World } from './world.js?v=42';
+import { Player, buildCharacter } from './player.js?v=42';
+import { FX } from './fx.js?v=42';
+import { GameAudio } from './audio.js?v=42';
+import { Battle } from './battle.js?v=42';
+import { Dialogue } from './dialogue.js?v=42';
+import { MOVES } from './battle.js?v=42';
+import { LEARNABLE, WEAPONS, weaponMesh } from './items.js?v=42';
+import { save } from './save.js?v=42';
+import { Inventory } from './inventory.js?v=42';
 // The open world, one area per module.
-import * as blank from './stages/blank.js?v=40';
-import * as beach from './stages/beach.js?v=40';
+import * as blank from './stages/blank.js?v=42';
+import * as beach from './stages/beach.js?v=42';
 
 // Bump VERSION (and the ?v= on every local import) whenever files change,
 // so browsers never mix old and new code.
-const VERSION = '40';
+const VERSION = '42';
 const STAGES = { beach, blank };
 
 const canvas = document.getElementById('game');
@@ -50,6 +54,7 @@ function showHealth(h) {
 }
 addEventListener('keydown', (e) => {
   if (e.code === 'KeyH') help.classList.toggle('hidden');
+  if ((e.code === 'KeyI' || e.code === 'Tab') && player && S && !S.battle && !dialogue.active) { e.preventDefault(); bag.toggle(); }
   if (e.code === 'KeyM') audio.toggleMute();
   if (e.code === 'F3' || e.code === 'Backquote') { e.preventDefault(); debug.classList.toggle('hidden'); }
 });
@@ -145,7 +150,7 @@ function loadStage(key, { from } = {}) {
   card.classList.remove('show'); void card.offsetWidth; if (S.mod.NAME) card.classList.add('show');
   showHealth(player.health);
   audio.music(mod.MUSIC);
-  window.__game = { renderer, scene, camera, cam, updateCamera, fx, input, audio, S, go, loadStage };
+  window.__game = { renderer, scene, camera, cam, updateCamera, fx, input, audio, S, go, loadStage, bag, game };
   window.__player = player;
 }
 
@@ -165,7 +170,72 @@ function talk(lines, { with: other = null } = {}) {
     return pick;
   });
 }
+// Your moves: the basics, plus any you've been taught.
+function playerMoves() {
+  return [...MOVES.slice(0, 3), ...save.learned.map((id) => LEARNABLE[id]).filter(Boolean), MOVES[3]];
+}
+
+// The weapon in your hand.
+let heldWeapon = null;
+function showWeapon(id) {
+  if (!character || !character.hand) return;
+  if (heldWeapon) { heldWeapon.parent.remove(heldWeapon); heldWeapon = null; }
+  if (!id || id === 'fists') return;
+  const w = weaponMesh(id);
+  const hand = character.hand;
+  hand.updateWorldMatrix(true, false);
+  const s = new THREE.Vector3(); hand.getWorldScale(s);
+  const holder = new THREE.Group();
+  holder.position.set(0, 1.05, 0);            // at the end of the forearm (bone units)
+  holder.scale.setScalar(1 / s.x);            // back to metres
+  holder.add(w);
+  hand.add(holder);
+  heldWeapon = holder;
+}
+
+// Each frame: keep the weapon pointing forward and a little up from your hand,
+// whatever the arm is doing.
+const _qw = new THREE.Quaternion(), _qp = new THREE.Quaternion(), _ew = new THREE.Euler();
+function aimWeapon() {
+  if (!heldWeapon || !player) return;
+  const state = player.state;
+  const swing = state === 'punch1' || state === 'punch2' || state === 'kick' ? 0.9 : 0;
+  _qw.setFromEuler(_ew.set(Math.PI / 2 - 0.95 + swing, player.yaw, 0, "YXZ"));
+  heldWeapon.parent.getWorldQuaternion(_qp);
+  heldWeapon.quaternion.copy(_qp.invert().multiply(_qw));
+}
+
+// Big banners (a boss's name, its defeat, yours) and small notices (picked something up).
+const bannerEl = $('banner'), toastEl = $('toast');
+function banner(text, kind = '') {
+  bannerEl.className = kind;
+  bannerEl.textContent = text;
+  void bannerEl.offsetWidth;
+  bannerEl.classList.add('show');
+  clearTimeout(banner.t);
+  banner.t = setTimeout(() => bannerEl.classList.remove('show'), 3600);
+}
+function toast(text) {
+  const el = document.createElement('div');
+  el.className = 'toastline';
+  el.textContent = text;
+  toastEl.append(el);
+  setTimeout(() => el.remove(), 3200);
+}
+
+const bag = new Inventory($('bag'), input, {
+  player: () => player,
+  getParty: () => [{ name: 'You', hp: player.health, maxHp: 8 }, ...game.partyInfo()],
+  onEquip: (id) => showWeapon(id),
+  baseMoves: MOVES,
+});
+
 const game = {
+  banner, toast, bag,
+  // fade out, do something (move you somewhere), fade back in
+  fade(fn) { fade.classList.add('on'); setTimeout(() => { fn(); setTimeout(() => fade.classList.remove('on'), 150); }, 420); },
+  // members of your party besides you, for the bag's party list (the area fills this in)
+  partyInfo: () => [],
   // change the music for the part of the area you're in (null = quiet)
   music(file) { if (S.areaMusic === file) return; S.areaMusic = file; if (!S.battle) audio.music(file); },
   // show an area title card
@@ -197,6 +267,7 @@ function startBattle(zone) {
     player.update(1 / 60, input, cam.yaw);
     const E = zone.enemy;
     const party = [{ name: 'You', hp: player.health, maxHp: 8, sp: player.stamina, maxSp: player.maxStamina, pos: sp.player.clone(), actor: player,
+      moves: playerMoves(), atkBonus: WEAPONS[save.equipped] ? WEAPONS[save.equipped].atk : 0,
       picture: { height: 1.7, dist: 2.0, yaw: player.yaw } }];
     // anyone travelling with you stands behind you and off to the side
     const ax = sp.enemy.x - sp.player.x, az = sp.enemy.z - sp.player.z, al = Math.hypot(ax, az) || 1;
@@ -290,6 +361,7 @@ const stageLoads = Object.entries(STAGES).flatMap(([k, m]) => Object.entries(m.M
   loadModel(file).then((g) => { (stageModels[k] ||= {})[name] = g.scene; })));
 Promise.all([loadGLB('character.glb'), loadGLB('cone.glb'), ...stageLoads]).then(([ch, cone]) => {
   character = buildCharacter(ch.scene, { wood, eye, cone: cone.scene });
+  setTimeout(() => showWeapon(save.equipped), 0);
   const first = new URLSearchParams(location.search).get('stage');
   loadStage(STAGES[first] ? first : 'beach');
   document.body.classList.add('loaded');
@@ -311,6 +383,10 @@ function step(dt) {
   input.update(dt);
   if (player && S) {
     dialogue.update(dt);
+    bag.update(dt);
+    player.locked = player.locked || bag.open;
+    if (bag.wasOpen && !bag.open && !dialogue.active && !S.battle) player.locked = false;
+    bag.wasOpen = bag.open;
     if (S.battle) {
       player.update(dt, input, cam.yaw);     // locked: just idles
       S.battle.update(dt);
@@ -333,6 +409,7 @@ function step(dt) {
       if (S.regen > 6) { S.regen = 0; player.health++; }
     }
     updateCamera(dt, player);
+    aimWeapon();
     if (S.level.update) S.level.update(dt, game);
     // exits to other areas
     if (!S.busy) {

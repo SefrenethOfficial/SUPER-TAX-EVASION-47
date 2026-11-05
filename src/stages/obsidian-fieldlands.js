@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { FieldEnemy } from '../fieldenemy.js?v=40';
-import { grassTuftTexture } from '../textures.js?v=40';
+import { FieldEnemy } from '../fieldenemy.js?v=42';
+import { grassTuftTexture } from '../textures.js?v=42';
 
 // ---------------------------------------------------------------------------
 // OBSIDIAN FIELDLANDS: a wide basin far below the beach, reached down a long
@@ -238,38 +238,47 @@ transformed.x += sway; transformed.z += sway * 0.5;`);
     ['thornback', -62, 300], ['thornback', 80, 360],
   ].map(([k, x, z]) => new FieldEnemy(scene, k, { x, z }, G));
 
-  // --- The fog lifting -----------------------------------------------------------------
+  // --- Weather: the fog lifting (and the gloom over the Hollow Throne) -----------------
+  // Three looks, blended between smoothly: grey beach fog, clear blue
+  // fieldlands, and a dark, smoky gloom up on the throne plateau.
   const sky = blueSky();
   scene.add(sky);
   const hemi = [];
   scene.traverse((o) => { if (o.isHemisphereLight) hemi.push(o); });
-  const grey = { fog: new THREE.Color(scene.fog.color), near: scene.fog.near, far: scene.fog.far, sun: world.sun.intensity, sunCol: world.sun.color.clone(), hemi: hemi.map((h) => h.intensity) };
-  const clear = { fog: new THREE.Color(0xc6dff3), near: 70, far: 560, sun: 1.5, sunCol: new THREE.Color(0xfff1d8), hemi: 2.1 };
+  const look = (o) => ({ fog: new THREE.Color(o.fog), near: o.near, far: o.far, sun: o.sun, sunCol: new THREE.Color(o.sunCol), hemi: o.hemi, cloud: o.cloud, sat: o.sat, tint: o.tint, skyLum: o.skyLum ?? 1 });
+  const LOOKS = {
+    grey: look({ fog: scene.fog.color.getHex(), near: scene.fog.near, far: scene.fog.far, sun: world.sun.intensity, sunCol: world.sun.color.getHex(), hemi: hemi[0] ? hemi[0].intensity : 1.5, cloud: 1, sat: 0.6, tint: [0.92, 0.93, 0.94] }),
+    clear: look({ fog: 0xc6dff3, near: 70, far: 560, sun: 1.5, sunCol: 0xfff1d8, hemi: 2.1, cloud: 0, sat: 1, tint: [1, 1, 1] }),
+    gloom: look({ fog: 0x2e2a30, near: 6, far: 120, sun: 0.35, sunCol: 0xd8b0a0, hemi: 0.85, cloud: 1, sat: 0.45, tint: [0.9, 0.82, 0.8], skyLum: 0.32 }),
+  };
+  const cur = look({ ...LOOKS.grey, fog: LOOKS.grey.fog.getHex(), sunCol: LOOKS.grey.sunCol.getHex() });
   overcast.material.transparent = true;
-  let t = 0, inside = false;
-  const tmp = new THREE.Color();
+  let inside = false;
 
   return {
     enemies,
     get inside() { return inside; },
-    // returns true the moment you enter (or leave) the fieldlands
-    update(dt, player) {
+    // gloom: you're on the throne plateau. Returns true the moment you enter (or leave) the fieldlands.
+    update(dt, player, gloom = false) {
       ctx.grassClock.value += dt;
       const was = inside;
       if (!inside && player.pos.z > ENTER_Z) inside = true;
       if (inside && player.pos.z < LEAVE_Z) inside = false;
-      t += Math.sign((inside ? 1 : 0) - t) * Math.min(Math.abs((inside ? 1 : 0) - t), dt * 0.7);
-      const k = t * t * (3 - 2 * t);
-      scene.fog.color.copy(tmp.copy(grey.fog).lerp(clear.fog, k));
-      scene.background.copy(scene.fog.color);
-      scene.fog.near = lerp(grey.near, clear.near, k);
-      scene.fog.far = lerp(grey.far, clear.far, k);
-      overcast.material.opacity = 1 - k;
-      overcast.visible = k < 0.999;
-      world.sun.intensity = lerp(grey.sun, clear.sun, k);
-      world.sun.color.copy(tmp.copy(grey.sunCol).lerp(clear.sunCol, k));
-      hemi.forEach((h, i) => { h.intensity = lerp(grey.hemi[i], clear.hemi, k); });
-      terrain.setGrade(lerp(0.6, 1.0, k), lerp(0.92, 1, k), lerp(0.93, 1, k), lerp(0.94, 1, k));
+      const L = gloom ? LOOKS.gloom : inside ? LOOKS.clear : LOOKS.grey;
+      const k = 1 - Math.exp(-dt * 1.3);
+      cur.fog.lerp(L.fog, k); cur.sunCol.lerp(L.sunCol, k);
+      for (const f of ['near', 'far', 'sun', 'hemi', 'cloud', 'sat', 'skyLum']) cur[f] = lerp(cur[f], L[f], k);
+      cur.tint = cur.tint.map((v, i) => lerp(v, L.tint[i], k));
+      scene.fog.color.copy(cur.fog);
+      scene.background.copy(cur.fog);
+      scene.fog.near = cur.near; scene.fog.far = cur.far;
+      overcast.material.opacity = cur.cloud;
+      overcast.material.color.setRGB(cur.skyLum, cur.skyLum * 0.95, cur.skyLum * 0.95);
+      overcast.visible = cur.cloud > 0.002;
+      world.sun.intensity = cur.sun;
+      world.sun.color.copy(cur.sunCol);
+      hemi.forEach((h) => { h.intensity = cur.hemi; });
+      terrain.setGrade(cur.sat, ...cur.tint);
       return was !== inside;
     },
   };
