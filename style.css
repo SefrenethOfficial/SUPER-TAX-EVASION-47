@@ -71,7 +71,7 @@ body:has(#start:not(.hidden)) #stars { display: none; }
 #health.show { opacity: 1; transform: none; }
 #health span { font-size: 30px; color: #fff; -webkit-text-stroke: 1.5px #1b1b3a; text-shadow: 2px 2px 0 #1b1b3a; }
 body:has(#start:not(.hidden)) #health { display: none; }
-body.no-coins #coins { display: none; }
+body.no-coins #coins, body.no-coins #stars { display: none; }
 
 #fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity .45s; }
 #fade.on { opacity: 1; }

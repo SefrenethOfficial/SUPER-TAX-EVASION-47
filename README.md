@@ -2,7 +2,9 @@
 
 ![SUPER TAX EVASION 47](assets/logo.png)
 
-A three.js 3D platformer in the spirit of Super Mario 64. The first stage is **Sunny Spire Hill**.
+A three.js 3D platformer in the spirit of Super Mario 64.
+
+**Right now the game is being rebuilt:** it starts in a blank area (`src/stages/blank.js`) with just the character and its moves. The old hub and Sunny Spire Hill below are still in `src/stages/` but aren't loaded.
 
 **Play:** open `index.html` through any static server (or GitHub Pages). No build step; three.js loads from a CDN.
 
@@ -20,11 +22,11 @@ A three.js 3D platformer in the spirit of Super Mario 64. The first stage is **S
 
 Touch screens get an on-screen stick plus A / B / Z buttons.
 
-## Tax Haven (hub)
+## Tax Haven (hub) (not in the game right now)
 
 The game starts in the castle lobby. Jump into the painting on the far wall to enter Sunny Spire Hill. When you clear the course you come back out of the painting. Stars you collect are saved in your browser.
 
-## Sunny Spire Hill
+## Sunny Spire Hill (not in the game right now)
 
 The course is a full level model in the style of Bob-omb Battlefield. You start at the north edge. A wooden plank bridge runs down into the lowland, where a stake stands in front of a gate. A ridge leads east to a round stone plaza, and a dirt path climbs a white stone slope to the mountain. A road winds round the mountain's terraces to the summit. Iron balls roll down the narrow road on the mountain's south-east side every few seconds; jump over them or get knocked flying. A wooden bridge spans the little valley by the small stone spire. A big stone spire stands in the north-west meadow, and an island floats above the field west of the mountain.
 

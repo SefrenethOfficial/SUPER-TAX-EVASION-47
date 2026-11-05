@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { MeshCollider } from '../collider.js?v=22';
-import { IronBalls } from '../ironball.js?v=22';
+import { MeshCollider } from '../collider.js?v=23';
+import { IronBalls } from '../ironball.js?v=23';
 
 // ---------------------------------------------------------------------------
 // SUNNY SPIRE HILL, built on the level model (assets/sunny-spire-hill.glb).

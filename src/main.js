@@ -1,21 +1,22 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Input } from './input.js?v=22';
-import { World } from './world.js?v=22';
-import { Player, buildCharacter } from './player.js?v=22';
-import { FX } from './fx.js?v=22';
-import { Coins } from './coins.js?v=22';
-import { Star } from './star.js?v=22';
-import { GameAudio } from './audio.js?v=22';
-import { CherryBomb, KingCherryBomb } from './enemies.js?v=22';
-import { Cannon } from './cannon.js?v=22';
-import * as hub from './stages/hub.js?v=22';
-import * as sunny from './stages/sunny-spire-hill.js?v=22';
+import { Input } from './input.js?v=23';
+import { World } from './world.js?v=23';
+import { Player, buildCharacter } from './player.js?v=23';
+import { FX } from './fx.js?v=23';
+import { Coins } from './coins.js?v=23';
+import { Star } from './star.js?v=23';
+import { GameAudio } from './audio.js?v=23';
+import { CherryBomb, KingCherryBomb } from './enemies.js?v=23';
+import { Cannon } from './cannon.js?v=23';
+// The old courses (stages/hub.js, stages/sunny-spire-hill.js) are out of the
+// game for now; it starts in a blank area while it's rebuilt.
+import * as blank from './stages/blank.js?v=23';
 
 // Bump VERSION (and the ?v= on every local import) whenever files change,
 // so browsers never mix old and new code.
-const VERSION = '22';
-const STAGES = { hub, sunny };
+const VERSION = '23';
+const STAGES = { blank };
 
 const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -193,7 +194,7 @@ function loadStage(key, { from } = {}) {
   document.body.classList.remove('has-reds');
   updateStarHud();
   const card = $('course-card');
-  card.classList.remove('show'); void card.offsetWidth; card.classList.add('show');
+  card.classList.remove('show'); void card.offsetWidth; if (S.mod.NAME) card.classList.add('show');
   showHealth(player.health);
   audio.music(mod.MUSIC);
   window.__game = { renderer, scene, camera, cam, updateCamera, fx, input, coins, audio, S, go, loadStage };
@@ -221,7 +222,7 @@ function onStarGet(st) {
   player.starGet();
   audio.jingle('course-clear.mp3', () => {
     S.closeStart = performance.now();
-    setTimeout(() => go('hub', { from: 'clear', iris: true }), 1000);
+    setTimeout(() => go(STAGES.hub ? 'hub' : S.key, { from: 'clear', iris: true }), 1000);
   });
 }
 
@@ -242,12 +243,12 @@ start.addEventListener('click', () => {
   // decode the course music now so it starts the moment you enter the painting
   for (const m of Object.values(STAGES)) if (m.MUSIC) audio.buffer(m.MUSIC);
   const card = $('course-card');
-  card.classList.remove('show'); void card.offsetWidth; card.classList.add('show');
+  card.classList.remove('show'); void card.offsetWidth; if (S.mod.NAME) card.classList.add('show');
   input.requestLock();
 });
 canvas.addEventListener('click', () => { if (!input.pointerLocked && start.classList.contains('hidden')) input.requestLock(); });
 
-// --- Load assets, then start in the hub ----------------------------------------------
+// --- Load assets, then start ----------------------------------------------
 const wood = texLoader.load(`assets/wood.jpg?v=${VERSION}`);
 wood.colorSpace = THREE.SRGBColorSpace;
 const eye = texLoader.load(`assets/eye.png?v=${VERSION}`);
@@ -261,7 +262,7 @@ Promise.all([loadGLB('character.glb'), loadGLB('cone.glb'), loadGLB('cherry-bomb
   bombModel = bomb.scene;
   starModel = star.scene;
   const first = new URLSearchParams(location.search).get('stage');
-  loadStage(STAGES[first] ? first : 'hub');
+  loadStage(STAGES[first] ? first : 'blank');
   document.body.classList.add('loaded');
 }).catch((err) => {
   console.error(err);

@@ -4,7 +4,7 @@ import * as THREE from 'three';
 // Tunables. Units are metres and seconds. The player is ~1.7 m tall.
 // ---------------------------------------------------------------------------
 const R = 0.35;            // collision radius
-const H = 1.6;             // collision height
+const H = 1.9;             // collision height
 const G = 38;              // gravity
 const MAX_FALL = 45;
 const RUN = 9;             // top running speed
@@ -152,7 +152,7 @@ export function buildCharacter(gltfScene, { wood, eye, cone } = {}) {
   }
 
   const height = modelBox.max.y - modelBox.min.y;
-  const scale = 1.7 / height;
+  const scale = 2.0 / height;   // a bit taller than before (was 1.7 m)
   const root = new THREE.Group();
   const holder = new THREE.Group();
   holder.scale.setScalar(scale);
@@ -737,7 +737,7 @@ export class Player {
   grabLedge(hit, top) {
     this.vy = 0; this.fwd = 0;
     this.yaw = Math.atan2(-hit.nx, -hit.nz);
-    this.pos.y = top - 1.45;
+    this.pos.y = top - 1.7;
     this.ledgeStart = this.pos.clone();
     const back = hit.terrain ? R + 1.0 : R + 0.45;
     this.ledgeEnd = new THREE.Vector3(this.pos.x - hit.nx * back, top, this.pos.z - hit.nz * back);
