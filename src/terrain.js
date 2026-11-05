@@ -17,7 +17,9 @@ export class Terrain {
   // grade: { sat, tint } colour grading for moodier areas (sat 1 = untouched).
   // fields: { x, z, r }: inside this circle the grass is a patchwork of fields.
   // sandMaxZ: no sand north of this (so low ground far inland stays grass).
-  constructor({ minX, maxX, minZ, maxZ, res, height, paths = [], grass, cliff, path, rock = null, rockZone = null, sand = null, sandTop = -1e9, sandMaxZ = 1e9, grade = null, fields = null }) {
+  // groundZones: [{ x, z, r }, ...] (up to 6): flat ground inside these is the rock texture too (e.g. obsidian flats).
+  constructor({ minX, maxX, minZ, maxZ, res, height, paths = [], grass, cliff, path, rock = null, rockZone = null, sand = null, sandTop = -1e9, sandMaxZ = 1e9, grade = null, fields = null, groundZones = [] }) {
+    this.groundZones = Array.from({ length: 6 }, (_, i) => (groundZones[i] ? new THREE.Vector3(groundZones[i].x, groundZones[i].z, groundZones[i].r) : new THREE.Vector3(0, 0, -1)));
     this.sandMaxZ = sandMaxZ;
     this.grade = grade || { sat: 1, tint: new THREE.Color(1, 1, 1) };
     this.uSat = { value: this.grade.sat };
@@ -135,6 +137,7 @@ export class Terrain {
       sh.uniforms.gradeSat = this.uSat;
       sh.uniforms.fieldZone = { value: this.fieldZone };
       sh.uniforms.sandMaxZ = { value: this.sandMaxZ };
+      sh.uniforms.groundZones = { value: this.groundZones };
       sh.uniforms.gradeTint = { value: this.grade.tint };
       sh.vertexShader = sh.vertexShader
         .replace('#include <common>', `#include <common>
@@ -145,7 +148,7 @@ vPath = aPath; vPathUV = aPathUV; vWPos = position; vWN = normal;`);
       sh.fragmentShader = sh.fragmentShader
         .replace('#include <common>', `#include <common>
 uniform sampler2D grassMap; uniform sampler2D cliffMap; uniform sampler2D pathMap; uniform sampler2D rockMap; uniform vec3 rockZone;
-uniform sampler2D sandMap; uniform float sandTop; uniform float gradeSat; uniform vec3 gradeTint; uniform vec3 fieldZone; uniform float sandMaxZ;
+uniform sampler2D sandMap; uniform float sandTop; uniform float gradeSat; uniform vec3 gradeTint; uniform vec3 fieldZone; uniform float sandMaxZ; uniform vec3 groundZones[6];
 float fhash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 varying float vPath; varying vec2 vPathUV; varying vec3 vWPos; varying vec3 vWN;`)
         .replace('#include <map_fragment>', `
@@ -169,6 +172,16 @@ if (fieldZone.z > 0.0) {
 // sand below the beach line, with a wobbly edge
 float sandEdge = sandTop + 0.5 * sin(vWPos.x * 0.21) + 0.35 * sin(vWPos.z * 0.17 + vWPos.x * 0.05);
 g = mix(g, texture2D(sandMap, vWPos.xz / 3.0), (1.0 - smoothstep(sandEdge - 0.35, sandEdge + 0.35, vWPos.y)) * (1.0 - smoothstep(sandMaxZ - 15.0, sandMaxZ, vWPos.z)));
+// rock ground zones (obsidian flats), with ragged edges
+float inG = 0.0;
+for (int k = 0; k < 6; k++) {
+  vec3 zn = groundZones[k];
+  if (zn.z > 0.0) {
+    float wob = 2.5 * sin(atan(vWPos.z - zn.y, vWPos.x - zn.x) * 5.0 + zn.x) + 1.5 * sin(vWPos.x * 0.3 + vWPos.z * 0.2);
+    inG = max(inG, 1.0 - smoothstep(zn.z * 0.75, zn.z, distance(vWPos.xz, zn.xy) + wob));
+  }
+}
+g = mix(g, texture2D(rockMap, vWPos.xz / 3.0) * vec4(1.15, 1.15, 1.2, 1.0), inG);
 vec2 cuv = abs(tn.x) > abs(tn.z) ? vWPos.zy : vWPos.xy;
 vec4 c = texture2D(cliffMap, cuv / 2.0);
 float inRock = 1.0 - step(rockZone.z, distance(vWPos.xz, rockZone.xy));

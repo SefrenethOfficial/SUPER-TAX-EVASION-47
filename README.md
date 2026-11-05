@@ -10,7 +10,7 @@ The first area. You wake up face down on the sand in thick sea fog under a heavy
 
 ## Obsidian Fieldlands
 
-Past the grassland north of the beach, a dirt path runs down a long slope to a wide basin way below. From above it's lost in the fog; step down into it and the fog lifts, the sky turns blue and the fieldlands' music starts (and the fog comes back if you climb up to the beach again). It's a patchwork of grass fields with patches of tall grass swaying in the wind, spires and boulders of black volcanic glass, and obsidian cliffs all round.
+Past the grassland north of the beach, a dirt path runs down a long slope to a wide basin way below. From above it's lost in the fog; step down into it and the fog lifts, the sky turns blue and the fieldlands' music starts (and the fog comes back if you climb up to the beach again). It's a patchwork of grass fields with patches of tall grass swaying in the wind, broken up by **obsidian flats** (patches of black glass ground bristling with forests of glass spires and shards) and **mountains**: the tall West Peak, the East Range, the North Ridge and **Obsidian Peak**, a mountain of black glass crowned with great spires. Jagged peaks rise behind the obsidian cliffs all round.
 
 **Enemies** roam the fields: **Shardlings** (little hopping shards of obsidian; 8 Health, hit for 2) and **Thornbacks** (mossy grazers with obsidian spines; 15 Health, hit for 3). They wander, chase you when you get close, and touching one starts a battle. Beaten enemies are gone; run away and they leave you alone for a few seconds. If your party is knocked out you come round on the beach again, and the enemies are back. Out of battle your Health slowly comes back.
 

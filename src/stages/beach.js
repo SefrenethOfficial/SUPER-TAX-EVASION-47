@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { Terrain } from '../terrain.js?v=39';
-import { ShyGhost } from '../ghost.js?v=39';
-import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture, obsidianTexture } from '../textures.js?v=39';
-import * as Fieldlands from './obsidian-fieldlands.js?v=39';
+import { Terrain } from '../terrain.js?v=40';
+import { ShyGhost } from '../ghost.js?v=40';
+import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture, obsidianTexture } from '../textures.js?v=40';
+import * as Fieldlands from './obsidian-fieldlands.js?v=40';
 
 // ---------------------------------------------------------------------------
 // THE WASHED-UP BEACH: the first area of the open world. You wake up face down
@@ -166,6 +166,7 @@ export function build(world, { models = {} } = {}) {
     grass: grassTexture(), cliff: rockTexture(), path: dirtTexture(),
     rock: obsidianTexture(), rockZone: new THREE.Vector3(Fieldlands.CENTRE.x, Fieldlands.CENTRE.z, 175),   // obsidian cliffs round the basin
     fields: { x: Fieldlands.CENTRE.x, z: Fieldlands.CENTRE.z, r: 150 },
+    groundZones: Fieldlands.OBSIDIAN_FLATS,                    // patches of black glass ground
     sand: sandTexture(), sandTop: SAND_TOP, sandMaxZ: 70,
     grade: { sat: 0.6, tint: new THREE.Color(0.92, 0.93, 0.94) },
   });
