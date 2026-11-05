@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { MeshCollider } from '../collider.js?v=21';
+import { MeshCollider } from '../collider.js?v=22';
+import { IronBalls } from '../ironball.js?v=22';
 
 // ---------------------------------------------------------------------------
 // SUNNY SPIRE HILL, built on the level model (assets/sunny-spire-hill.glb).
@@ -23,6 +24,8 @@ const SCALE = 10.6;                                  // model units -> metres
 const SUMMIT = { x: -24, z: 42 };
 const ISLAND = { x: -38, z: -21 };
 const PLAZA = { x: 69.2, z: -66.9 };                 // the round stone plaza (a cannon hole in its middle)
+// The narrow road up the mountain's south-east side, top to bottom: iron balls roll down it.
+const BALL_PATH = [[4.86, 78.91, 34.9], [6.31, 78.55, 34.1], [7.78, 78.33, 33.5], [9.24, 77.82, 32.7], [10.63, 77.17, 31.8], [12.01, 76.53, 30.9], [13.47, 76.04, 30.1], [14.78, 75.34, 29.2], [16.05, 74.58, 28.2], [17.38, 73.96, 27.4], [18.68, 73.3, 26.5], [20.05, 72.71, 25.6], [21.55, 72.25, 24.8], [22.96, 71.64, 23.9], [24.27, 70.95, 23.0], [25.61, 70.32, 22.2], [26.88, 69.59, 21.3], [28.21, 68.99, 20.4], [29.67, 68.5, 19.6], [31.18, 68.06, 18.8], [32.51, 67.35, 17.9], [33.88, 66.8, 17.1], [35.24, 66.17, 16.2], [36.61, 65.5, 15.3], [37.95, 64.79, 14.3], [39.88, 64.42, 13.5]];
 const STAKE = { x: 4, z: -58 };                      // in the lowland, in front of the gate
 const GATE = { x: -6, z: -56.4 };
 const BIG_SPIRE = { x: -48, z: -56 };                // the big cobblestone spire
@@ -190,8 +193,14 @@ gl_Position = projectionMatrix * mvPosition;`);
   // --- Stake: count ground pounds on top of it ------------------------------------
   const stakeH0 = stake.max.y - stake.min.y;
   let pounds = 0, pounding = false;
+  // --- Iron balls rolling down the mountain road ----------------------------------
+  const ballTex = world.loader.load(`assets/iron-ball.png?v=${world.version}`);
+  ballTex.colorSpace = THREE.SRGBColorSpace;
+  const balls = new IronBalls(scene, world, BALL_PATH, { texture: ballTex, every: 4.5 });
+
   const update = (dt, game) => {
     const P = game.player;
+    balls.update(dt, P);
     const onStake = Math.abs(P.pos.x - STAKE.x) < 0.8 && Math.abs(P.pos.z - STAKE.z) < 0.8 && Math.abs(P.pos.y - stake.max.y) < 0.08;
     if (P.state === 'gp_land' && onStake && !pounding && pounds < 3) {
       pounding = true;
@@ -233,4 +242,4 @@ gl_Position = projectionMatrix * mvPosition;`);
 }
 
 // For tests and tooling.
-export const layout = { SUMMIT, ISLAND, PLAZA, STAKE, GATE, BIG_SPIRE, SMALL_SPIRE, CANNONS };
+export const layout = { BALL_PATH, SUMMIT, ISLAND, PLAZA, STAKE, GATE, BIG_SPIRE, SMALL_SPIRE, CANNONS };
