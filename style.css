@@ -137,3 +137,18 @@ body.in-battle #logo, body.in-battle #hint, body.in-battle #health { display: no
 .bmenu button .cost { margin-left: auto; font-size: 13px; font-weight: 400; opacity: .8; }
 .bmenu button.sel::before { margin-right: 4px; }
 .bdmg.sp { color: #8fd277; font-size: 24px; }
+
+/* --- Dialogue ----------------------------------------------------------------------- */
+#dialogue { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(12px); width: min(760px, calc(100vw - 32px)); min-height: 112px; padding: 26px 26px 18px; box-sizing: border-box;
+  background: rgba(14,15,17,.86); border: 2px solid rgba(201,195,178,.55); border-radius: 4px; box-shadow: 0 8px 24px rgba(0,0,0,.55);
+  color: #ece9e0; font: 18px/1.45 Georgia, 'Times New Roman', serif; letter-spacing: .02em; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; cursor: pointer; }
+#dialogue.on { opacity: 1; pointer-events: auto; transform: translateX(-50%); }
+#dialogue .dname { position: absolute; top: -15px; left: 18px; padding: 3px 14px; background: #2b2e31; border: 2px solid rgba(201,195,178,.7); border-radius: 3px; font-weight: 700; font-size: 16px; letter-spacing: .08em; }
+#dialogue .dnext { position: absolute; right: 16px; bottom: 8px; font-size: 13px; opacity: 0; }
+#dialogue.ready .dnext { opacity: .8; animation: dnext 1s ease-in-out infinite; }
+@keyframes dnext { 50% { transform: translateY(3px); } }
+#dialogue .dchoices { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+#dialogue .dchoices button { font: 700 16px Georgia, 'Times New Roman', serif; color: #ece9e0; padding: 7px 16px; cursor: pointer; background: rgba(20,22,24,.9); border: 2px solid rgba(201,195,178,.45); border-radius: 3px; }
+#dialogue .dchoices button.sel { border-color: #e8dfc4; background: rgba(60,58,50,.95); }
+#dialogue .dchoices button.sel::before { content: '\25B8  '; }
+body.talking #logo, body.talking #hint { opacity: .35; }

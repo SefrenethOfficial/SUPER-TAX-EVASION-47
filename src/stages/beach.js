@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import { Terrain } from '../terrain.js?v=30';
-import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture } from '../textures.js?v=30';
+import { Terrain } from '../terrain.js?v=32';
+import { ShyGhost } from '../ghost.js?v=32';
+import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture } from '../textures.js?v=32';
 
 // ---------------------------------------------------------------------------
 // THE WASHED-UP BEACH: the first area of the open world. You wake up face down
@@ -12,6 +13,29 @@ import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, wate
 
 export const NAME = 'Washed-Up Beach';
 export const MUSIC = null;
+export const MODELS = { ghost: 'ghost.glb' };
+
+// The ghost's name. Change it here.
+const GHOST = 'Vivian';
+
+// What you've done here, kept while the page is open (and across visits).
+const progress = (() => { try { return JSON.parse(localStorage.getItem('ste47-beach') || '{}'); } catch (_) { return {}; } })();
+const saveProgress = () => { try { localStorage.setItem('ste47-beach', JSON.stringify(progress)); } catch (_) { /* no storage */ } };
+
+// --- What the ghost says -----------------------------------------------------------
+const basics = () => [
+  { who: GHOST, text: "Okay! Um. Let's see... You move with WASD, or the left stick. Hold C if you want to walk slowly." },
+  { who: GHOST, text: 'Space jumps. If you jump again just as you land, you go higher. Three in a row and you really fly.' },
+  { who: GHOST, text: 'Shift crouches. Crouch while you run and then jump, and you leap a long way. Press Shift in the air to slam down.' },
+  { who: GHOST, text: 'In the air, next to a wall, jump again to kick off it. And you can grab onto ledges and climb up.' },
+  { who: GHOST, text: "J, X or a click to punch. Punch while you're running and you dive forward." },
+  { who: GHOST, text: 'The mouse moves the camera. Or Q and E, R and F. H shows all the controls if you forget.' },
+  { who: GHOST, text: "Fights here go in turns. Pick Fight and you choose a move. Every move costs Stamina..." },
+  { who: GHOST, text: "...so watch it. If you run low, Catch Breath gets some back. And if it goes badly, you can always Run." },
+  { who: GHOST, text: "There's a training dummy in the ring of stones, near where you woke up. Try it out on that. Stand in the ring and press B." },
+  { who: GHOST, text: "That's... all the basics. Sorry if that was too much." },
+];
+
 
 const SEA = 0;                 // water level
 const SAND_TOP = 2.6;          // sand below this height, grass above
@@ -118,7 +142,7 @@ function palm(rng) {
   return { group: g, top };
 }
 
-export function build(world) {
+export function build(world, { models = {} } = {}) {
   const scene = world.scene;
   // --- Overcast: a grey sky, mist, flat light ------------------------------------
   // thick sea fog: you can barely see past the wreck
@@ -264,8 +288,12 @@ export function build(world) {
 
   // --- Waves lapping: drift the water textures --------------------------------------
   let t = 0;
-  const update = (dt) => {
+  const update = (dt, game) => {
     t += dt;
+    if (ghost && game) {
+      ghost.update(dt, game.player);
+      if (ghost.state === 'cornered' && !talking) meet(game);
+    }
     wt.offset.set(t * 0.004, t * 0.012);
     wt2.offset.set(-t * 0.006, t * 0.008);
     sea.position.y = SEA + Math.sin(t * 0.9) * 0.06;
@@ -315,6 +343,52 @@ export function build(world) {
     enemy: { name: 'Training Dummy', maxHp: 10, maxSp: 5, atk: 1, attackText: 'wobbles back at you', model: dummy, picture: { height: 1.85, dist: 2.0, yaw: -Math.PI / 2 } },
   }];
 
+  // --- The shy ghost -----------------------------------------------------------------
+  // A dark figure floats ahead of where you wake up. It backs away from you until
+  // you corner it against the west end of the beach.
+  let ghost = null, met = !!progress.metGhost, talking = false;
+  if (models.ghost) {
+    const start = met ? progress.ghostAt : { x: -3, z: 2 };
+    ghost = new ShyGhost(scene, models.ghost.clone(), {
+      pos: start, ground: G, height: 1.9,
+      region: { minX: -60, maxX: 10, minZ: -14, maxZ: 32 },
+    });
+    if (met) { ghost.reveal = 1; ghost.setLook(); ghost.state = 'idle'; }
+  }
+
+  // Corner it: the darkness fades and it talks to you.
+  const meet = (game) => {
+    talking = true;
+    ghost.startReveal();
+    progress.metGhost = true; progress.ghostAt = { x: ghost.pos.x, z: ghost.pos.z }; saveProgress();
+    game.talk([
+      { who: '???', text: 'Eek! N-no, please! Don’t hurt me!' },
+      { who: '???', text: '...' },
+      { who: '???', text: "Oh. You're... not one of them, are you? You washed up with that wreck." },
+      { who: '???', text: "I'm sorry I kept running. Everyone who sees me screams, so I... I hide. I'm a ghost, you see." },
+      { who: GHOST, text: `I'm ${GHOST}. It's... nice to meet you.` },
+      { who: GHOST, text: 'You look lost. If you want... I could teach you the basics. How to get around, and how to fight. Only if you want to.',
+        choices: ['Yes, please', 'Not right now'],
+        then: (k) => {
+          if (k === 0) { progress.taught = true; saveProgress(); return [...basics(), { who: GHOST, text: "I'll be here, if you need me again." }]; }
+          return [{ who: GHOST, text: "Oh. That's okay. I'll... be right here if you change your mind." }];
+        } },
+    ], { with: ghost.root.position }).then(() => { talking = false; });
+  };
+  // Talk to it again later.
+  const chat = (game) => {
+    talking = true;
+    game.talk([
+      { who: GHOST, text: progress.taught ? 'Oh! Hello again. Do you want me to go over the basics again?' : 'Oh, hello again. Did you... want me to teach you the basics after all?',
+        choices: ['Yes, please', 'No, thanks'],
+        then: (k) => {
+          if (k === 0) { progress.taught = true; saveProgress(); return basics(); }
+          return [{ who: GHOST, text: 'Okay. Be careful out there.' }];
+        } },
+    ], { with: ghost.root.position }).then(() => { talking = false; });
+  };
+  const ghostNear = (P) => ghost && ghost.state === 'idle' && Math.hypot(P.pos.x - ghost.pos.x, P.pos.z - ghost.pos.z) < 3.2;
+
   // You wash up face down a few metres from the water, head towards the land.
   const sx = 0, sz = shoreZ(0) + 6;
   return {
@@ -322,7 +396,10 @@ export function build(world) {
     spawnYaw: 0,
     startLying: true,
     update,
+    ghost,   // for tests
     battleZones,
+    // B near the ghost: talk
+    interact: (game) => (ghostNear(game.player) && !talking ? { text: 'B — Talk', go: () => chat(game) } : null),
   };
 }
 

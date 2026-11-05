@@ -8,6 +8,10 @@ An open-world Metroidvania Soulslike in three.js, with Super Mario 64-style move
 
 The first area. You wake up face down on the sand in thick sea fog under a heavy grey sky, next to the wreck of the ship you came in on: a broken hull on its side, the snapped mast, crates, barrels and planks along the tideline. Press anything to get up. The sea is to the south (you can wade in up to your waist); the beach rises through dunes to grassland and dark pines in the north, between two rocky headlands.
 
+### The shy ghost
+
+When you get up, a dark figure is floating up ahead. Walk towards it and it backs away, always facing you, as fast as you can run. Chase it until it's pinned against the edge of the beach, and the darkness fades off it: it's Vivian, a shy ghost, who apologises for running and offers to teach you the basics (moving, jumping, the camera, and how battles work). Say no and you can ask again later: walk up and press **B** to talk. Meeting and the lesson are remembered between visits (clear the site's storage to meet again). The ghost's name is `GHOST` at the top of `src/stages/beach.js`.
+
 ### Battles (work in progress)
 
 Battles are turn-based. For now there's a temporary test ring of stones on the beach, just inland from where you wake up, with a training dummy in it: walk into the ring and press **B** to start a battle. Each side gets a battle slot (a checkered panel showing Health and Stamina) with a picture of the fighter above it. The commands are **Fight**, **Item** (no items yet) and **Run** (ends the battle).
@@ -41,6 +45,8 @@ Touch screens get an on-screen stick plus A / B / Z buttons.
 - `src/terrain.js`: heightmap terrain (sand, grass, rock and path blending, colour grading)
 - `src/textures.js`: procedural textures (sand, grass, rock, dirt, planks, water) painted at load time
 - `src/audio.js`: music and voice lines
+- `src/ghost.js`: the shy ghost (backs away until cornered, darkness fading off)
+- `src/dialogue.js`: dialogue box with typed-out text and choices
 - `src/battle.js`: turn-based battles: battle slots, fighter pictures, the Fight / Item / Run menu, battle camera
 - `src/stages/beach.js`: the washed-up beach (terrain, sea, wreck, palms, overcast sky)
 - `src/input.js`: keyboard, mouse, gamepad and touch
@@ -55,5 +61,7 @@ When you change any file, bump `VERSION` and the `?v=` numbers in `src/main.js` 
 Character model: "Fully Rigged Low Poly Character for blender" by [satyasrichaitanya360](https://sketchfab.com/satyasrichaitanya360) on [Sketchfab](https://sketchfab.com/3d-models/fully-rigged-low-poly-character-for-blender-dd918a1760be4849ac1026daa2c58b75), licensed [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/).
 
 Traffic cone hat: "Traffic Cone" by [hinndia](https://sketchfab.com/hinndia) on [Sketchfab](https://sketchfab.com/3d-models/traffic-cone-573feef839d7450cb3e12da9986e7a98), licensed [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/).
+
+Ghost model: "Vivian" by [Peardian](https://sketchfab.com/Peardian) on [Sketchfab](https://sketchfab.com/3d-models/vivian-8a2afe0fea6f4e558c24289bf40d5ad4), licensed [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/).
 
 Voice lines: supplied by the project owner; from Nintendo's Super Mario 64.

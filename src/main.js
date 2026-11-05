@@ -1,18 +1,19 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Input } from './input.js?v=30';
-import { World } from './world.js?v=30';
-import { Player, buildCharacter } from './player.js?v=30';
-import { FX } from './fx.js?v=30';
-import { GameAudio } from './audio.js?v=30';
-import { Battle, portrait } from './battle.js?v=30';
+import { Input } from './input.js?v=32';
+import { World } from './world.js?v=32';
+import { Player, buildCharacter } from './player.js?v=32';
+import { FX } from './fx.js?v=32';
+import { GameAudio } from './audio.js?v=32';
+import { Battle, portrait } from './battle.js?v=32';
+import { Dialogue } from './dialogue.js?v=32';
 // The open world, one area per module.
-import * as blank from './stages/blank.js?v=30';
-import * as beach from './stages/beach.js?v=30';
+import * as blank from './stages/blank.js?v=32';
+import * as beach from './stages/beach.js?v=32';
 
 // Bump VERSION (and the ?v= on every local import) whenever files change,
 // so browsers never mix old and new code.
-const VERSION = '30';
+const VERSION = '32';
 const STAGES = { beach, blank };
 
 const canvas = document.getElementById('game');
@@ -76,7 +77,14 @@ function updateCamera(dt, player) {
     cam.yaw += d * Math.min(1, dt * 0.9) * (player.fwd / 9);
   }
   // Follow x/z tightly; follow height lazily mid-air so jumps don't bob the view.
-  const p = player.pos;
+  // in a conversation, swing round over your shoulder so you can see who you're talking to
+  if (S.talkWith) {
+    const want = Math.atan2(S.talkWith.x - player.pos.x, S.talkWith.z - player.pos.z) + Math.PI + 0.95;
+    cam.yaw += Math.atan2(Math.sin(want - cam.yaw), Math.cos(want - cam.yaw)) * Math.min(1, dt * 3);
+    cam.pitch += (0.2 - cam.pitch) * Math.min(1, dt * 3);
+  }
+  // ...and frame both of you
+  const p = S.talkWith ? player.pos.clone().lerp(S.talkWith, 0.5) : player.pos;
   const k = 1 - Math.exp(-10 * dt);
   cam.focus.x += (p.x - cam.focus.x) * k;
   cam.focus.z += (p.z - cam.focus.z) * k;
@@ -108,7 +116,7 @@ function loadStage(key, { from } = {}) {
   const world = new World(scene, VERSION);
   world.low = LOW;
   const fx = new FX(scene);
-  const level = mod.build(world);
+  const level = mod.build(world, { models: stageModels[key] || {} });
 
   if (!player) {
     player = new Player(world, character, fx);
@@ -129,7 +137,7 @@ function loadStage(key, { from } = {}) {
   if (level.startLying && !entry) player.setState('washed');   // wake up on the ground
 
   player.tryGrab = null; player.onThrow = null;
-  S = { key, mod, scene, world, fx, level, portals: level.portals || [], battleZones: level.battleZones || [], battle: null, busy: false };
+  S = { key, mod, scene, world, fx, level, portals: level.portals || [], battleZones: level.battleZones || [], battle: null, busy: false, talkWith: null };
 
   resetCamera(player);
   document.querySelectorAll('.course-name').forEach((el) => { el.textContent = mod.NAME; });
@@ -140,6 +148,24 @@ function loadStage(key, { from } = {}) {
   window.__game = { renderer, scene, camera, cam, updateCamera, fx, input, audio, S, go, loadStage };
   window.__player = player;
 }
+
+// --- Conversations ---------------------------------------------------------------------
+const dialogue = new Dialogue($('dialogue'), input);
+// talk(lines, { with: Vector3 }) -> Promise of the last choice. You stand still while talking.
+function talk(lines, { with: other = null } = {}) {
+  player.locked = true;
+  player.fwd = 0;
+  S.talkWith = other;
+  if (other) player.yaw = Math.atan2(other.x - player.pos.x, other.z - player.pos.z);   // turn to face them
+  document.body.classList.add('talking');
+  return dialogue.say(lines).then((pick) => {
+    player.locked = false;
+    S.talkWith = null;
+    document.body.classList.remove('talking');
+    return pick;
+  });
+}
+const game = { get player() { return player; }, get fx() { return S.fx; }, input, talk, get talking() { return dialogue.active; }, get battling() { return !!S.battle; } };
 
 // --- Battles -------------------------------------------------------------------------
 const promptEl = $('prompt');
@@ -209,7 +235,31 @@ wood.colorSpace = THREE.SRGBColorSpace;
 const eye = texLoader.load(`assets/eye.png?v=${VERSION}`);
 const gltfLoader = new GLTFLoader();
 const loadGLB = (url) => new Promise((res, rej) => gltfLoader.load(`assets/${url}?v=${VERSION}`, res, undefined, rej));
-Promise.all([loadGLB('character.glb'), loadGLB('cone.glb')]).then(([ch, cone]) => {
+// Some models use the old spec-gloss material extension three.js no longer
+// reads; give those meshes a plain material with their diffuse texture.
+async function loadModel(url) {
+  const g = await loadGLB(url);
+  const json = g.parser.json, jobs = [];
+  g.scene.traverse((o) => {
+    if (!o.isMesh) return;
+    const a = g.parser.associations.get(o.material);
+    const md = a && json.materials && json.materials[a.materials];
+    const sg = md && md.extensions && md.extensions.KHR_materials_pbrSpecularGlossiness;
+    if (sg && sg.diffuseTexture) {
+      jobs.push(g.parser.getDependency('texture', sg.diffuseTexture.index).then((t) => {
+        t.colorSpace = THREE.SRGBColorSpace;
+        o.material = new THREE.MeshLambertMaterial({ map: t, side: md.doubleSided ? THREE.DoubleSide : THREE.FrontSide });
+      }));
+    }
+  });
+  await Promise.all(jobs);
+  return g;
+}
+// models each area asks for (export MODELS = { name: 'file.glb' })
+const stageModels = {};
+const stageLoads = Object.entries(STAGES).flatMap(([k, m]) => Object.entries(m.MODELS || {}).map(([name, file]) =>
+  loadModel(file).then((g) => { (stageModels[k] ||= {})[name] = g.scene; })));
+Promise.all([loadGLB('character.glb'), loadGLB('cone.glb'), ...stageLoads]).then(([ch, cone]) => {
   character = buildCharacter(ch.scene, { wood, eye, cone: cone.scene });
   const first = new URLSearchParams(location.search).get('stage');
   loadStage(STAGES[first] ? first : 'beach');
@@ -231,23 +281,25 @@ function frame() {
 function step(dt) {
   input.update(dt);
   if (player && S) {
+    dialogue.update(dt);
     if (S.battle) {
       player.update(dt, input, cam.yaw);     // locked: just idles
       S.battle.update(dt);
-      if (S.level.update) S.level.update(dt, { player, fx: S.fx });
+      if (S.level.update) S.level.update(dt, game);
       S.fx.update(dt);
       if (!window.__noRender) renderer.render(S.scene, camera);
       return;
     }
-    // battle zones: B starts a battle (instead of punching)
-    const zone = !S.busy && !fade.classList.contains('on') && player.grounded && player.state === 'ground'
-      ? S.battleZones.find((z) => Math.hypot(player.pos.x - z.x, player.pos.z - z.z) < z.r) : null;
-    promptEl.textContent = zone ? 'B — Start a test battle' : '';
-    promptEl.classList.toggle('on', !!zone);
-    if (zone && input.pressed.B) { promptEl.classList.remove('on'); input.pressed.B = false; player.locked = true; startBattle(zone); }
+    // things to do with B (instead of punching): talk to someone, start a battle
+    const free = !S.busy && !dialogue.active && !fade.classList.contains('on') && player.grounded && player.state === 'ground';
+    const zone = free ? S.battleZones.find((z) => Math.hypot(player.pos.x - z.x, player.pos.z - z.z) < z.r) : null;
+    const act = free ? (S.level.interact && S.level.interact(game)) || (zone && { text: 'B — Start a test battle', go: () => { player.locked = true; startBattle(zone); } }) : null;
+    promptEl.textContent = act ? act.text : '';
+    promptEl.classList.toggle('on', !!act);
+    if (act && input.pressed.B) { promptEl.classList.remove('on'); input.pressed.B = false; act.go(); }
     player.update(dt, input, cam.yaw);
     updateCamera(dt, player);
-    if (S.level.update) S.level.update(dt, { player, fx: S.fx });
+    if (S.level.update) S.level.update(dt, game);
     // exits to other areas
     if (!S.busy) {
       for (const p of S.portals) {
