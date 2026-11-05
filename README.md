@@ -8,6 +8,10 @@ An open-world Metroidvania Soulslike in three.js, with Super Mario 64-style move
 
 The first area. You wake up face down on the sand in thick sea fog under a heavy grey sky, next to the wreck of the ship you came in on: a broken hull on its side, the snapped mast, crates, barrels and planks along the tideline. Press anything to get up. The sea is to the south (you can wade in up to your waist); the beach rises through dunes to grassland and dark pines in the north, between two rocky headlands.
 
+### Battles (work in progress)
+
+Battles are turn-based. For now there's a temporary test ring of stones on the beach, just inland from where you wake up, with a training dummy in it: walk into the ring and press **B** to start a battle. Each side gets a battle slot (a checkered panel showing Health and Stamina) with a picture of the fighter above it. The commands are **Fight** (does nothing yet), **Item** (no items yet) and **Run** (ends the battle). Pick with the stick / arrow keys and **A**, or click; **B** goes back.
+
 `src/stages/blank.js` is an empty test area (`?stage=blank`).
 
 **Play:** open `index.html` through any static server (or GitHub Pages). No build step; three.js loads from a CDN.
@@ -35,6 +39,7 @@ Touch screens get an on-screen stick plus A / B / Z buttons.
 - `src/terrain.js`: heightmap terrain (sand, grass, rock and path blending, colour grading)
 - `src/textures.js`: procedural textures (sand, grass, rock, dirt, planks, water) painted at load time
 - `src/audio.js`: music and voice lines
+- `src/battle.js`: turn-based battles: battle slots, fighter pictures, the Fight / Item / Run menu, battle camera
 - `src/stages/beach.js`: the washed-up beach (terrain, sea, wreck, palms, overcast sky)
 - `src/input.js`: keyboard, mouse, gamepad and touch
 - `src/fx.js`: dust, sparkles, impact shockwave, camera shake

@@ -237,6 +237,7 @@ export class Player {
     this.lastFloor = 0;
     this.inDir = new THREE.Vector2(); this.inMag = 0; this.inYaw = 0;
     this.health = 8; this.invuln = 0; this.locked = false;
+    this.stamina = this.maxStamina = 10;
     this.root.visible = true;
   }
 

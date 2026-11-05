@@ -1,17 +1,18 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Input } from './input.js?v=26';
-import { World } from './world.js?v=26';
-import { Player, buildCharacter } from './player.js?v=26';
-import { FX } from './fx.js?v=26';
-import { GameAudio } from './audio.js?v=26';
+import { Input } from './input.js?v=28';
+import { World } from './world.js?v=28';
+import { Player, buildCharacter } from './player.js?v=28';
+import { FX } from './fx.js?v=28';
+import { GameAudio } from './audio.js?v=28';
+import { Battle, portrait } from './battle.js?v=28';
 // The open world, one area per module.
-import * as blank from './stages/blank.js?v=26';
-import * as beach from './stages/beach.js?v=26';
+import * as blank from './stages/blank.js?v=28';
+import * as beach from './stages/beach.js?v=28';
 
 // Bump VERSION (and the ?v= on every local import) whenever files change,
 // so browsers never mix old and new code.
-const VERSION = '26';
+const VERSION = '28';
 const STAGES = { beach, blank };
 
 const canvas = document.getElementById('game');
@@ -128,7 +129,7 @@ function loadStage(key, { from } = {}) {
   if (level.startLying && !entry) player.setState('washed');   // wake up on the ground
 
   player.tryGrab = null; player.onThrow = null;
-  S = { key, mod, scene, world, fx, level, portals: level.portals || [], busy: false };
+  S = { key, mod, scene, world, fx, level, portals: level.portals || [], battleZones: level.battleZones || [], battle: null, busy: false };
 
   resetCamera(player);
   document.querySelectorAll('.course-name').forEach((el) => { el.textContent = mod.NAME; });
@@ -138,6 +139,42 @@ function loadStage(key, { from } = {}) {
   audio.music(mod.MUSIC);
   window.__game = { renderer, scene, camera, cam, updateCamera, fx, input, audio, S, go, loadStage };
   window.__player = player;
+}
+
+// --- Battles -------------------------------------------------------------------------
+const promptEl = $('prompt');
+function startBattle(zone) {
+  const sp = zone.spots;
+  fade.classList.add('on');
+  setTimeout(() => {
+    // stand the player on their mark, facing the enemy
+    player.pos.copy(sp.player);
+    player.fwd = 0; player.vy = 0;
+    player.setState('ground');
+    player.yaw = Math.atan2(sp.enemy.x - sp.player.x, sp.enemy.z - sp.player.z);
+    player.locked = true;
+    player.update(1 / 60, input, cam.yaw);
+    const E = zone.enemy;
+    const fighters = {
+      player: { name: 'You', hp: player.health, maxHp: 8, sp: player.stamina, maxSp: player.maxStamina, pos: sp.player,
+        picture: portrait(renderer, S.scene, sp.player, { height: 1.7, dist: 2.0, yaw: player.yaw }) },
+      enemy: { ...E, pos: sp.enemy, picture: portrait(renderer, S.scene, sp.enemy, E.picture) },
+    };
+    document.exitPointerLock?.();
+    document.body.classList.add('in-battle');
+    S.battle = new Battle({ ui: $('battle'), input, camera, ...fighters, onEnd: endBattle });
+    fade.classList.remove('on');
+  }, 400);
+}
+function endBattle() {
+  fade.classList.add('on');
+  setTimeout(() => {
+    S.battle = null;
+    player.locked = false;
+    document.body.classList.remove('in-battle');
+    resetCamera(player);
+    fade.classList.remove('on');
+  }, 400);
 }
 
 // Switch area behind a fade.
@@ -189,6 +226,20 @@ function frame() {
 function step(dt) {
   input.update(dt);
   if (player && S) {
+    if (S.battle) {
+      player.update(dt, input, cam.yaw);     // locked: just idles
+      S.battle.update(dt);
+      if (S.level.update) S.level.update(dt, { player, fx: S.fx });
+      S.fx.update(dt);
+      if (!window.__noRender) renderer.render(S.scene, camera);
+      return;
+    }
+    // battle zones: B starts a battle (instead of punching)
+    const zone = !S.busy && !fade.classList.contains('on') && player.grounded && player.state === 'ground'
+      ? S.battleZones.find((z) => Math.hypot(player.pos.x - z.x, player.pos.z - z.z) < z.r) : null;
+    promptEl.textContent = zone ? 'B — Start a test battle' : '';
+    promptEl.classList.toggle('on', !!zone);
+    if (zone && input.pressed.B) { promptEl.classList.remove('on'); input.pressed.B = false; player.locked = true; startBattle(zone); }
     player.update(dt, input, cam.yaw);
     updateCamera(dt, player);
     if (S.level.update) S.level.update(dt, { player, fx: S.fx });

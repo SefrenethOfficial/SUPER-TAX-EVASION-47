@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { Terrain } from '../terrain.js?v=26';
-import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture } from '../textures.js?v=26';
+import { Terrain } from '../terrain.js?v=28';
+import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture } from '../textures.js?v=28';
 
 // ---------------------------------------------------------------------------
 // THE WASHED-UP BEACH: the first area of the open world. You wake up face down
@@ -272,6 +272,47 @@ export function build(world) {
     skyTex.offset.x = t * 0.002;
   };
 
+  // --- TEMPORARY: a battle test ring with a training dummy --------------------------
+  // Walk into the ring of stones and press B to start a test battle.
+  const ARENA = { x: -6, z: 10, r: 5 };
+  const battleSpots = { player: new THREE.Vector3(ARENA.x - 3, 0, ARENA.z), enemy: new THREE.Vector3(ARENA.x + 3, 0, ARENA.z) };
+  for (const v of Object.values(battleSpots)) v.y = G(v.x, v.z);
+  {
+    const stoneMat = new THREE.MeshLambertMaterial({ color: 0x6d6c67, flatShading: true });
+    for (let i = 0; i < 14; i++) {
+      const a = (i / 14) * Math.PI * 2, x = ARENA.x + Math.cos(a) * ARENA.r, z = ARENA.z + Math.sin(a) * ARENA.r;
+      const st = new THREE.Mesh(new THREE.DodecahedronGeometry(0.28 + rng() * 0.12, 0), stoneMat);
+      st.position.set(x, G(x, z) + 0.12, z);
+      st.rotation.set(rng() * 3, rng() * 3, rng() * 3);
+      st.scale.y = 0.7;
+      scene.add(st);
+    }
+    // the dummy: a post, a crossbar for arms and a stuffed sack with a head
+    const sack = new THREE.MeshLambertMaterial({ color: 0x9a8a6a });
+    const rope = new THREE.MeshLambertMaterial({ color: 0x5c4e3a });
+    const d = new THREE.Group();
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 2.2, 6), darkWood); post.position.y = 1.1;
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.4, 0.9, 8), sack); body.position.y = 1.25;
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.27, 8, 6), sack); head.position.y = 1.95;
+    const arms = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.1, 0.1), darkWood); arms.position.y = 1.55;
+    const belt = new THREE.Mesh(new THREE.TorusGeometry(0.39, 0.04, 4, 12), rope); belt.rotation.x = Math.PI / 2; belt.position.y = 1.0;
+    d.add(post, body, head, arms, belt);
+    d.position.copy(battleSpots.enemy);
+    d.rotation.y = -Math.PI / 2;        // facing the player's spot
+    scene.add(d);
+    const e = battleSpots.enemy;
+    box([e.x - 0.35, e.y - 0.3, e.z - 0.35], [e.x + 0.35, e.y + 2.2, e.z + 0.35], wood, { visible: false });
+    // a sign at the edge of the ring
+    const sx2 = ARENA.x - 1, sz2 = ARENA.z - ARENA.r - 0.8, sy2 = G(sx2, sz2);
+    box([sx2 - 0.06, sy2 - 0.2, sz2 - 0.06], [sx2 + 0.06, sy2 + 1.3, sz2 + 0.06], darkWood);
+    box([sx2 - 0.6, sy2 + 0.9, sz2 - 0.05], [sx2 + 0.6, sy2 + 1.45, sz2 + 0.05], wood);
+  }
+  const battleZones = [{
+    x: ARENA.x, z: ARENA.z, r: ARENA.r,
+    spots: battleSpots,
+    enemy: { name: 'Training Dummy', hp: 10, maxHp: 10, sp: 5, maxSp: 5, picture: { height: 1.85, dist: 2.0, yaw: -Math.PI / 2 } },
+  }];
+
   // You wash up face down a few metres from the water, head towards the land.
   const sx = 0, sz = shoreZ(0) + 6;
   return {
@@ -279,6 +320,7 @@ export function build(world) {
     spawnYaw: 0,
     startLying: true,
     update,
+    battleZones,
   };
 }
 
