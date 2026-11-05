@@ -13,8 +13,12 @@ import * as THREE from 'three';
 export class Terrain {
   // rock / rockZone: optional second cliff texture used inside a circle
   // (x, z, radius), e.g. red rock on a mountain.
-  constructor({ minX, maxX, minZ, maxZ, res, height, paths = [], grass, cliff, path, rock = null, rockZone = null }) {
+  // sand / sandTop: optional sand texture on everything below sandTop (a beach).
+  // grade: { sat, tint } colour grading for moodier areas (sat 1 = untouched).
+  constructor({ minX, maxX, minZ, maxZ, res, height, paths = [], grass, cliff, path, rock = null, rockZone = null, sand = null, sandTop = -1e9, grade = null }) {
+    this.grade = grade || { sat: 1, tint: new THREE.Color(1, 1, 1) };
     this.rock = rock || cliff; this.rockZone = rockZone || new THREE.Vector3(0, 0, -1);
+    this.sand = sand || grass; this.sandTop = sandTop;
     this.minX = minX; this.minZ = minZ; this.res = res;
     this.nx = Math.ceil((maxX - minX) / res) + 1;
     this.nz = Math.ceil((maxZ - minZ) / res) + 1;
@@ -118,6 +122,10 @@ export class Terrain {
       sh.uniforms.pathMap = { value: pathTex };
       sh.uniforms.rockMap = { value: this.rock };
       sh.uniforms.rockZone = { value: this.rockZone };
+      sh.uniforms.sandMap = { value: this.sand };
+      sh.uniforms.sandTop = { value: this.sandTop };
+      sh.uniforms.gradeSat = { value: this.grade.sat };
+      sh.uniforms.gradeTint = { value: this.grade.tint };
       sh.vertexShader = sh.vertexShader
         .replace('#include <common>', `#include <common>
 attribute float aPath; attribute vec2 aPathUV;
@@ -127,6 +135,7 @@ vPath = aPath; vPathUV = aPathUV; vWPos = position; vWN = normal;`);
       sh.fragmentShader = sh.fragmentShader
         .replace('#include <common>', `#include <common>
 uniform sampler2D grassMap; uniform sampler2D cliffMap; uniform sampler2D pathMap; uniform sampler2D rockMap; uniform vec3 rockZone;
+uniform sampler2D sandMap; uniform float sandTop; uniform float gradeSat; uniform vec3 gradeTint;
 varying float vPath; varying vec2 vPathUV; varying vec3 vWPos; varying vec3 vWN;`)
         .replace('#include <map_fragment>', `
 vec3 tn = normalize(vWN);
@@ -134,6 +143,9 @@ vec4 g = texture2D(grassMap, vWPos.xz / 2.5);
 // large-scale tint so the field doesn't look tiled
 float tint = 0.88 + 0.12 * sin(vWPos.x * 0.06) * sin(vWPos.z * 0.05 + 1.7) + 0.06 * sin(vWPos.x * 0.013 + vWPos.z * 0.021);
 g.rgb *= vec3(tint, 0.96 + 0.06 * tint, tint);
+// sand below the beach line, with a wobbly edge
+float sandEdge = sandTop + 0.5 * sin(vWPos.x * 0.21) + 0.35 * sin(vWPos.z * 0.17 + vWPos.x * 0.05);
+g = mix(g, texture2D(sandMap, vWPos.xz / 3.0), 1.0 - smoothstep(sandEdge - 0.35, sandEdge + 0.35, vWPos.y));
 vec2 cuv = abs(tn.x) > abs(tn.z) ? vWPos.zy : vWPos.xy;
 vec4 c = texture2D(cliffMap, cuv / 2.0);
 float inRock = 1.0 - step(rockZone.z, distance(vWPos.xz, rockZone.xy));
@@ -142,6 +154,8 @@ vec4 p = texture2D(pathMap, vPathUV);
 float steep = smoothstep(0.45, 0.62, 1.0 - tn.y);
 vec4 col = mix(g, p, smoothstep(0.35, 0.65, vPath) * (1.0 - steep));
 col = mix(col, c, steep);
+float lum = dot(col.rgb, vec3(0.299, 0.587, 0.114));
+col.rgb = mix(vec3(lum), col.rgb, gradeSat) * gradeTint;
 diffuseColor *= col;`);
     };
     const mesh = new THREE.Mesh(geo, mat);

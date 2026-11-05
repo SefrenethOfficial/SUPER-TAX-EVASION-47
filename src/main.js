@@ -1,22 +1,23 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Input } from './input.js?v=23';
-import { World } from './world.js?v=23';
-import { Player, buildCharacter } from './player.js?v=23';
-import { FX } from './fx.js?v=23';
-import { Coins } from './coins.js?v=23';
-import { Star } from './star.js?v=23';
-import { GameAudio } from './audio.js?v=23';
-import { CherryBomb, KingCherryBomb } from './enemies.js?v=23';
-import { Cannon } from './cannon.js?v=23';
-// The old courses (stages/hub.js, stages/sunny-spire-hill.js) are out of the
-// game for now; it starts in a blank area while it's rebuilt.
-import * as blank from './stages/blank.js?v=23';
+import { Input } from './input.js?v=25';
+import { World } from './world.js?v=25';
+import { Player, buildCharacter } from './player.js?v=25';
+import { FX } from './fx.js?v=25';
+import { Coins } from './coins.js?v=25';
+import { Star } from './star.js?v=25';
+import { GameAudio } from './audio.js?v=25';
+import { CherryBomb, KingCherryBomb } from './enemies.js?v=25';
+import { Cannon } from './cannon.js?v=25';
+// The open world. The old courses (stages/hub.js, stages/sunny-spire-hill.js)
+// are out of the game for now.
+import * as blank from './stages/blank.js?v=25';
+import * as beach from './stages/beach.js?v=25';
 
 // Bump VERSION (and the ?v= on every local import) whenever files change,
 // so browsers never mix old and new code.
-const VERSION = '23';
-const STAGES = { blank };
+const VERSION = '25';
+const STAGES = { beach, blank };
 
 const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -168,6 +169,7 @@ function loadStage(key, { from } = {}) {
   player.spawnYaw = back ? level.returnYaw : level.spawnYaw;
   player.reset();
   player.yaw = player.spawnYaw;
+  if (level.startLying) player.setState('washed');   // wake up on the ground
 
   const ctx = { world, fx, coins, player, bombModel, sfx: (n) => audio.play(n, 0.5) };
   const enemies = (level.bombs || []).map(([x, z]) => new CherryBomb(ctx, x, z));
@@ -262,7 +264,7 @@ Promise.all([loadGLB('character.glb'), loadGLB('cone.glb'), loadGLB('cherry-bomb
   bombModel = bomb.scene;
   starModel = star.scene;
   const first = new URLSearchParams(location.search).get('stage');
-  loadStage(STAGES[first] ? first : 'blank');
+  loadStage(STAGES[first] ? first : 'beach');
   document.body.classList.add('loaded');
 }).catch((err) => {
   console.error(err);

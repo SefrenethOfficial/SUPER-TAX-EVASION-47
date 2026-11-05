@@ -2,9 +2,13 @@
 
 ![SUPER TAX EVASION 47](assets/logo.png)
 
-A three.js 3D platformer in the spirit of Super Mario 64.
+An open-world Metroidvania Soulslike in three.js, with Super Mario 64-style movement.
 
-**Right now the game is being rebuilt:** it starts in a blank area (`src/stages/blank.js`) with just the character and its moves. The old hub and Sunny Spire Hill below are still in `src/stages/` but aren't loaded.
+## Washed-Up Beach
+
+The first area. You wake up face down on the sand under a heavy grey sky, next to the wreck of the ship you came in on: a broken hull on its side, the snapped mast, crates, barrels and planks along the tideline. Press anything to get up. The sea is to the south (you can wade in up to your waist); the beach rises through dunes to grassland in the north, between two rocky headlands.
+
+The old hub and Sunny Spire Hill below are still in `src/stages/` but aren't loaded, and `src/stages/blank.js` is an empty test area (`?stage=blank`).
 
 **Play:** open `index.html` through any static server (or GitHub Pages). No build step; three.js loads from a CDN.
 
@@ -61,6 +65,7 @@ The look aims for the N64: smoothly filtered textures, blob shadows, rigid limbs
 - `src/cannon.js`: the cannons (climb in, aim, fire)
 - `src/ironball.js`: the iron balls that roll down the mountain road
 - `src/terrain.js`: heightmap terrain (not used by the current stages)
+- `src/stages/beach.js`: the washed-up beach (terrain, sea, wreck, palms, overcast sky)
 - `src/stages/sunny-spire-hill.js`: the stage: loads the level model, adds the bridge, the spire's steps, cannons, coins, enemies and stars
 - `src/stages/hub.js`: the hub (castle lobby and paintings)
 - `src/enemies.js`: Cherry Bomb and King Cherry Bomb

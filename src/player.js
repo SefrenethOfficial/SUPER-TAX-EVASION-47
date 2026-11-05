@@ -21,7 +21,8 @@ const WALL_KICKABLE = new Set(['jump', 'double', 'triple', 'sideflip', 'longjump
 const LEDGE_OK = new Set(['jump', 'double', 'triple', 'sideflip', 'backflip', 'wallkick', 'fall', 'rollout', 'jumpkick']);
 
 
-const NO_PHYSICS = new Set(['ledgehang', 'ledgeclimb', 'wallcling', 'gp_spin', 'grabbed', 'incannon']);
+const NO_PHYSICS = new Set(['ledgehang', 'ledgeclimb', 'wallcling', 'gp_spin', 'grabbed', 'incannon', 'washed', 'getup']);
+const GETUP_TIME = 1.5;
 const NO_INPUT = { move: { x: 0, y: 0 }, buttons: { A: false, B: false, Z: false }, pressed: { A: false, B: false, Z: false } };
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const approach = (v, t, d) => (v < t ? Math.min(v + d, t) : Math.max(v - d, t));
@@ -429,6 +430,13 @@ export class Player {
     const A = this.jumpBuffer > 0, B = input.pressed.B, Zp = input.pressed.Z, Zh = input.buttons.Z;
     const d = wrap(this.inYaw - this.yaw);
     switch (this.state) {
+      // washed up face down on the sand: any input and you push yourself up
+      case 'washed':
+        if (this.t > 0.6 && (this.inMag > 0.3 || A || B || Zp)) { this.setState('getup'); this.jumpBuffer = 0; }
+        break;
+      case 'getup':
+        if (this.t > GETUP_TIME) this.setState('ground');
+        break;
       case 'ground': {
         if (Zh && this.fwd > 5) { this.setState('crouchslide'); break; }
         if (Zh) { this.setState('crouch'); break; }
@@ -893,6 +901,24 @@ export class Player {
         // star held high, then a happy little bounce
         armR = 3.05; armL = t > 0.6 ? 1.4 + Math.sin(t * 9) * 0.25 : 0.4; armSpread = 0.35;
         bob = t > 0.6 ? Math.abs(Math.sin(t * 5)) * 0.06 : 0; legL = legR = 0;
+        break;
+      }
+      case 'washed': {
+        // face down, arms out past the head, breathing
+        pitch = 1.55; bob = -0.62 + Math.sin(performance.now() / 900) * 0.01;
+        armL = 2.9; armR = 2.7; armSpread = 0.35; legL = -0.15; legR = -0.05; legSpread = 0.15; direct = true;
+        break;
+      }
+      case 'getup': {
+        // push up on the arms, come up onto the knees, then stand and shake it off
+        const k1 = ease(Math.min(1, t / 0.55)), k2 = ease(Math.max(0, Math.min(1, (t - 0.55) / 0.5))), k3 = ease(Math.max(0, Math.min(1, (t - 1.05) / 0.35)));
+        pitch = lerp(lerp(1.55, 0.95, k1), 0.15, k2) * (1 - k3);
+        bob = lerp(lerp(-0.62, -0.38, k1), -0.3, k2) * (1 - k3);
+        crouch = 0.35 * k2 * (1 - k3);
+        armL = armR = lerp(lerp(2.8, 0.25, k1), 0.2, k2) * (1 - k3); armSpread = 0.3 * (1 - k3);
+        legL = legR = lerp(lerp(-0.1, 0.6, k1), 1.1, k2) * (1 - k3);
+        roll = Math.sin(Math.max(0, t - 1.1) * 16) * 0.05 * (1 - Math.min(1, Math.max(0, t - 1.1) / 0.4));
+        direct = true;
         break;
       }
       case 'ledgeclimb': { const k = Math.min(1, t / (this.climbFast ? 0.22 : 0.45)); armL = armR = 3.0 * (1 - k) + 0.3; legL = 1.2 * Math.sin(k * Math.PI); crouch = 0.3 * Math.sin(k * Math.PI); pitch = 0.4 * Math.sin(k * Math.PI); break; }
