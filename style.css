@@ -126,3 +126,8 @@ body.in-battle #logo, body.in-battle #hint, body.in-battle #health { display: no
 .bmenu button.sel::before { content: '\25B8  '; }
 .bmenu button:disabled { color: #8a877e; cursor: default; }
 @media (max-width: 640px) { .bslot { width: 44vw; bottom: 150px; } .bmenu { bottom: 16px; } .bpic { width: 64px; height: 64px; } }
+
+.bdmg { position: absolute; transform: translate(-50%, -50%); font: 700 30px Georgia, 'Times New Roman', serif; text-shadow: 0 2px 0 #000, 0 0 6px #000; pointer-events: none; animation: bdmg 1.1s ease-out forwards; }
+.bdmg.good { color: #f1e6c8; }
+.bdmg.bad { color: #e0574a; }
+@keyframes bdmg { 0% { opacity: 0; margin-top: 10px; } 15% { opacity: 1; margin-top: 0; } 70% { opacity: 1; } 100% { opacity: 0; margin-top: -40px; } }

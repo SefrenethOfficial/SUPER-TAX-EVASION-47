@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { Terrain } from '../terrain.js?v=28';
-import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture } from '../textures.js?v=28';
+import { Terrain } from '../terrain.js?v=29';
+import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture } from '../textures.js?v=29';
 
 // ---------------------------------------------------------------------------
 // THE WASHED-UP BEACH: the first area of the open world. You wake up face down
@@ -277,6 +277,7 @@ export function build(world) {
   const ARENA = { x: -6, z: 10, r: 5 };
   const battleSpots = { player: new THREE.Vector3(ARENA.x - 3, 0, ARENA.z), enemy: new THREE.Vector3(ARENA.x + 3, 0, ARENA.z) };
   for (const v of Object.values(battleSpots)) v.y = G(v.x, v.z);
+  let dummy;
   {
     const stoneMat = new THREE.MeshLambertMaterial({ color: 0x6d6c67, flatShading: true });
     for (let i = 0; i < 14; i++) {
@@ -300,6 +301,7 @@ export function build(world) {
     d.position.copy(battleSpots.enemy);
     d.rotation.y = -Math.PI / 2;        // facing the player's spot
     scene.add(d);
+    dummy = d;
     const e = battleSpots.enemy;
     box([e.x - 0.35, e.y - 0.3, e.z - 0.35], [e.x + 0.35, e.y + 2.2, e.z + 0.35], wood, { visible: false });
     // a sign at the edge of the ring
@@ -310,7 +312,7 @@ export function build(world) {
   const battleZones = [{
     x: ARENA.x, z: ARENA.z, r: ARENA.r,
     spots: battleSpots,
-    enemy: { name: 'Training Dummy', hp: 10, maxHp: 10, sp: 5, maxSp: 5, picture: { height: 1.85, dist: 2.0, yaw: -Math.PI / 2 } },
+    enemy: { name: 'Training Dummy', maxHp: 10, maxSp: 5, atk: 1, attackText: 'wobbles back at you', model: dummy, picture: { height: 1.85, dist: 2.0, yaw: -Math.PI / 2 } },
   }];
 
   // You wash up face down a few metres from the water, head towards the land.

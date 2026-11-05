@@ -1,18 +1,18 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Input } from './input.js?v=28';
-import { World } from './world.js?v=28';
-import { Player, buildCharacter } from './player.js?v=28';
-import { FX } from './fx.js?v=28';
-import { GameAudio } from './audio.js?v=28';
-import { Battle, portrait } from './battle.js?v=28';
+import { Input } from './input.js?v=29';
+import { World } from './world.js?v=29';
+import { Player, buildCharacter } from './player.js?v=29';
+import { FX } from './fx.js?v=29';
+import { GameAudio } from './audio.js?v=29';
+import { Battle, portrait } from './battle.js?v=29';
 // The open world, one area per module.
-import * as blank from './stages/blank.js?v=28';
-import * as beach from './stages/beach.js?v=28';
+import * as blank from './stages/blank.js?v=29';
+import * as beach from './stages/beach.js?v=29';
 
 // Bump VERSION (and the ?v= on every local import) whenever files change,
 // so browsers never mix old and new code.
-const VERSION = '28';
+const VERSION = '29';
 const STAGES = { beach, blank };
 
 const canvas = document.getElementById('game');
@@ -156,21 +156,26 @@ function startBattle(zone) {
     player.update(1 / 60, input, cam.yaw);
     const E = zone.enemy;
     const fighters = {
-      player: { name: 'You', hp: player.health, maxHp: 8, sp: player.stamina, maxSp: player.maxStamina, pos: sp.player,
+      player: { name: 'You', hp: player.health, maxHp: 8, sp: player.stamina, maxSp: player.maxStamina, pos: sp.player.clone(), actor: player,
         picture: portrait(renderer, S.scene, sp.player, { height: 1.7, dist: 2.0, yaw: player.yaw }) },
-      enemy: { ...E, pos: sp.enemy, picture: portrait(renderer, S.scene, sp.enemy, E.picture) },
+      enemy: { ...E, hp: E.maxHp, sp: E.maxSp, pos: sp.enemy, picture: portrait(renderer, S.scene, sp.enemy, E.picture) },
     };
     document.exitPointerLock?.();
     document.body.classList.add('in-battle');
-    S.battle = new Battle({ ui: $('battle'), input, camera, ...fighters, onEnd: endBattle });
+    S.battle = new Battle({ ui: $('battle'), input, camera, fx: S.fx, ...fighters, onEnd: endBattle });
+    S.battle.onDamage = (f) => { if (f.actor) player.health = f.hp; };
     fade.classList.remove('on');
   }, 400);
 }
-function endBattle() {
+function endBattle({ lost } = {}) {
   fade.classList.add('on');
   setTimeout(() => {
     S.battle = null;
     player.locked = false;
+    player.stamina = player.maxStamina;          // catch your breath after a fight
+    if (lost) player.health = 8;                  // (for now) knocked out just means you come round
+    player.invuln = 0;
+    player.setState('ground');
     document.body.classList.remove('in-battle');
     resetCamera(player);
     fade.classList.remove('on');

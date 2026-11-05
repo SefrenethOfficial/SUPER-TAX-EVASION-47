@@ -7,9 +7,16 @@ import * as THREE from 'three';
 //     Health and Stamina on it, and a picture of the fighter above it
 //   - the command menu: Fight, Item, Run
 // Pick with the stick / arrow keys and A (Space), or click. B goes back.
+//
+// Fight: you run up and strike (costs Stamina), then the enemy takes its turn.
+// Too tired to fight and you catch your breath instead. Stamina comes back a
+// little every turn.
 // ---------------------------------------------------------------------------
 
 const PORTRAIT = 128;
+const FIGHT_COST = 3;      // Stamina per attack
+const REGEN = 1;           // Stamina back at the end of each round
+const RUN_SPEED = 8;
 
 // A head-and-shoulders picture of a fighter, rendered from the live scene.
 export function portrait(renderer, scene, target, { height = 1.6, dist = 2.2, yaw = 0 } = {}) {
@@ -38,9 +45,13 @@ export function portrait(renderer, scene, target, { height = 1.6, dist = 2.2, ya
 
 export class Battle {
   // fighters: { player: { name, hp, maxHp, sp, maxSp, pos, picture }, enemy: { ...same } }
-  constructor({ ui, input, camera, player, enemy, onEnd }) {
+  // player.actor = the Player (moved and animated during attacks); enemy.model =
+  // its 3D object (wobbles when hit). fx = shake / dust.
+  constructor({ ui, input, camera, player, enemy, fx, onEnd }) {
     this.ui = ui; this.input = input; this.camera = camera;
-    this.player = player; this.enemy = enemy; this.onEnd = onEnd;
+    this.player = player; this.enemy = enemy; this.onEnd = onEnd; this.fx = fx;
+    this.phase = 'menu'; this.pt = 0;
+    this.wobble = 0; this.wobbleV = 0; this.fallen = 0;
     this.menu = 'main';
     this.sel = 0;
     this.lock = 0.3;             // ignore input for a moment so the starting press doesn't pick anything
@@ -115,8 +126,128 @@ export class Battle {
     [...this.cmds.children].forEach((b, i) => b.classList.toggle('sel', i === this.sel));
   }
 
-  // Fight does nothing yet.
-  fight() {}
+  // --- Turns -------------------------------------------------------------------------
+  setPhase(p) { this.phase = p; this.pt = 0; }
+
+  busy(on) { this.cmds.classList.toggle('gone', on); }
+
+  fight() {
+    const P = this.player;
+    this.busy(true);
+    if (P.sp < FIGHT_COST) {
+      P.sp = Math.min(P.maxSp, P.sp + 2);
+      this.refresh();
+      this.say("You're too tired to fight, so you catch your breath.");
+      this.setPhase('rest');
+      return;
+    }
+    P.sp -= FIGHT_COST;
+    this.refresh();
+    this.say('You attack!');
+    this.setPhase('approach');
+  }
+
+  // A number that pops up over a fighter and floats away.
+  popup(f, text, cls) {
+    const el = document.createElement('div');
+    el.className = `bdmg ${cls}`;
+    el.textContent = text;
+    this.ui.append(el);
+    const v = f.pos.clone(); v.y += 2.3;
+    v.project(this.camera);
+    el.style.left = `${(v.x * 0.5 + 0.5) * innerWidth}px`;
+    el.style.top = `${(-v.y * 0.5 + 0.5) * innerHeight}px`;
+    setTimeout(() => el.remove(), 1100);
+  }
+
+  damage(f, n) {
+    f.hp = Math.max(0, f.hp - n);
+    this.popup(f, `-${n}`, f === this.player ? 'bad' : 'good');
+    this.refresh();
+    if (this.onDamage) this.onDamage(f);
+  }
+
+  // Run the actor towards a point; true once there.
+  runTo(actor, x, z, near) {
+    const dx = x - actor.pos.x, dz = z - actor.pos.z, d = Math.hypot(dx, dz);
+    if (d < near) { actor.fwd = 0; return true; }
+    actor.yaw = Math.atan2(dx, dz);
+    actor.fwd = Math.min(RUN_SPEED, d * 6);
+    return false;
+  }
+
+  faceEnemy() {
+    const a = this.player.actor, e = this.enemy.pos;
+    a.yaw = Math.atan2(e.x - a.pos.x, e.z - a.pos.z);
+  }
+
+  turns(dt) {
+    const P = this.player, E = this.enemy, a = P.actor;
+    this.pt += dt;
+    switch (this.phase) {
+      case 'approach':
+        if (this.runTo(a, E.pos.x, E.pos.z, 1.5) || this.pt > 2.5) { a.fwd = 0; this.faceEnemy(); a.setState('punch1'); this.setPhase('strike'); }
+        break;
+      case 'strike':
+        if (this.pt > 0.12 && !this.hit) {
+          this.hit = true;
+          const n = 2 + Math.floor(Math.random() * 2);
+          this.damage(E, n);
+          this.wobbleV += 7;
+          this.fx.shake(0.25);
+          this.say(`You hit the ${E.name} for ${n}!`);
+        }
+        if (this.pt > 0.55) { this.hit = false; this.setPhase('return'); }
+        break;
+      case 'return':
+        if (this.runTo(a, P.pos.x, P.pos.z, 0.15) || this.pt > 2.5) {
+          a.pos.x = P.pos.x; a.pos.z = P.pos.z; a.fwd = 0; this.faceEnemy();
+          this.setPhase(E.hp <= 0 ? 'win' : 'enemyTurn');
+        }
+        break;
+      case 'rest':
+        if (this.pt > 1.1) this.setPhase('enemyTurn');
+        break;
+      case 'enemyTurn':
+        if (this.pt === dt) this.say(`The ${E.name} ${E.attackText || 'attacks'}!`);
+        if (this.pt > 0.45 && !this.swung) { this.swung = true; this.wobbleV -= 9; }   // lurch towards you
+        if (this.pt > 0.75 && !this.hit) {
+          this.hit = true;
+          this.damage(P, E.atk);
+          a.anim.sq = -0.3; a.invuln = 0.7;
+          a.say('hurt');
+          this.fx.shake(0.35);
+          this.say(`The ${E.name} hits you for ${E.atk}.`);
+        }
+        if (this.pt > 1.7) {
+          this.hit = false; this.swung = false;
+          if (P.hp <= 0) { this.setPhase('lose'); break; }
+          P.sp = Math.min(P.maxSp, P.sp + REGEN);
+          this.refresh();
+          this.setPhase('menu');
+          this.say('What will you do?');
+          this.busy(false);
+          this.showMenu('main');
+        }
+        break;
+      case 'win':
+        if (this.pt === dt) this.say(`You defeated the ${E.name}!`);
+        this.fallen = Math.min(1, this.fallen + dt * 2.2);
+        if (this.pt > 2.0) { this.setPhase('done'); this.end(); }
+        break;
+      case 'lose':
+        if (this.pt === dt) this.say('You were knocked out...');
+        if (this.pt > 2.0) { this.setPhase('done'); this.end(); }
+        break;
+    }
+    // the enemy wobbles on a spring when hit, and keels over when beaten
+    this.wobbleV += (-60 * this.wobble - 5 * this.wobbleV) * dt;
+    this.wobble += this.wobbleV * dt;
+    if (E.model) {
+      E.model.rotation.z = this.wobble * 0.12;
+      E.model.rotation.x = this.fallen * -1.45;
+    }
+  }
 
   run() {
     this.ending = true;
@@ -127,14 +258,16 @@ export class Battle {
 
   end() {
     this.ui.classList.remove('on');
-    this.onEnd();
+    if (this.enemy.model) this.enemy.model.rotation.set(0, this.enemy.model.rotation.y, 0);   // the dummy stands back up
+    this.onEnd({ won: this.enemy.hp <= 0, lost: this.player.hp <= 0 });
   }
 
   update(dt) {
     this.t += dt;
     this.lock -= dt;
     const inp = this.input;
-    if (this.lock <= 0 && !this.ending) {
+    this.turns(dt);
+    if (this.lock <= 0 && !this.ending && this.phase === 'menu') {
       // stick / arrows: one step per push
       const y = inp.move.y;
       if (Math.abs(y) > 0.5 && !this.held) {
