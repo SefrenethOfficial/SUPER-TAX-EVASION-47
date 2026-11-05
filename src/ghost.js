@@ -81,15 +81,29 @@ export class ShyGhost {
       this.pinned = ex || ez || atX || atZ;
       if ((ex && ez && d < CORNER) || (this.pinned && d < 2.4)) this.state = 'cornered';
     }
+    // travelling with you: float along behind your shoulder
+    let facing = Math.atan2(-dx, -dz);
+    if (this.state === 'follow') {
+      const s = Math.sin(player.yaw), c = Math.cos(player.yaw);
+      const tx = player.pos.x - s * 2.3 + c * 1.4, tz = player.pos.z - c * 2.3 - s * 1.4;
+      const fx = tx - this.pos.x, fz = tz - this.pos.z, fd = Math.hypot(fx, fz);
+      if (fd > 45) { this.pos.x = tx; this.pos.z = tz; }            // fell far behind: catch up
+      else if (fd > 0.05) {
+        const sp = Math.min(fd * 2.6, 18) * dt;
+        this.pos.x += (fx / fd) * Math.min(sp, fd); this.pos.z += (fz / fd) * Math.min(sp, fd);
+      }
+      facing = fd > 1.2 ? Math.atan2(fx, fz) : player.yaw;
+    }
     if (this.state === 'revealing') {
       this.reveal = Math.min(1, this.reveal + dt / 1.6);
       this.setLook();
       if (this.reveal >= 1) this.state = 'idle';
     }
     // always facing you (warily); a little sway and bob
-    const want = Math.atan2(-dx, -dz);
+    const want = facing;
     this.yaw += Math.atan2(Math.sin(want - this.yaw), Math.cos(want - this.yaw)) * Math.min(1, dt * 5);
-    const g = this.ground(this.pos.x, this.pos.z);
+    let g = this.ground(this.pos.x, this.pos.z);
+    if (!Number.isFinite(g) || g > 900) g = player.pos.y;     // off the map edge: hover at your height
     const shy = this.state === 'cornered' || this.state === 'revealing' ? 0.6 : 1;
     this.root.position.set(this.pos.x, g + HOVER * shy + Math.sin(this.t * 1.8) * 0.15, this.pos.z);
     this.root.rotation.set(Math.sin(this.t * 1.3) * 0.04, this.yaw, Math.sin(this.t * 0.9) * 0.05);

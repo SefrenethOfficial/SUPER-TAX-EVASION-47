@@ -15,8 +15,13 @@ export class Terrain {
   // (x, z, radius), e.g. red rock on a mountain.
   // sand / sandTop: optional sand texture on everything below sandTop (a beach).
   // grade: { sat, tint } colour grading for moodier areas (sat 1 = untouched).
-  constructor({ minX, maxX, minZ, maxZ, res, height, paths = [], grass, cliff, path, rock = null, rockZone = null, sand = null, sandTop = -1e9, grade = null }) {
+  // fields: { x, z, r }: inside this circle the grass is a patchwork of fields.
+  // sandMaxZ: no sand north of this (so low ground far inland stays grass).
+  constructor({ minX, maxX, minZ, maxZ, res, height, paths = [], grass, cliff, path, rock = null, rockZone = null, sand = null, sandTop = -1e9, sandMaxZ = 1e9, grade = null, fields = null }) {
+    this.sandMaxZ = sandMaxZ;
     this.grade = grade || { sat: 1, tint: new THREE.Color(1, 1, 1) };
+    this.uSat = { value: this.grade.sat };
+    this.fieldZone = fields ? new THREE.Vector3(fields.x, fields.z, fields.r) : new THREE.Vector3(0, 0, -1);
     this.rock = rock || cliff; this.rockZone = rockZone || new THREE.Vector3(0, 0, -1);
     this.sand = sand || grass; this.sandTop = sandTop;
     this.minX = minX; this.minZ = minZ; this.res = res;
@@ -34,6 +39,9 @@ export class Terrain {
   }
 
   // Bilinear height. Outside the grid counts as a tall wall.
+  // Change the colour grading (e.g. as the weather clears).
+  setGrade(sat, r, g, b) { this.uSat.value = sat; this.grade.tint.setRGB(r, g, b); }
+
   height(x, z) {
     const fx = (x - this.minX) / this.res, fz = (z - this.minZ) / this.res;
     if (fx < 0 || fz < 0 || fx >= this.nx - 1 || fz >= this.nz - 1) return 999;
@@ -124,7 +132,9 @@ export class Terrain {
       sh.uniforms.rockZone = { value: this.rockZone };
       sh.uniforms.sandMap = { value: this.sand };
       sh.uniforms.sandTop = { value: this.sandTop };
-      sh.uniforms.gradeSat = { value: this.grade.sat };
+      sh.uniforms.gradeSat = this.uSat;
+      sh.uniforms.fieldZone = { value: this.fieldZone };
+      sh.uniforms.sandMaxZ = { value: this.sandMaxZ };
       sh.uniforms.gradeTint = { value: this.grade.tint };
       sh.vertexShader = sh.vertexShader
         .replace('#include <common>', `#include <common>
@@ -135,7 +145,8 @@ vPath = aPath; vPathUV = aPathUV; vWPos = position; vWN = normal;`);
       sh.fragmentShader = sh.fragmentShader
         .replace('#include <common>', `#include <common>
 uniform sampler2D grassMap; uniform sampler2D cliffMap; uniform sampler2D pathMap; uniform sampler2D rockMap; uniform vec3 rockZone;
-uniform sampler2D sandMap; uniform float sandTop; uniform float gradeSat; uniform vec3 gradeTint;
+uniform sampler2D sandMap; uniform float sandTop; uniform float gradeSat; uniform vec3 gradeTint; uniform vec3 fieldZone; uniform float sandMaxZ;
+float fhash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 varying float vPath; varying vec2 vPathUV; varying vec3 vWPos; varying vec3 vWN;`)
         .replace('#include <map_fragment>', `
 vec3 tn = normalize(vWN);
@@ -143,9 +154,21 @@ vec4 g = texture2D(grassMap, vWPos.xz / 2.5);
 // large-scale tint so the field doesn't look tiled
 float tint = 0.88 + 0.12 * sin(vWPos.x * 0.06) * sin(vWPos.z * 0.05 + 1.7) + 0.06 * sin(vWPos.x * 0.013 + vWPos.z * 0.021);
 g.rgb *= vec3(tint, 0.96 + 0.06 * tint, tint);
+// a patchwork of grass fields, each its own shade, with darker hedgerow edges
+if (fieldZone.z > 0.0) {
+  float inF = 1.0 - smoothstep(fieldZone.z - 20.0, fieldZone.z, distance(vWPos.xz, fieldZone.xy));
+  vec2 q = mat2(0.94, -0.34, 0.34, 0.94) * vWPos.xz / 24.0;
+  q += 0.25 * vec2(sin(q.y * 1.7), sin(q.x * 1.3));
+  vec2 cell = floor(q), f = fract(q);
+  float h = fhash(cell);
+  vec3 shade = h < 0.25 ? vec3(1.15, 1.12, 0.62) : h < 0.5 ? vec3(0.78, 1.0, 0.7) : h < 0.75 ? vec3(1.05, 1.18, 0.85) : vec3(0.9, 0.95, 0.6);
+  float edge = smoothstep(0.0, 0.05, min(min(f.x, 1.0 - f.x), min(f.y, 1.0 - f.y)));
+  shade *= mix(0.55, 1.0, edge);
+  g.rgb = mix(g.rgb, g.rgb * shade, inF);
+}
 // sand below the beach line, with a wobbly edge
 float sandEdge = sandTop + 0.5 * sin(vWPos.x * 0.21) + 0.35 * sin(vWPos.z * 0.17 + vWPos.x * 0.05);
-g = mix(g, texture2D(sandMap, vWPos.xz / 3.0), 1.0 - smoothstep(sandEdge - 0.35, sandEdge + 0.35, vWPos.y));
+g = mix(g, texture2D(sandMap, vWPos.xz / 3.0), (1.0 - smoothstep(sandEdge - 0.35, sandEdge + 0.35, vWPos.y)) * (1.0 - smoothstep(sandMaxZ - 15.0, sandMaxZ, vWPos.z)));
 vec2 cuv = abs(tn.x) > abs(tn.z) ? vWPos.zy : vWPos.xy;
 vec4 c = texture2D(cliffMap, cuv / 2.0);
 float inRock = 1.0 - step(rockZone.z, distance(vWPos.xz, rockZone.xy));

@@ -2,19 +2,21 @@ import * as THREE from 'three';
 
 // ---------------------------------------------------------------------------
 // Turn-based battles. Exploring stops, the camera swings round to a side view
-// of the two fighters, and the battle UI comes up:
-//   - a battle slot for each side: a little checkered panel with the fighter's
-//     Health and Stamina on it, and a picture of the fighter above it
+// of the fight, and the battle UI comes up:
+//   - a battle slot for every fighter: a little checkered panel with their
+//     Health and Stamina on it, and a live picture of them above it
 //   - the command menu: Fight, Item, Run
 // Pick with the stick / arrow keys and A (Space), or click. B goes back.
 //
-// Fight opens your moves. Each attack costs Stamina: you run up, strike, and
-// run back; then the enemy takes its turn. Catch Breath skips your attack to
-// get Stamina back. Stamina also comes back a little every round.
+// Your party (you, plus anyone travelling with you) each take a turn, in order.
+// Fight opens that fighter's moves; each attack costs Stamina: they go up,
+// strike and come back. Then the enemy attacks one of you. A fighter at 0
+// Health is down and skips their turns; you lose if the whole party is down.
+// Everyone gets a little Stamina back every round.
 // ---------------------------------------------------------------------------
 
-const PORTRAIT = 128;
 const REGEN = 1;           // Stamina back at the end of each round
+const RUN_SPEED = 8;
 
 // Your moves. hits: the animation for each blow, when it lands (s after it
 // starts), how long it lasts, and its damage range.
@@ -27,7 +29,6 @@ export const MOVES = [
     { state: 'kick', at: 0.22, dur: 0.6, dmg: [2, 3] }] },
   { name: 'Catch Breath', cost: 0, rest: 3, desc: 'Skip your attack and get 3 Stamina back.' },
 ];
-const RUN_SPEED = 8;
 
 // Fighter pictures are live: each frame, a head-and-shoulders view of each
 // fighter is rendered straight into the game canvas, inside the picture frame
@@ -36,12 +37,18 @@ const picCam = new THREE.PerspectiveCamera(30, 1, 0.1, 50);
 const tmpV = new THREE.Vector3(), tmpS = new THREE.Vector2();
 
 export class Battle {
-  // fighters: { player: { name, hp, maxHp, sp, maxSp, pos, picture }, enemy: { ...same } }
-  // player.actor = the Player (moved and animated during attacks); enemy.model =
-  // its 3D object (wobbles when hit). fx = shake / dust.
-  constructor({ ui, input, camera, player, enemy, fx, onEnd }) {
+  // party: [{ name, hp, maxHp, sp, maxSp, pos (their spot), moves, picture, top,
+  //           actor (the Player, run around with its own moves) or node (an Object3D,
+  //           slid around) }]
+  // enemy: { name, hp, maxHp, sp, maxSp, atk, attackText, pos, model, picture, top, intro }
+  constructor({ ui, input, camera, party, enemy, fx, onEnd }) {
     this.ui = ui; this.input = input; this.camera = camera;
-    this.player = player; this.enemy = enemy; this.onEnd = onEnd; this.fx = fx;
+    this.party = party; this.player = party[0]; this.enemy = enemy; this.onEnd = onEnd; this.fx = fx;
+    for (const f of party) {
+      f.moves = f.moves || MOVES;
+      if (f.node) { f.home = f.node.position.clone(); f.lift = f.home.y - f.pos.y; }
+    }
+    this.cur = 0;               // whose turn it is
     this.phase = 'menu'; this.pt = 0;
     this.wobble = 0; this.wobbleV = 0; this.fallen = 0;
     this.menu = 'main';
@@ -53,35 +60,44 @@ export class Battle {
     this.say(enemy.intro || `${enemy.name} stands in your way!`);
   }
 
-  slot(f, side) {
+  get me() { return this.party[this.cur]; }
+
+  slot(f, cls) {
     const el = document.createElement('div');
-    el.className = `bslot ${side}`;
+    el.className = `bslot ${cls}`;
     el.innerHTML = `
       <div class="bpic"></div>
       <div class="bpanel">
         <div class="bname">${f.name}</div>
-        <div class="bstat hp"><span class="lbl">Health</span><div class="bar"><i></i></div><span class="num"></span></div>
-        <div class="bstat sp"><span class="lbl">Stamina</span><div class="bar"><i></i></div><span class="num"></span></div>
+        <div class="bstat hp"><div class="row"><span class="lbl">Health</span><span class="num"></span></div><div class="bar"><i></i></div></div>
+        <div class="bstat sp"><div class="row"><span class="lbl">Stamina</span><span class="num"></span></div><div class="bar"><i></i></div></div>
       </div>`;
     f.el = el;
     return el;
   }
 
+  all() { return [...this.party, this.enemy]; }
+
   refresh() {
-    for (const f of [this.player, this.enemy]) {
+    for (const f of this.all()) {
       const set = (cls, v, m) => {
         f.el.querySelector(`.${cls} i`).style.width = `${(v / m) * 100}%`;
         f.el.querySelector(`.${cls} .num`).textContent = `${v} / ${m}`;
       };
       set('hp', f.hp, f.maxHp);
       set('sp', f.sp, f.maxSp);
+      f.el.classList.toggle('down', f.hp <= 0);
     }
+    this.party.forEach((f, i) => f.el.classList.toggle('active', this.phase === 'menu' && i === this.cur));
   }
 
   build() {
     const ui = this.ui;
     ui.innerHTML = '';
-    ui.append(this.slot(this.player, 'left'), this.slot(this.enemy, 'right'));
+    const side = document.createElement('div');
+    side.className = `bparty n${this.party.length}`;
+    this.party.forEach((f) => side.append(this.slot(f, 'ally')));
+    ui.append(side, this.slot(this.enemy, 'foe'));
     this.log = document.createElement('div');
     this.log.className = 'blog';
     this.cmds = document.createElement('div');
@@ -94,14 +110,16 @@ export class Battle {
 
   say(text) { this.log.textContent = text; }
 
+  ask() { return this.cur === 0 ? 'What will you do?' : `What will ${this.me.name} do?`; }
+
   showMenu(kind) {
     this.menu = kind;
     this.sel = 0;
-    const P = this.player;
+    const P = this.me;
     const items = kind === 'main'
       ? [['Fight', () => this.showMenu('fight')], ['Item', () => this.showMenu('items')], ['Run', () => this.run()]]
       : kind === 'fight'
-        ? [...MOVES.map((m) => [m.name, P.sp >= m.cost ? () => this.useMove(m) : null, m.cost ? `${m.cost} SP` : '', m.desc]), ['Back', () => this.showMenu('main'), '', '']]
+        ? [...P.moves.map((m) => [m.name, P.sp >= m.cost ? () => this.useMove(m) : null, m.cost ? `${m.cost} SP` : '', m.desc]), ['Back', () => this.showMenu('main'), '', '']]
         : [['(no items)', null], ['Back', () => this.showMenu('main')]];
     this.items = items;
     this.cmds.innerHTML = '';
@@ -112,7 +130,7 @@ export class Battle {
       if (cost) { const c = document.createElement('span'); c.className = 'cost'; c.textContent = cost; b.append(c); }
       b.disabled = !fn;
       b.addEventListener('mouseenter', () => { if (fn) { this.sel = i; this.highlight(); } });
-      b.addEventListener('click', (e) => { e.stopPropagation(); if (fn && !this.ending) fn(); });
+      b.addEventListener('click', (e) => { e.stopPropagation(); if (fn && !this.ending && this.phase === 'menu') fn(); });
       this.cmds.append(b);
     });
     if (!items[this.sel][1]) this.sel = items.findIndex(([, fn]) => fn);
@@ -123,36 +141,37 @@ export class Battle {
     [...this.cmds.children].forEach((b, i) => b.classList.toggle('sel', i === this.sel));
     // in the moves list, describe the one you're on
     if (this.menu === 'fight') {
-      const [name, fn, , desc] = this.items[this.sel];
-      this.say(desc ? (fn ? desc : `${desc} Not enough Stamina.`) : 'What will you do?');
-    } else if (this.menu === 'main' && this.t > 0) this.say('What will you do?');
+      const [, fn, , desc] = this.items[this.sel];
+      this.say(desc ? (fn ? desc : `${desc} Not enough Stamina.`) : this.ask());
+    } else if (this.menu === 'main' && (this.t > 0 || this.cur > 0)) this.say(this.ask());
   }
 
   // --- Turns -------------------------------------------------------------------------
-  setPhase(p) { this.phase = p; this.pt = 0; }
+  setPhase(p) { this.phase = p; this.pt = 0; this.refresh(); }
 
   busy(on) { this.cmds.classList.toggle('gone', on); }
 
   useMove(m) {
-    const P = this.player;
+    const P = this.me;
     this.busy(true);
     this.menu = 'none';
     if (m.rest) {
       P.sp = Math.min(P.maxSp, P.sp + m.rest);
-      this.refresh();
       this.popup(P, `+${m.rest} SP`, 'sp');
-      this.say('You catch your breath.');
+      this.say(this.cur === 0 ? 'You catch your breath.' : `${P.name} catches her breath.`);
       this.setPhase('rest');
       return;
     }
     P.sp -= m.cost;
-    this.refresh();
     this.move = m;
     this.hitIndex = 0;
     this.dealt = 0;
-    this.say(`You use ${m.name}!`);
+    this.say(this.cur === 0 ? `You use ${m.name}!` : `${P.name} uses ${m.name}!`);
     this.setPhase('approach');
   }
+
+  // where a fighter is right now
+  at(f) { return f.actor ? f.actor.pos : f.node ? tmpV.set(f.node.position.x, f.node.position.y - (f.lift || 0), f.node.position.z) : f.pos; }
 
   // A number that pops up over a fighter and floats away.
   popup(f, text, cls) {
@@ -160,7 +179,7 @@ export class Battle {
     el.className = `bdmg ${cls}`;
     el.textContent = text;
     this.ui.append(el);
-    const v = f.pos.clone(); v.y += f.top ?? 2.3;
+    const v = this.at(f).clone(); v.y += f.top ?? 2.3;
     v.project(this.camera);
     el.style.left = `${(v.x * 0.5 + 0.5) * innerWidth}px`;
     el.style.top = `${(-v.y * 0.5 + 0.5) * innerHeight}px`;
@@ -169,34 +188,69 @@ export class Battle {
 
   damage(f, n) {
     f.hp = Math.max(0, f.hp - n);
-    this.popup(f, `-${n}`, f === this.player ? 'bad' : 'good');
+    this.popup(f, `-${n}`, f === this.enemy ? 'good' : 'bad');
     this.refresh();
     if (this.onDamage) this.onDamage(f);
   }
 
-  // Run the actor towards a point; true once there.
-  runTo(actor, x, z, near) {
-    const dx = x - actor.pos.x, dz = z - actor.pos.z, d = Math.hypot(dx, dz);
-    if (d < near) { actor.fwd = 0; return true; }
-    actor.yaw = Math.atan2(dx, dz);
-    actor.fwd = Math.min(RUN_SPEED, d * 6);
+  // Move a fighter towards a point; true once there.
+  goTo(f, x, z, near, dt) {
+    if (f.actor) {
+      const a = f.actor, dx = x - a.pos.x, dz = z - a.pos.z, d = Math.hypot(dx, dz);
+      if (d < near) { a.fwd = 0; return true; }
+      a.yaw = Math.atan2(dx, dz);
+      a.fwd = Math.min(RUN_SPEED, d * 6);
+      return false;
+    }
+    const n = f.node.position, dx = x - n.x, dz = z - n.z, d = Math.hypot(dx, dz);
+    if (d < near) return true;
+    const step = Math.min(d - near * 0.5, 9 * dt);
+    n.x += (dx / d) * step; n.z += (dz / d) * step;
+    f.node.rotation.y = Math.atan2(dx, dz);
     return false;
   }
 
-  faceEnemy() {
-    const a = this.player.actor, e = this.enemy.pos;
-    a.yaw = Math.atan2(e.x - a.pos.x, e.z - a.pos.z);
+  face(f) {
+    const p = this.at(f), e = this.enemy.pos, yaw = Math.atan2(e.x - p.x, e.z - p.z);
+    if (f.actor) f.actor.yaw = yaw; else f.node.rotation.y = yaw;
+  }
+
+  // the next fighter in the party who can still act, after `i`
+  nextUp(i) {
+    for (let k = i + 1; k < this.party.length; k++) if (this.party[k].hp > 0) return k;
+    return -1;
+  }
+
+  toMenu() {
+    this.setPhase('menu');
+    this.busy(false);
+    this.showMenu('main');
+    this.say(this.ask());
   }
 
   turns(dt) {
-    const P = this.player, E = this.enemy, a = P.actor;
+    const P = this.me, E = this.enemy;
     this.pt += dt;
     switch (this.phase) {
-      case 'approach':
-        if (this.runTo(a, E.pos.x, E.pos.z, 1.5) || this.pt > 2.5) { a.fwd = 0; this.faceEnemy(); a.setState(this.move.hits[0].state); this.setPhase('strike'); }
+      case 'approach': {
+        // stop just in front of the enemy, on your side
+        const home = P.pos, dx = home.x - E.pos.x, dz = home.z - E.pos.z, d = Math.hypot(dx, dz) || 1;
+        const tx = E.pos.x + (dx / d) * 1.5, tz = E.pos.z + (dz / d) * 1.5;
+        if (this.goTo(P, tx, tz, P.actor ? 0.2 : 0.1, dt) || this.pt > 2.5) {
+          if (P.actor) P.actor.fwd = 0;
+          this.face(P);
+          this.startHit(P, this.move.hits[0]);
+          this.setPhase('strike');
+        }
         break;
+      }
       case 'strike': {
         const h = this.move.hits[this.hitIndex];
+        if (P.node) {   // a lunge for those without moves of their own
+          const k = Math.sin(Math.min(1, this.pt / h.dur) * Math.PI);
+          const e = E.pos, n = P.node.position, dx = e.x - n.x, dz = e.z - n.z, d = Math.hypot(dx, dz) || 1;
+          P.node.position.set(this.lungeFrom.x + (dx / d) * k * 0.7, this.lungeFrom.y + k * 0.25, this.lungeFrom.z + (dz / d) * k * 0.7);
+        }
         if (this.pt > h.at && !this.hit) {
           this.hit = true;
           const n = h.dmg[0] + Math.floor(Math.random() * (h.dmg[1] - h.dmg[0] + 1));
@@ -209,49 +263,58 @@ export class Battle {
           this.hit = false;
           this.hitIndex++;
           const next = this.move.hits[this.hitIndex];
-          if (next && E.hp > 0) { this.faceEnemy(); a.state = ''; a.setState(next.state); this.pt = 0; }
+          if (next && E.hp > 0) { this.face(P); this.startHit(P, next); this.pt = 0; }
           else { this.say(`${this.move.name} hits the ${E.name} for ${this.dealt}!`); this.setPhase('return'); }
         }
         break;
       }
       case 'return':
-        if (this.runTo(a, P.pos.x, P.pos.z, 0.15) || this.pt > 2.5) {
-          a.pos.x = P.pos.x; a.pos.z = P.pos.z; a.fwd = 0; this.faceEnemy();
-          this.setPhase(E.hp <= 0 ? 'win' : 'enemyTurn');
+        if (this.goTo(P, P.pos.x, P.pos.z, P.actor ? 0.15 : 0.05, dt) || this.pt > 2.5) {
+          if (P.actor) { P.actor.pos.x = P.pos.x; P.actor.pos.z = P.pos.z; P.actor.fwd = 0; } else P.node.position.copy(P.home);
+          this.face(P);
+          this.endTurn();
         }
         break;
       case 'rest':
-        if (this.pt > 1.1) this.setPhase('enemyTurn');
+        if (this.pt > 1.1) this.endTurn();
         break;
-      case 'enemyTurn':
-        if (this.pt === dt) this.say(`The ${E.name} ${E.attackText || 'attacks'}!`);
-        if (this.pt > 0.45 && !this.swung) { this.swung = true; this.wobbleV -= 9; }   // lurch towards you
+      case 'enemyTurn': {
+        if (this.pt === dt) {
+          const up = this.party.filter((f) => f.hp > 0);
+          this.target = up[Math.floor(Math.random() * up.length)];
+          this.say(`The ${E.name} ${E.attackText || 'attacks'}!`);
+        }
+        const T = this.target;
+        if (this.pt > 0.45 && !this.swung) { this.swung = true; this.wobbleV -= 9; }   // lurch towards them
         if (this.pt > 0.75 && !this.hit) {
           this.hit = true;
-          this.damage(P, E.atk);
-          a.anim.sq = -0.3; a.invuln = 0.7;
-          a.say('hurt');
+          this.damage(T, E.atk);
+          if (T.actor) { T.actor.anim.sq = -0.3; T.actor.invuln = 0.7; T.actor.say('hurt'); }
+          else this.allyFlinch = 0.5;
           this.fx.shake(0.35);
-          this.say(`The ${E.name} hits you for ${E.atk}.`);
+          this.say(T === this.player ? `The ${E.name} hits you for ${E.atk}.` : `The ${E.name} hits ${T.name} for ${E.atk}.`);
+        }
+        if (this.allyFlinch > 0 && T.node) {
+          this.allyFlinch -= dt;
+          T.node.position.x = T.home.x + Math.sin(this.allyFlinch * 60) * 0.08 * this.allyFlinch * 2;
         }
         if (this.pt > 1.7) {
           this.hit = false; this.swung = false;
-          if (P.hp <= 0) { this.setPhase('lose'); break; }
-          P.sp = Math.min(P.maxSp, P.sp + REGEN);
-          this.refresh();
-          this.setPhase('menu');
-          this.say('What will you do?');
-          this.busy(false);
-          this.showMenu('main');
+          if (T.node) T.node.position.copy(T.home);
+          if (this.party.every((f) => f.hp <= 0)) { this.setPhase('lose'); break; }
+          for (const f of this.party) if (f.hp > 0) f.sp = Math.min(f.maxSp, f.sp + REGEN);
+          this.cur = this.party.findIndex((f) => f.hp > 0);
+          this.toMenu();
         }
         break;
+      }
       case 'win':
         if (this.pt === dt) this.say(`You defeated the ${E.name}!`);
         this.fallen = Math.min(1, this.fallen + dt * 2.2);
         if (this.pt > 2.0) { this.setPhase('done'); this.end(); }
         break;
       case 'lose':
-        if (this.pt === dt) this.say('You were knocked out...');
+        if (this.pt === dt) this.say(this.party.length > 1 ? 'Your party was knocked out...' : 'You were knocked out...');
         if (this.pt > 2.0) { this.setPhase('done'); this.end(); }
         break;
     }
@@ -264,6 +327,18 @@ export class Battle {
     }
   }
 
+  startHit(P, h) {
+    if (P.actor) { P.actor.state = ''; P.actor.setState(h.state); }
+    else this.lungeFrom = P.node.position.clone();
+  }
+
+  // after a fighter's move: the next one in the party, or the enemy
+  endTurn() {
+    if (this.enemy.hp <= 0) { this.setPhase('win'); return; }
+    const n = this.nextUp(this.cur);
+    if (n >= 0) { this.cur = n; this.toMenu(); } else this.setPhase('enemyTurn');
+  }
+
   run() {
     this.ending = true;
     this.say('You got away safely!');
@@ -273,11 +348,12 @@ export class Battle {
 
   end() {
     this.ui.classList.remove('on');
-    if (this.enemy.model) this.enemy.model.rotation.set(0, this.enemy.model.rotation.y, 0);   // the dummy stands back up
-    this.onEnd({ won: this.enemy.hp <= 0, lost: this.player.hp <= 0 });
+    if (this.enemy.model) this.enemy.model.rotation.set(0, this.enemy.model.rotation.y, 0);
+    for (const f of this.party) if (f.node) f.node.position.copy(f.home);
+    this.onEnd({ won: this.enemy.hp <= 0, lost: this.party.every((f) => f.hp <= 0) });
   }
 
-  // Draw the two fighter pictures into their frames (call after the main render).
+  // Draw the fighter pictures into their frames (call after the main render).
   renderPictures(renderer, scene) {
     const size = renderer.getSize(tmpS);
     const fog = scene.fog, near = fog && fog.near, far = fog && fog.far;
@@ -285,7 +361,7 @@ export class Battle {
     const auto = renderer.autoClear;
     renderer.autoClear = false;
     renderer.setScissorTest(true);
-    for (const f of [this.player, this.enemy]) {
+    for (const f of this.all()) {
       const el = f.el && f.el.querySelector('.bpic');
       if (!el || !f.picture) continue;
       const r = el.getBoundingClientRect();
@@ -293,8 +369,8 @@ export class Battle {
       const x = r.left + b, w = r.width - b * 2, h = r.height - b * 2, y = size.y - (r.bottom - b);
       if (w <= 0 || h <= 0) continue;
       const { height = 1.6, dist = 2.2, yaw = 0 } = f.picture;
-      const at = (f.actor ? f.actor.pos : f.pos);
-      const look = tmpV.set(at.x, at.y + height, at.z);
+      const at = this.at(f);
+      const look = new THREE.Vector3(at.x, at.y + height, at.z);
       picCam.aspect = w / h; picCam.updateProjectionMatrix();
       picCam.position.set(look.x + Math.sin(yaw) * dist, look.y + 0.15, look.z + Math.cos(yaw) * dist);
       picCam.lookAt(look);
@@ -329,13 +405,13 @@ export class Battle {
       if (inp.pressed.A) { const fn = this.items[this.sel][1]; if (fn) fn(); }
       else if (inp.pressed.B && this.menu !== 'main') this.showMenu('main');
     }
-    // side-on view of the two fighters, drifting slightly
+    // side-on view of the fight, drifting slightly
     const a = this.player.pos, b = this.enemy.pos;
     const mid = a.clone().add(b).multiplyScalar(0.5);
     const across = new THREE.Vector3(b.x - a.x, 0, b.z - a.z).normalize();
     const side = new THREE.Vector3(-across.z, 0, across.x);
     const sway = Math.sin(this.t * 0.4) * 0.4;
-    this.camera.position.copy(mid).addScaledVector(side, 8.5).addScaledVector(across, sway).add(new THREE.Vector3(0, 3.2, 0));
-    this.camera.lookAt(mid.x, mid.y + 1.1, mid.z);
+    this.camera.position.copy(mid).addScaledVector(side, 9).addScaledVector(across, sway - 0.6).add(new THREE.Vector3(0, 3.3, 0));
+    this.camera.lookAt(mid.x - across.x * 0.6, mid.y + 1.1, mid.z - across.z * 0.6);
   }
 }

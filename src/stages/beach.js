@@ -1,14 +1,15 @@
 import * as THREE from 'three';
-import { Terrain } from '../terrain.js?v=36';
-import { ShyGhost } from '../ghost.js?v=36';
-import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture } from '../textures.js?v=36';
+import { Terrain } from '../terrain.js?v=39';
+import { ShyGhost } from '../ghost.js?v=39';
+import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture, obsidianTexture } from '../textures.js?v=39';
+import * as Fieldlands from './obsidian-fieldlands.js?v=39';
 
 // ---------------------------------------------------------------------------
 // THE WASHED-UP BEACH: the first area of the open world. You wake up face down
 // on the sand, next to the wreck of the ship you came in on, under a heavy grey
-// sky. The sea is to the
-// south; the beach rises through dunes to grassland in the north, between two
-// headlands of rock.
+// sky. The sea is to the south; the beach rises through dunes to grassland in
+// the north, between two headlands of rock. Past the grassland the land drops
+// away down a long slope to the Obsidian Fieldlands (obsidian-fieldlands.js).
 // ---------------------------------------------------------------------------
 
 export const NAME = 'Washed-Up Beach';
@@ -39,7 +40,7 @@ const basics = () => [
 
 const SEA = 0;                 // water level
 const SAND_TOP = 2.6;          // sand below this height, grass above
-const AREA = { minX: -90, maxX: 90, minZ: -46, maxZ: 110 };
+const AREA = { minX: -150, maxX: 150, minZ: -46, maxZ: 482 };   // the beach, the slope and the fieldlands
 
 // The shoreline wobbles along x; d = distance inland from it.
 const shoreZ = (x) => -20 + 6 * Math.sin(x * 0.05) + 3 * Math.sin(x * 0.13 + 1);
@@ -58,7 +59,7 @@ function height(x, z) {
   h = Math.min(h, 9 + 0.8 * Math.sin(x * 0.07));                // grassland levels out
   // rocky headlands closing the beach in, east and west
   const edge = Math.abs(x) - (70 + 5 * Math.sin(z * 0.08));
-  h += 16 * smooth(0, 9, edge);
+  h += 16 * smooth(0, 9, edge) * (1 - smooth(115, 150, z));   // (further north the fieldlands' walls take over)
   // rocks on the beach
   h += rock(x, z, -31, -9, 5, 3.4) + rock(x, z, -27, -13, 2.6, 1.8) + rock(x, z, 36, -12, 4, 2.6) + rock(x, z, 48, 4, 3, 2.2);
   // dunes
@@ -160,26 +161,30 @@ export function build(world, { models = {} } = {}) {
 
   // --- Ground ------------------------------------------------------------------
   const terrain = new Terrain({
-    ...AREA, res: 1, height,
+    ...AREA, res: 1.25, height: Fieldlands.withFieldlands(height),
+    paths: [Fieldlands.PATH],
     grass: grassTexture(), cliff: rockTexture(), path: dirtTexture(),
-    sand: sandTexture(), sandTop: SAND_TOP,
+    rock: obsidianTexture(), rockZone: new THREE.Vector3(Fieldlands.CENTRE.x, Fieldlands.CENTRE.z, 175),   // obsidian cliffs round the basin
+    fields: { x: Fieldlands.CENTRE.x, z: Fieldlands.CENTRE.z, r: 150 },
+    sand: sandTexture(), sandTop: SAND_TOP, sandMaxZ: 70,
     grade: { sat: 0.6, tint: new THREE.Color(0.92, 0.93, 0.94) },
   });
   world.setTerrain(terrain);
+  world.killY = Fieldlands.FLOOR - 30;      // the basin is way below sea level
   const G = (x, z) => terrain.height(x, z);
 
   // --- The sea: a big plane that slowly drifts, and a second one for shimmer ------
   const wt = waterTexture();
   wt.repeat.set(60, 60);
-  const sea = new THREE.Mesh(new THREE.PlaneGeometry(1200, 1200), new THREE.MeshLambertMaterial({ map: wt, transparent: true, opacity: 0.9, depthWrite: false }));
+  const sea = new THREE.Mesh(new THREE.PlaneGeometry(1200, 840), new THREE.MeshLambertMaterial({ map: wt, transparent: true, opacity: 0.9, depthWrite: false }));
   sea.rotation.x = -Math.PI / 2;
-  sea.position.set(0, SEA, -200);
+  sea.position.set(0, SEA, -380);        // ends just inland of the beach (the basin is below sea level)
   sea.renderOrder = 1;
   scene.add(sea);
   const wt2 = wt.clone(); wt2.needsUpdate = true; wt2.repeat.set(41, 41);
-  const shimmer = new THREE.Mesh(new THREE.PlaneGeometry(1200, 1200), new THREE.MeshBasicMaterial({ map: wt2, transparent: true, opacity: 0.08, depthWrite: false, blending: THREE.AdditiveBlending }));
+  const shimmer = new THREE.Mesh(new THREE.PlaneGeometry(1200, 840), new THREE.MeshBasicMaterial({ map: wt2, transparent: true, opacity: 0.08, depthWrite: false, blending: THREE.AdditiveBlending }));
   shimmer.rotation.x = -Math.PI / 2;
-  shimmer.position.set(0, SEA + 0.02, -200);
+  shimmer.position.set(0, SEA + 0.02, -380);
   shimmer.renderOrder = 1;
   scene.add(shimmer);
 
@@ -286,6 +291,9 @@ export function build(world, { models = {} } = {}) {
     scene.add(trunks, ...cones);
   }
 
+  // --- Down the slope: the Obsidian Fieldlands ---------------------------------------
+  const fields = Fieldlands.build({ world, scene, G, terrain, overcast: skyMesh, rng, box });
+
   // --- Waves lapping: drift the water textures --------------------------------------
   let t = 0;
   const update = (dt, game) => {
@@ -293,6 +301,16 @@ export function build(world, { models = {} } = {}) {
     if (ghost && game && !game.battling) {
       ghost.update(dt, game.player);
       if (ghost.state === 'cornered' && !talking) meet(game);
+    }
+    if (game) {
+      // the fog lifts as you come down into the fieldlands
+      if (fields.update(dt, game.player)) {
+        game.music(fields.inside ? Fieldlands.MUSIC : MUSIC);
+        game.card(fields.inside ? Fieldlands.NAME : NAME);
+      }
+      // enemies: touch one and it's a fight
+      const busy = game.battling || game.talking || fighting;
+      for (const e of fields.enemies) if (e.update(dt, game.player, busy) && !busy) { fightEnemy(game, e); break; }
     }
     wt.offset.set(t * 0.004, t * 0.012);
     wt2.offset.set(-t * 0.006, t * 0.008);
@@ -358,23 +376,66 @@ export function build(world, { models = {} } = {}) {
       return game.talk(lines, { with: ghost.root.position });
     });
   };
+  // --- Vivian in your party: she follows you and fights at your side ------------------
+  const setParty = (on) => {
+    progress.party = on;
+    if (!on) progress.ghostAt = { x: ghost.pos.x, z: ghost.pos.z };
+    saveProgress();
+    ghost.state = on ? 'follow' : 'idle';
+  };
+  if (ghost && progress.party) ghost.state = 'follow';
+  const VIVIAN_MOVES = [
+    { name: 'Shadow Fist', cost: 2, desc: 'A punch wrapped in shadow. 2-3 damage.', hits: [{ at: 0.2, dur: 0.5, dmg: [2, 3] }] },
+    { name: 'Dark Flame', cost: 5, desc: 'A burst of ghostly fire. 4-6 damage.', hits: [{ at: 0.3, dur: 0.75, dmg: [4, 6] }] },
+    { name: 'Catch Breath', cost: 0, rest: 3, desc: 'Skip her attack and get 3 Stamina back.' },
+  ];
+  const allies = () => (ghost && progress.party ? [{ name: GHOST, maxHp: 10, maxSp: 8, moves: VIVIAN_MOVES, node: ghost.root, lift: 1.1, top: 3.1, picture: { height: 2.55, dist: 3.0 } }] : []);
+
+  // --- Fighting the fieldlands' enemies ---------------------------------------------
+  let fighting = false;
+  const fightEnemy = (game, e) => {
+    fighting = true;
+    const P = game.player;
+    let dx = P.pos.x - e.pos.x, dz = P.pos.z - e.pos.z; const d = Math.hypot(dx, dz) || 1; dx /= d; dz /= d;
+    const px = e.pos.x + dx * 4.5, pz = e.pos.z + dz * 4.5;
+    e.yaw = Math.atan2(dx, dz); e.place();
+    game.fight({
+      spots: { player: new THREE.Vector3(px, G(px, pz), pz), enemy: new THREE.Vector3(e.pos.x, e.pos.y, e.pos.z) },
+      enemy: e.fighter(Math.atan2(dx, dz)),
+      allies: allies(),
+    }).then(({ won, lost }) => {
+      if (won) e.remove();
+      else e.cool = 4;                               // ran away: it leaves you alone for a bit
+      fighting = false;
+      if (lost) game.respawn();                      // knocked out: you come round on the beach again
+    });
+  };
+
   // Talk to her again later.
   const chat = (game) => {
     talking = true;
+    const inParty = progress.party;
     game.talk([
-      { who: GHOST, text: progress.sparred ? 'Oh! Hello again. Did you need something?' : 'Oh, hello again. Did you need something?',
-        choices: ['Teach me the basics', "Let's fight", 'Never mind'],
+      { who: GHOST, text: inParty ? 'Hm? Did you need something?' : progress.sparred ? 'Oh! Hello again. Did you need something?' : 'Oh, hello again. Did you need something?',
+        choices: ['Teach me the basics', "Let's spar", inParty ? 'Wait here for now' : 'Come with me?', 'Never mind'],
         then: (k) => {
           if (k === 0) { progress.taught = true; saveProgress(); return basics(); }
           if (k === 1) return [{ who: GHOST, text: progress.sparred ? 'Again? Okay... Ready when you are!' : "F-fight? Me? Um... okay. Just for practice. Here I come!", onShow: () => { wantSpar = true; } }];
-          return [{ who: GHOST, text: 'Okay. Be careful out there.' }];
+          if (k === 2 && inParty) return [{ who: GHOST, text: "Oh. Okay. I'll wait right here. Come back for me, alright?", onShow: () => setParty(false) }];
+          if (k === 2) return [
+            { who: GHOST, text: 'M-me? Come with you?' },
+            { who: GHOST, text: '...Nobody has ever asked me that before.' },
+            { who: GHOST, text: "Okay! I'll come. I'll try to be useful, I promise. I'm good at shadows, and... and hiding.", onShow: () => setParty(true) },
+            { who: '', text: `${GHOST} joined your party! She'll fight at your side.` },
+          ];
+          return [{ who: GHOST, text: inParty ? 'Okay! Lead the way.' : 'Okay. Be careful out there.' }];
         } },
     ], { with: ghost.root.position }).then(() => {
       if (wantSpar) { wantSpar = false; return spar(game); }
     }).then(() => { talking = false; });
   };
   let wantSpar = false;
-  const ghostNear = (P) => ghost && ghost.state === 'idle' && Math.hypot(P.pos.x - ghost.pos.x, P.pos.z - ghost.pos.z) < 3.2;
+  const ghostNear = (P) => ghost && (ghost.state === 'idle' || ghost.state === 'follow') && Math.hypot(P.pos.x - ghost.pos.x, P.pos.z - ghost.pos.z) < 3.4;
 
   // You wash up face down a few metres from the water, head towards the land.
   const sx = 0, sz = shoreZ(0) + 6;
@@ -383,11 +444,11 @@ export function build(world, { models = {} } = {}) {
     spawnYaw: 0,
     startLying: true,
     update,
-    ghost,   // for tests
+    ghost, fields,   // for tests
     // B near the ghost: talk
     interact: (game) => (ghostNear(game.player) && !talking ? { text: 'B — Talk', go: () => chat(game) } : null),
   };
 }
 
 // For tests and tooling.
-export const layout = { SEA, SAND_TOP, AREA, shoreZ };
+export const layout = { SEA, SAND_TOP, AREA, shoreZ, FIELDLANDS: { FLOOR: Fieldlands.FLOOR, SLOPE: Fieldlands.SLOPE, CENTRE: Fieldlands.CENTRE } };

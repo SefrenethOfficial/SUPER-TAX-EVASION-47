@@ -119,3 +119,34 @@ export function waterTexture() {
     }
   });
 }
+
+// Black volcanic glass: near-black with glassy violet and grey streaks.
+export function obsidianTexture() {
+  return canvasTexture(128, (g, n) => {
+    const r = rng(71);
+    g.fillStyle = '#121117'; g.fillRect(0, 0, n, n);
+    for (let i = 0; i < 40; i++) {
+      const x = r() * n, y = r() * n, l = 20 + r() * 60, a = -0.6 + r() * 0.3;
+      g.strokeStyle = r() < 0.5 ? 'rgba(120,100,170,0.16)' : 'rgba(200,200,215,0.10)';
+      g.lineWidth = 1 + r() * 3;
+      for (const dx of [-n, 0, n]) { g.beginPath(); g.moveTo(x + dx, y); g.lineTo(x + dx + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke(); }
+    }
+    speckle(g, n, r, 500, ['rgba(0,0,0,0.5)', 'rgba(150,140,190,0.2)']);
+  });
+}
+
+// One tuft of tall grass: tapering blades on a transparent background.
+export function grassTuftTexture() {
+  const t = canvasTexture(64, (g, n) => {
+    const r = rng(83);
+    g.clearRect(0, 0, n, n);
+    for (let i = 0; i < 26; i++) {
+      const x = 6 + r() * (n - 12), h = n * (0.45 + r() * 0.55), lean = (r() - 0.5) * 18, w = 2 + r() * 2.5;
+      const shade = 0.75 + r() * 0.35;
+      g.fillStyle = `rgb(${Math.floor(92 * shade)},${Math.floor(142 * shade)},${Math.floor(58 * shade)})`;
+      g.beginPath(); g.moveTo(x - w, n); g.quadraticCurveTo(x + lean * 0.3, n - h * 0.6, x + lean, n - h); g.quadraticCurveTo(x + lean * 0.3 + 1, n - h * 0.6, x + w, n); g.fill();
+    }
+  });
+  t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+  return t;
+}

@@ -1,19 +1,19 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Input } from './input.js?v=36';
-import { World } from './world.js?v=36';
-import { Player, buildCharacter } from './player.js?v=36';
-import { FX } from './fx.js?v=36';
-import { GameAudio } from './audio.js?v=36';
-import { Battle } from './battle.js?v=36';
-import { Dialogue } from './dialogue.js?v=36';
+import { Input } from './input.js?v=39';
+import { World } from './world.js?v=39';
+import { Player, buildCharacter } from './player.js?v=39';
+import { FX } from './fx.js?v=39';
+import { GameAudio } from './audio.js?v=39';
+import { Battle } from './battle.js?v=39';
+import { Dialogue } from './dialogue.js?v=39';
 // The open world, one area per module.
-import * as blank from './stages/blank.js?v=36';
-import * as beach from './stages/beach.js?v=36';
+import * as blank from './stages/blank.js?v=39';
+import * as beach from './stages/beach.js?v=39';
 
 // Bump VERSION (and the ?v= on every local import) whenever files change,
 // so browsers never mix old and new code.
-const VERSION = '36';
+const VERSION = '39';
 const STAGES = { beach, blank };
 
 const canvas = document.getElementById('game');
@@ -165,7 +165,17 @@ function talk(lines, { with: other = null } = {}) {
     return pick;
   });
 }
-const game = { get player() { return player; }, get fx() { return S.fx; }, input, talk, fight: (zone) => { player.locked = true; return startBattle(zone); }, get talking() { return dialogue.active; }, get battling() { return !!S.battle; } };
+const game = {
+  // change the music for the part of the area you're in (null = quiet)
+  music(file) { if (S.areaMusic === file) return; S.areaMusic = file; if (!S.battle) audio.music(file); },
+  // show an area title card
+  card(name) {
+    document.querySelectorAll('.course-name').forEach((el) => { el.textContent = name; });
+    const card = $('course-card'); card.classList.remove('show'); void card.offsetWidth; card.classList.add('show');
+  },
+  // knocked out: come round at the area's start again
+  respawn() { setTimeout(() => go(S.key), 300); },
+  get player() { return player; }, get fx() { return S.fx; }, input, talk, fight: (zone) => { player.locked = true; return startBattle(zone); }, get talking() { return dialogue.active; }, get battling() { return !!S.battle; } };
 
 // --- Battles -------------------------------------------------------------------------
 const promptEl = $('prompt');
@@ -186,14 +196,22 @@ function startBattle(zone) {
     player.locked = true;
     player.update(1 / 60, input, cam.yaw);
     const E = zone.enemy;
-    const fighters = {
-      player: { name: 'You', hp: player.health, maxHp: 8, sp: player.stamina, maxSp: player.maxStamina, pos: sp.player.clone(), actor: player,
-        picture: { height: 1.7, dist: 2.0, yaw: player.yaw } },
-      enemy: { ...E, hp: E.maxHp, sp: E.maxSp, pos: sp.enemy, picture: E.picture },
-    };
+    const party = [{ name: 'You', hp: player.health, maxHp: 8, sp: player.stamina, maxSp: player.maxStamina, pos: sp.player.clone(), actor: player,
+      picture: { height: 1.7, dist: 2.0, yaw: player.yaw } }];
+    // anyone travelling with you stands behind you and off to the side
+    const ax = sp.enemy.x - sp.player.x, az = sp.enemy.z - sp.player.z, al = Math.hypot(ax, az) || 1;
+    (zone.allies || []).forEach((A, i) => {
+      const k = i + 1, x = sp.player.x - (ax / al) * 1.7 * k + (az / al) * 1.9 * k, z = sp.player.z - (az / al) * 1.7 * k - (ax / al) * 1.9 * k;
+      const y = S.world.floorBelow(x, z, sp.player.y + 6);
+      const pos = new THREE.Vector3(x, Number.isFinite(y) ? y : sp.player.y, z);
+      A.node.position.set(pos.x, pos.y + (A.lift || 0), pos.z);
+      A.node.rotation.set(0, player.yaw, 0);
+      party.push({ ...A, hp: A.hp ?? A.maxHp, sp: A.sp ?? A.maxSp, pos, picture: { ...A.picture, yaw: player.yaw } });
+    });
+    const enemy = { ...E, hp: E.maxHp, sp: E.maxSp, pos: sp.enemy, picture: E.picture };
     document.exitPointerLock?.();
     document.body.classList.add('in-battle');
-    S.battle = new Battle({ ui: $('battle'), input, camera, fx: S.fx, ...fighters, onEnd: endBattle });
+    S.battle = new Battle({ ui: $('battle'), input, camera, fx: S.fx, party, enemy, onEnd: endBattle });
     S.battle.onDamage = (f) => { if (f.actor) player.health = f.hp; };
     fade.classList.remove('on');
   }, 400);
@@ -202,7 +220,7 @@ function startBattle(zone) {
 function endBattle(result = {}) {
   const { lost } = result;
   fade.classList.add('on');
-  audio.music(S.mod.MUSIC);             // back to the area's music (or quiet)
+  audio.music(S.areaMusic !== undefined ? S.areaMusic : S.mod.MUSIC);   // back to the area's music (or quiet)
   setTimeout(() => {
     S.battle = null;
     player.locked = false;
@@ -309,6 +327,11 @@ function step(dt) {
     promptEl.classList.toggle('on', !!act);
     if (act && input.pressed.B) { promptEl.classList.remove('on'); input.pressed.B = false; act.go(); }
     player.update(dt, input, cam.yaw);
+    // out of battle, Health slowly comes back
+    if (player.health > 0 && player.health < 8 && !dialogue.active) {
+      S.regen = (S.regen || 0) + dt;
+      if (S.regen > 6) { S.regen = 0; player.health++; }
+    }
     updateCamera(dt, player);
     if (S.level.update) S.level.update(dt, game);
     // exits to other areas

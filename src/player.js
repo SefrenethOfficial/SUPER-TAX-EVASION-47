@@ -420,7 +420,8 @@ export class Player {
         if (this.physics(h, input)) break;
       }
     }
-    if (this.pos.y < -40) { const y = this.spawnYaw || 0; this.reset(); this.yaw = y; }
+    // fell out of the world: back to the start (well below the lowest ground there is)
+    if (this.pos.y < (this.world.killY ?? -40)) { const y = this.spawnYaw || 0; this.reset(); this.yaw = y; }
     // blink while invulnerable
     this.root.visible = this.invuln <= 0 || Math.floor(this.invuln * 12) % 2 === 0;
     this.animate(dt);

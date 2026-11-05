@@ -8,13 +8,19 @@ An open-world Metroidvania Soulslike in three.js, with Super Mario 64-style move
 
 The first area. You wake up face down on the sand in thick sea fog under a heavy grey sky, next to the wreck of the ship you came in on: a broken hull on its side, the snapped mast, crates, barrels and planks along the tideline. Press anything to get up. The sea is to the south (you can wade in up to your waist); the beach rises through dunes to grassland and dark pines in the north, between two rocky headlands.
 
+## Obsidian Fieldlands
+
+Past the grassland north of the beach, a dirt path runs down a long slope to a wide basin way below. From above it's lost in the fog; step down into it and the fog lifts, the sky turns blue and the fieldlands' music starts (and the fog comes back if you climb up to the beach again). It's a patchwork of grass fields with patches of tall grass swaying in the wind, spires and boulders of black volcanic glass, and obsidian cliffs all round.
+
+**Enemies** roam the fields: **Shardlings** (little hopping shards of obsidian; 8 Health, hit for 2) and **Thornbacks** (mossy grazers with obsidian spines; 15 Health, hit for 3). They wander, chase you when you get close, and touching one starts a battle. Beaten enemies are gone; run away and they leave you alone for a few seconds. If your party is knocked out you come round on the beach again, and the enemies are back. Out of battle your Health slowly comes back.
+
 ### The shy ghost
 
-When you get up, a dark figure is floating up ahead. Walk towards it and it backs away, always facing you, as fast as you can run. Chase it until it's pinned against the edge of the beach, and the darkness fades: it's Vivian, a shy ghost, who apologises for running and offers to teach you the basics (moving, jumping, the camera, and how battles work). Afterwards, walk up to her and press **B** to talk: she'll go over the basics again, or have a practice fight with you. Meeting and the lesson are remembered between visits (clear the site's storage to meet again). The ghost's name is `GHOST` at the top of `src/stages/beach.js`.
+When you get up, a dark figure is floating up ahead. Walk towards it and it backs away, always facing you, as fast as you can run. Chase it until it's pinned against the edge of the beach, and the darkness fades: it's Vivian, a shy ghost, who apologises for running and offers to teach you the basics (moving, jumping, the camera, and how battles work). Afterwards, walk up to her and press **B** to talk: she'll go over the basics again, have a practice fight with you, or **join your party**. In your party she floats along behind you everywhere and fights at your side (10 Health; Shadow Fist 2 SP for 2–3, Dark Flame 5 SP for 4–6, Catch Breath). Ask her to wait and she'll stay where you left her. Meeting and the lesson are remembered between visits (clear the site's storage to meet again). The ghost's name is `GHOST` at the top of `src/stages/beach.js`.
 
 ### Battles (work in progress)
 
-Battles are turn-based. For now the only one is a practice fight with Vivian (talk to her and pick **Let's fight**). She has 12 Health and goes easy on you, hitting back for 1. The enemy song plays during battles. Each side gets a battle slot (a checkered panel showing Health and Stamina) with a picture of the fighter above it. The commands are **Fight**, **Item** (no items yet) and **Run** (ends the battle).
+Battles are turn-based: against the fieldlands' enemies, or a practice fight with Vivian (talk to her and pick **Let's spar**; she goes easy on you). Everyone in your party takes a turn in order, then the enemy attacks one of you; a fighter at 0 Health is down, and you lose if the whole party is. The enemy song plays during battles. Each side gets a battle slot (a checkered panel showing Health and Stamina) with a picture of the fighter above it. The commands are **Fight**, **Item** (no items yet) and **Run** (ends the battle).
 
 **Fight** opens your moves, each with a Stamina (SP) cost: **Punch** (2 SP, 2–3 damage), **Kick** (4 SP, 4–5), **Flurry** (6 SP, jab, jab, kick for three hits of 2–3) and **Catch Breath** (skip your attack, +3 SP). Moves you can't afford are greyed out, and the message box describes the move you're on. You run up, strike and run back; then the enemy takes its turn. You get 1 SP back each round. Beat the enemy and it keels over; your Stamina refills after the battle. Getting knocked out just ends the battle for now.
 
@@ -45,6 +51,8 @@ Touch screens get an on-screen stick plus A / B / Z buttons.
 - `src/terrain.js`: heightmap terrain (sand, grass, rock and path blending, colour grading)
 - `src/textures.js`: procedural textures (sand, grass, rock, dirt, planks, water) painted at load time
 - `src/audio.js`: music and voice lines
+- `src/stages/obsidian-fieldlands.js`: the basin below the beach (shares the beach's ground): slope, fields, obsidian, tall grass, enemies, the fog lifting
+- `src/fieldenemy.js`: enemies out in the world (Shardling, Thornback): wander, chase, start a battle on touch
 - `src/ghost.js`: the shy ghost (backs away until cornered, darkness fading off)
 - `src/dialogue.js`: dialogue box with typed-out text and choices
 - `src/battle.js`: turn-based battles: battle slots, fighter pictures, the Fight / Item / Run menu, battle camera
@@ -64,6 +72,6 @@ Traffic cone hat: "Traffic Cone" by [hinndia](https://sketchfab.com/hinndia) on 
 
 Ghost model: "Vivian" by [Peardian](https://sketchfab.com/Peardian) on [Sketchfab](https://sketchfab.com/3d-models/vivian-8a2afe0fea6f4e558c24289bf40d5ad4), licensed [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/).
 
-Battle music ("Enemy"): supplied by the project owner.
+Battle music ("Enemy") and Obsidian Fieldlands music ("Steam Gardens", from Nintendo's Super Mario Odyssey): supplied by the project owner.
 
 Voice lines: supplied by the project owner; from Nintendo's Super Mario 64.
