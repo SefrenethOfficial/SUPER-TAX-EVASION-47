@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { Terrain } from '../terrain.js?v=25';
+import { Terrain } from '../terrain.js?v=26';
+import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture } from '../textures.js?v=26';
 
 // ---------------------------------------------------------------------------
 // THE WASHED-UP BEACH: the first area of the open world. You wake up face down
@@ -41,44 +42,6 @@ function height(x, z) {
   return h;
 }
 
-function canvasTex(size, draw) {
-  const c = document.createElement('canvas');
-  c.width = c.height = size;
-  draw(c.getContext('2d'), size);
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  t.anisotropy = 8;
-  return t;
-}
-
-// Grainy N64-style sand.
-function sandTexture() {
-  return canvasTex(64, (g, n) => {
-    g.fillStyle = '#c4b28c'; g.fillRect(0, 0, n, n);
-    let seed = 7;
-    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-    for (let i = 0; i < 900; i++) {
-      const v = rnd();
-      g.fillStyle = v < 0.5 ? 'rgba(120,110,90,0.35)' : v < 0.85 ? 'rgba(220,215,200,0.3)' : 'rgba(80,72,60,0.4)';
-      g.fillRect(Math.floor(rnd() * n), Math.floor(rnd() * n), 1 + Math.floor(rnd() * 2), 1);
-    }
-  });
-}
-
-function waterTexture() {
-  return canvasTex(128, (g, n) => {
-    g.fillStyle = '#3a5562'; g.fillRect(0, 0, n, n);
-    g.strokeStyle = 'rgba(200,215,220,0.22)'; g.lineWidth = 2;
-    for (let k = 0; k < 9; k++) {
-      const y0 = (k * 37) % n, x0 = (k * 53) % n;
-      g.beginPath();
-      for (let x = 0; x <= 40; x += 4) g.lineTo((x0 + x) % n, y0 + Math.sin(x * 0.3) * 3);
-      g.stroke();
-    }
-  });
-}
-
 // A heavy overcast sky: grey cloud banks painted on a canvas, wrapped round a
 // big sphere that follows the camera. Lighter towards the horizon, like mist.
 function cloudSky(world) {
@@ -86,7 +49,7 @@ function cloudSky(world) {
   c.width = 512; c.height = 256;
   const g = c.getContext('2d');
   const grad = g.createLinearGradient(0, 0, 0, 256);
-  grad.addColorStop(0, '#5f676d'); grad.addColorStop(0.45, '#7f888e'); grad.addColorStop(0.5, '#8e979c'); grad.addColorStop(1, '#8e979c');
+  grad.addColorStop(0, '#6d757a'); grad.addColorStop(0.4, '#858d92'); grad.addColorStop(0.5, '#8e969a'); grad.addColorStop(1, '#8e969a');
   g.fillStyle = grad; g.fillRect(0, 0, 512, 256);
   let seed = 11;
   const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
@@ -158,9 +121,10 @@ function palm(rng) {
 export function build(world) {
   const scene = world.scene;
   // --- Overcast: a grey sky, mist, flat light ------------------------------------
-  const FOG = 0x8e979c;
+  // thick sea fog: you can barely see past the wreck
+  const FOG = 0x8e969a;
   scene.background = new THREE.Color(FOG);
-  scene.fog = new THREE.Fog(FOG, 25, 190);
+  scene.fog = new THREE.Fog(FOG, 3, 55);
   scene.traverse((o) => {
     if (o.isHemisphereLight) { o.color.set(0xb8c2c8); o.groundColor.set(0x4c4a44); o.intensity = 1.5; }
   });
@@ -173,7 +137,7 @@ export function build(world) {
   // --- Ground ------------------------------------------------------------------
   const terrain = new Terrain({
     ...AREA, res: 1, height,
-    grass: world.tile('grass.webp'), cliff: world.tile('rock.png'), path: world.tile('path.png'),
+    grass: grassTexture(), cliff: rockTexture(), path: dirtTexture(),
     sand: sandTexture(), sandTop: SAND_TOP,
     grade: { sat: 0.6, tint: new THREE.Color(0.92, 0.93, 0.94) },
   });
@@ -196,9 +160,10 @@ export function build(world) {
   scene.add(shimmer);
 
   // --- The shipwreck ---------------------------------------------------------------
-  const wood = world.mat(world.tile('wood.jpg'), { uvScale: 1.6 });
-  wood.color.set(0x7a6c5c);
-  const darkWood = new THREE.MeshLambertMaterial({ map: world.tile('wood.jpg'), color: 0x4e443a });
+  const planks = plankTexture();
+  const wood = world.mat(planks, { uvScale: 1.6 });
+  wood.color.set(0xb0a698);
+  const darkWood = new THREE.MeshLambertMaterial({ map: planks, color: 0x8a8078 });
   const box = (min, max, m = wood, opts) => world.addBox(min, max, m, opts);
   const onGround = (x, z, w, d, h, m) => {      // a box resting on the sand at (x, z)
     const y = Math.min(G(x - w / 2, z - d / 2), G(x + w / 2, z - d / 2), G(x - w / 2, z + d / 2), G(x + w / 2, z + d / 2), G(x, z));
@@ -246,7 +211,7 @@ export function build(world) {
   onGround(27, -3, 1.2, 1.2, 1.2);
   onGround(-22, -14, 1.0, 1.0, 1.0);
   for (const [x, z, w, d] of [[3, -6, 2.6, 0.35], [10, -4, 0.35, 2.2], [-12, -12, 3.0, 0.3], [22, -16, 0.3, 2.6], [-2, 2, 2.0, 0.3]]) onGround(x, z, w, d, 0.12, darkWood);
-  const barrelMat = new THREE.MeshLambertMaterial({ map: world.tile('wood.jpg'), color: 0x6a5240 });
+  const barrelMat = new THREE.MeshLambertMaterial({ map: planks, color: 0xa08a78 });
   const hoop = new THREE.MeshLambertMaterial({ color: 0x4a4a52 });
   for (const [x, z, lying] of [[-10, -15, false], [9, -7, true], [-26, 2, false], [31, -9, true]]) {
     const y = G(x, z);
@@ -276,27 +241,25 @@ export function build(world) {
       const x = -62 + rng() * 124, z = 62 + rng() * 44;
       if (G(x, z) > SAND_TOP + 1 && G(x, z) < 12) spots.push([x, z]);
     }
-    const tex = world.loader.load(`assets/tree.png?v=${world.version}`);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    const geo = new THREE.PlaneGeometry(181 / 256, 1); geo.translate(0, 0.5, 0);
-    const mat = new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide, color: 0x7d8676, fog: true });
-    mat.onBeforeCompile = (sh) => {
-      sh.vertexShader = sh.vertexShader.replace('#include <project_vertex>', `
-vec3 tc = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-float tsx = length(instanceMatrix[0].xyz), tsy = length(instanceMatrix[1].xyz);
-vec3 camR = normalize(vec3(viewMatrix[0][0], 0.0, viewMatrix[2][0]));
-vec4 mvPosition = viewMatrix * vec4(tc + camR * position.x * tsx + vec3(0.0, position.y * tsy, 0.0), 1.0);
-gl_Position = projectionMatrix * mvPosition;`);
-    };
-    const trees = new THREE.InstancedMesh(geo, mat, spots.length);
-    trees.frustumCulled = false;
-    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), ps = new THREE.Vector3(), sc = new THREE.Vector3();
+    // low-poly conifers, dark and wind-bent, fading into the fog
+    const trunkGeo = new THREE.CylinderGeometry(0.16, 0.26, 2.2, 6); trunkGeo.translate(0, 1.1, 0);
+    const coneGeo = [new THREE.ConeGeometry(1.9, 3.0, 7), new THREE.ConeGeometry(1.5, 2.6, 7), new THREE.ConeGeometry(1.0, 2.2, 7)];
+    coneGeo.forEach((g, k) => g.translate(0, 2.4 + k * 1.5, 0));
+    const barkMat = new THREE.MeshLambertMaterial({ color: 0x4a4038 });
+    const needleMat = new THREE.MeshLambertMaterial({ color: 0x34402e, flatShading: true });
+    const n = spots.length;
+    const trunks = new THREE.InstancedMesh(trunkGeo, barkMat, n);
+    const cones = coneGeo.map((g) => new THREE.InstancedMesh(g, needleMat, n));
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), ps = new THREE.Vector3(), sc = new THREE.Vector3();
     spots.forEach(([x, z], i) => {
-      const y = G(x, z), s = 6 + (i % 3) * 0.7;
-      trees.setMatrixAt(i, m4.compose(ps.set(x, y - 0.15, z), q, sc.set(s, s, s)));
-      box([x - 0.22, y - 0.5, z - 0.22], [x + 0.22, y + s * 0.75, z + 0.22], wood, { visible: false });
+      const y = G(x, z), s = 1.1 + rng() * 0.7;
+      q.setFromEuler(e.set((rng() - 0.5) * 0.12, rng() * 6.3, (rng() - 0.5) * 0.12));
+      m4.compose(ps.set(x, y - 0.2, z), q, sc.set(s, s * (0.9 + rng() * 0.3), s));
+      trunks.setMatrixAt(i, m4);
+      for (const c of cones) c.setMatrixAt(i, m4);
+      box([x - 0.25, y - 0.5, z - 0.25], [x + 0.25, y + 4, z + 0.25], wood, { visible: false });
     });
-    scene.add(trees);
+    scene.add(trunks, ...cones);
   }
 
   // --- Waves lapping: drift the water textures --------------------------------------

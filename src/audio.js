@@ -3,7 +3,7 @@
 // key press, so call unlock() from the start screen.
 const MUSIC_VOL = 0.45;
 // Sound effects preloaded on unlock (assets/<name>.wav).
-const SFX = ['coin', 'star-appears', 'spotted', 'hurt', 'whoa', 'yahoo', 'oof', 'hoohoo', 'here-we-go', 'haha', 'hoo', 'pulling-up', 'falling'];
+const SFX = ['hurt', 'whoa', 'yahoo', 'oof', 'hoohoo', 'here-we-go', 'haha', 'hoo', 'pulling-up', 'falling'];
 
 export class GameAudio {
   constructor(version) {
@@ -26,8 +26,6 @@ export class GameAudio {
         this.musicGain.gain.value = this.muted ? 0 : MUSIC_VOL;
         this.musicGain.connect(this.ctx.destination);
         for (const n of SFX) this.buffer(`${n}.wav`);
-        // preload the jingle and boss music so they start right on cue
-        this.buffer('course-clear.mp3'); this.buffer('boss.mp3');
       } catch (_) { this.ctx = null; return; }
     }
     if (this.ctx.state === 'suspended') this.ctx.resume();
