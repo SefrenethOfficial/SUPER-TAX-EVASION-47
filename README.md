@@ -26,7 +26,7 @@ The game starts in the castle lobby. Jump into the painting on the far wall to e
 
 ## Sunny Spire Hill
 
-The course is a full level model in the style of Bob-omb Battlefield. You start at the north edge. A wooden plank bridge runs down into the lowland, where a stake stands in front of a gate. A ridge leads east to a round stone plaza, and a dirt path climbs a white stone slope to the mountain. A road winds round the mountain's terraces to the summit. Stone staircases climb the two cliffs on the mountain's west and south sides that have no road. A wooden bridge spans the little valley by the small stone spire. A big stone spire stands in the north-west meadow, and an island floats above the field west of the mountain.
+The course is a full level model in the style of Bob-omb Battlefield. You start at the north edge. A wooden plank bridge runs down into the lowland, where a stake stands in front of a gate. A ridge leads east to a round stone plaza, and a dirt path climbs a white stone slope to the mountain. A road winds round the mountain's terraces to the summit. A wooden bridge spans the little valley by the small stone spire. A big stone spire stands in the north-west meadow, and an island floats above the field west of the mountain.
 
 **Cannons:** each little grey hole in the ground has a cannon at the bottom. Drop in and you climb aboard; the cannon rises to the top of the hole and the view switches to looking out past the barrel. Aim with the stick, WASD or the mouse. Press **A** to fire yourself out, or **B** to hop back out. The holes are in the middle of the stone plaza, on top of the big boulder and on two of the mountain's terraces, and they all start aimed at the floating island. The island has a cannon too, aimed at the summit.
 
@@ -58,7 +58,7 @@ The look aims for the N64: smoothly filtered textures, blob shadows, rigid limbs
 - `src/collider.js`: triangle collision for level models: floors, walls and ceilings, SM64-style
 - `src/cannon.js`: the cannons (climb in, aim, fire)
 - `src/terrain.js`: heightmap terrain (not used by the current stages)
-- `src/stages/sunny-spire-hill.js`: the stage: loads the level model, adds the bridge, staircases, cannons, coins, enemies and stars
+- `src/stages/sunny-spire-hill.js`: the stage: loads the level model, adds the bridge, the spire's steps, cannons, coins, enemies and stars
 - `src/stages/hub.js`: the hub (castle lobby and paintings)
 - `src/enemies.js`: Cherry Bomb and King Cherry Bomb
 - `src/star.js`, `src/audio.js`: the star; music, jingles and sound effects

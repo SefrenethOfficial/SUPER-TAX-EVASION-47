@@ -3,7 +3,7 @@
 // key press, so call unlock() from the start screen.
 const MUSIC_VOL = 0.45;
 // Sound effects preloaded on unlock (assets/<name>.wav).
-const SFX = ['coin', 'star-appears', 'spotted', 'hurt', 'whoa', 'yahoo', 'oof', 'hoohoo', 'here-we-go', 'haha'];
+const SFX = ['coin', 'star-appears', 'spotted', 'hurt', 'whoa', 'yahoo', 'oof', 'hoohoo', 'here-we-go', 'haha', 'hoo', 'pulling-up', 'falling'];
 
 export class GameAudio {
   constructor(version) {
@@ -120,6 +120,12 @@ export class GameAudio {
     src.connect(g); g.connect(this.ctx.destination);
     src.start();
     this.voiceSrc = src;
+    this.voiceName = name;
+  }
+
+  // Cut a voice line short if it's the one playing (the long fall scream on landing).
+  stopVoice(name) {
+    if (this.voiceSrc && this.voiceName === name) { try { this.voiceSrc.stop(); } catch (_) { /* done */ } this.voiceSrc = null; }
   }
 
   toggleMute() {

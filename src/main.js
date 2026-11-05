@@ -1,20 +1,20 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Input } from './input.js?v=20';
-import { World } from './world.js?v=20';
-import { Player, buildCharacter } from './player.js?v=20';
-import { FX } from './fx.js?v=20';
-import { Coins } from './coins.js?v=20';
-import { Star } from './star.js?v=20';
-import { GameAudio } from './audio.js?v=20';
-import { CherryBomb, KingCherryBomb } from './enemies.js?v=20';
-import { Cannon } from './cannon.js?v=20';
-import * as hub from './stages/hub.js?v=20';
-import * as sunny from './stages/sunny-spire-hill.js?v=20';
+import { Input } from './input.js?v=21';
+import { World } from './world.js?v=21';
+import { Player, buildCharacter } from './player.js?v=21';
+import { FX } from './fx.js?v=21';
+import { Coins } from './coins.js?v=21';
+import { Star } from './star.js?v=21';
+import { GameAudio } from './audio.js?v=21';
+import { CherryBomb, KingCherryBomb } from './enemies.js?v=21';
+import { Cannon } from './cannon.js?v=21';
+import * as hub from './stages/hub.js?v=21';
+import * as sunny from './stages/sunny-spire-hill.js?v=21';
 
 // Bump VERSION (and the ?v= on every local import) whenever files change,
 // so browsers never mix old and new code.
-const VERSION = '20';
+const VERSION = '21';
 const STAGES = { hub, sunny };
 
 const canvas = document.getElementById('game');
@@ -156,6 +156,7 @@ function loadStage(key, { from } = {}) {
     player = new Player(world, character, fx);
     player.onHurt = showHealth;
     player.sfx = (n) => audio.voice(n);
+    player.sfxStop = (n) => audio.stopVoice(n);
     player.onDeath = () => setTimeout(() => go(S.key), 1200);
   } else {
     player.world = world; player.fx = fx;

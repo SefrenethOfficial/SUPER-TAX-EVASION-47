@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { MeshCollider } from '../collider.js?v=20';
+import { MeshCollider } from '../collider.js?v=21';
 
 // ---------------------------------------------------------------------------
 // SUNNY SPIRE HILL, built on the level model (assets/sunny-spire-hill.glb).
@@ -101,35 +101,9 @@ export function build(world, coins, reds, { model }) {
   // support posts down into the valley
   for (const x of [bx0 + 6, bx1 - 6]) for (const z of [bz0 + 0.3, bz1 - 0.6]) box([x, G(x, z, deck - 1) - 0.2, z], [x + 0.3, deck - 0.3, z + 0.3], wood);
 
-  // --- Stone staircases up the two mountain cliffs that have no path --------
-  // Steps are just under the step-up height, so you can walk straight up.
+  // --- Stone steps (just under the step-up height, so you walk straight up) --
   const stone = world.mat(world.tile('rock.png'), { uvScale: 2 });
   const RISE = 0.28, RUN = 0.55;
-  // west side: from the outer ring (~20.5 m) north along the cliff to the 33 m tier
-  {
-    const x0 = -51, x1 = -48.4;
-    const TOP = G(-47, 52.3, 40) + 0.02;   // the tier's raised lip
-    let y = G((x0 + x1) / 2, 27, 25), z = 27;
-    while (y < TOP) {
-      y += RISE;
-      box([x0, 19.5, z], [x1, Math.min(y, TOP), z + RUN], stone);
-      z += RUN;
-    }
-    box([x0, 19.5, z - RUN * 2], [-46.4, TOP, z + 1.2], stone);   // landing onto the tier
-  }
-  // summit: from the top ring (~37 m) east along the cliff up to the summit
-  {
-    const z0 = 61.6, z1 = 63.8, top = G(-26, 52) + 0.02;
-    let y = top, x = -24;
-    box([x - 1.4, 35, z0 - 0.4], [x + 1.4, top, z1], stone);    // top landing, against the summit
-    while (true) {
-      const ring = G(x - RUN / 2, (z0 + z1) / 2, 44);
-      if (y - RISE < ring + 0.1) break;
-      y -= RISE;
-      box([x - RUN, 35, z0], [x, y, z1], stone);
-      x -= RUN;
-    }
-  }
 
   // big stone spire: steps up its south face to the top
   {

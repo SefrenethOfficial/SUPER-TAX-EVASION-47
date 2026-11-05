@@ -334,7 +334,7 @@ export class Player {
     this.airMax = Math.max(RUN, this.fwd);
     this.kicked = false;
     this.jumpBuffer = 0; this.coyote = 0;
-    this.say({ double: 'hoohoo', backflip: 'hoohoo', sideflip: 'hoohoo', triple: 'yahoo', longjump: 'yahoo', wallkick: 'haha' }[kind]);
+    this.say({ jump: 'hoo', double: 'hoohoo', backflip: 'hoohoo', sideflip: 'hoohoo', triple: 'yahoo', longjump: 'yahoo', wallkick: 'haha' }[kind]);
     this.setState(kind);
     this.grounded = false;
     this.anim.sq = 0.28; this.anim.sqv = 0;      // stretch on take-off
@@ -352,6 +352,8 @@ export class Player {
   // --- landing ---------------------------------------------------------------
   land() {
     const from = this.state;
+    if (this.screaming && this.sfxStop) this.sfxStop('falling');
+    this.screaming = false;
     const impact = Math.min(1, -this.vy / 25);
     this.vy = 0;
     this.combo = 0; this.comboTimer = 0;
@@ -399,6 +401,10 @@ export class Player {
     this.coyote = Math.max(0, this.coyote - dt);
     this.clingCooldown = Math.max(0, this.clingCooldown - dt);
     this.ledgeCooldown = Math.max(0, this.ledgeCooldown - dt);
+    // a long drop gets the falling scream (measured from the top of the jump)
+    if (this.grounded || NO_PHYSICS.has(this.state)) { this.screaming = false; this.fallTop = this.pos.y; }
+    else if (this.vy > 0 || this.state === 'cannonfly' || this.state.startsWith('gp')) this.fallTop = this.pos.y;
+    else if (!this.screaming && !this.locked && this.fallTop - this.pos.y > 10) { this.screaming = true; this.say('falling'); }
     this.t += dt;
 
     this.logic(dt, input);
@@ -530,9 +536,9 @@ export class Player {
       case 'ledgehang': {
         if (this.t < 0.2) break;
         const into = Math.cos(d) * this.inMag;
-        if (A) { this.climbFast = true; this.setState('ledgeclimb'); break; }
+        if (A) { this.climbFast = true; this.setState('ledgeclimb'); this.say('pulling-up'); break; }
         if (Zp || into < -0.5) { this.setState('fall'); this.fwd = -1; this.ledgeCooldown = 0.5; break; }
-        if (into > 0.5 || B) { this.climbFast = false; this.setState('ledgeclimb'); break; }
+        if (into > 0.5 || B) { this.climbFast = false; this.setState('ledgeclimb'); this.say('pulling-up'); break; }
         break;
       }
       case 'ledgeclimb': {
