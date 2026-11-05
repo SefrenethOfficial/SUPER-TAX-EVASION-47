@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { Terrain } from '../terrain.js?v=32';
-import { ShyGhost } from '../ghost.js?v=32';
-import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture } from '../textures.js?v=32';
+import { Terrain } from '../terrain.js?v=36';
+import { ShyGhost } from '../ghost.js?v=36';
+import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture } from '../textures.js?v=36';
 
 // ---------------------------------------------------------------------------
 // THE WASHED-UP BEACH: the first area of the open world. You wake up face down
@@ -32,7 +32,7 @@ const basics = () => [
   { who: GHOST, text: 'The mouse moves the camera. Or Q and E, R and F. H shows all the controls if you forget.' },
   { who: GHOST, text: "Fights here go in turns. Pick Fight and you choose a move. Every move costs Stamina..." },
   { who: GHOST, text: "...so watch it. If you run low, Catch Breath gets some back. And if it goes badly, you can always Run." },
-  { who: GHOST, text: "There's a training dummy in the ring of stones, near where you woke up. Try it out on that. Stand in the ring and press B." },
+  { who: GHOST, text: "If you want to practise fighting... you could fight me. Just come and talk to me. I'll, um, try to go easy on you." },
   { who: GHOST, text: "That's... all the basics. Sorry if that was too much." },
 ];
 
@@ -290,7 +290,7 @@ export function build(world, { models = {} } = {}) {
   let t = 0;
   const update = (dt, game) => {
     t += dt;
-    if (ghost && game) {
+    if (ghost && game && !game.battling) {
       ghost.update(dt, game.player);
       if (ghost.state === 'cornered' && !talking) meet(game);
     }
@@ -300,52 +300,10 @@ export function build(world, { models = {} } = {}) {
     skyTex.offset.x = t * 0.002;
   };
 
-  // --- TEMPORARY: a battle test ring with a training dummy --------------------------
-  // Walk into the ring of stones and press B to start a test battle.
-  const ARENA = { x: -6, z: 10, r: 5 };
-  const battleSpots = { player: new THREE.Vector3(ARENA.x - 3, 0, ARENA.z), enemy: new THREE.Vector3(ARENA.x + 3, 0, ARENA.z) };
-  for (const v of Object.values(battleSpots)) v.y = G(v.x, v.z);
-  let dummy;
-  {
-    const stoneMat = new THREE.MeshLambertMaterial({ color: 0x6d6c67, flatShading: true });
-    for (let i = 0; i < 14; i++) {
-      const a = (i / 14) * Math.PI * 2, x = ARENA.x + Math.cos(a) * ARENA.r, z = ARENA.z + Math.sin(a) * ARENA.r;
-      const st = new THREE.Mesh(new THREE.DodecahedronGeometry(0.28 + rng() * 0.12, 0), stoneMat);
-      st.position.set(x, G(x, z) + 0.12, z);
-      st.rotation.set(rng() * 3, rng() * 3, rng() * 3);
-      st.scale.y = 0.7;
-      scene.add(st);
-    }
-    // the dummy: a post, a crossbar for arms and a stuffed sack with a head
-    const sack = new THREE.MeshLambertMaterial({ color: 0x9a8a6a });
-    const rope = new THREE.MeshLambertMaterial({ color: 0x5c4e3a });
-    const d = new THREE.Group();
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 2.2, 6), darkWood); post.position.y = 1.1;
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.4, 0.9, 8), sack); body.position.y = 1.25;
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.27, 8, 6), sack); head.position.y = 1.95;
-    const arms = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.1, 0.1), darkWood); arms.position.y = 1.55;
-    const belt = new THREE.Mesh(new THREE.TorusGeometry(0.39, 0.04, 4, 12), rope); belt.rotation.x = Math.PI / 2; belt.position.y = 1.0;
-    d.add(post, body, head, arms, belt);
-    d.position.copy(battleSpots.enemy);
-    d.rotation.y = -Math.PI / 2;        // facing the player's spot
-    scene.add(d);
-    dummy = d;
-    const e = battleSpots.enemy;
-    box([e.x - 0.35, e.y - 0.3, e.z - 0.35], [e.x + 0.35, e.y + 2.2, e.z + 0.35], wood, { visible: false });
-    // a sign at the edge of the ring
-    const sx2 = ARENA.x - 1, sz2 = ARENA.z - ARENA.r - 0.8, sy2 = G(sx2, sz2);
-    box([sx2 - 0.06, sy2 - 0.2, sz2 - 0.06], [sx2 + 0.06, sy2 + 1.3, sz2 + 0.06], darkWood);
-    box([sx2 - 0.6, sy2 + 0.9, sz2 - 0.05], [sx2 + 0.6, sy2 + 1.45, sz2 + 0.05], wood);
-  }
-  const battleZones = [{
-    x: ARENA.x, z: ARENA.z, r: ARENA.r,
-    spots: battleSpots,
-    enemy: { name: 'Training Dummy', maxHp: 10, maxSp: 5, atk: 1, attackText: 'wobbles back at you', model: dummy, picture: { height: 1.85, dist: 2.0, yaw: -Math.PI / 2 } },
-  }];
-
   // --- The shy ghost -----------------------------------------------------------------
-  // A dark figure floats ahead of where you wake up. It backs away from you until
-  // you corner it against the west end of the beach.
+  // A dark figure floats ahead of where you wake up. She backs away from you until
+  // you corner her against the edge of the beach. Talk to her to learn the basics,
+  // or to fight her for practice.
   let ghost = null, met = !!progress.metGhost, talking = false;
   if (models.ghost) {
     const start = met ? progress.ghostAt : { x: -3, z: 2 };
@@ -356,7 +314,7 @@ export function build(world, { models = {} } = {}) {
     if (met) { ghost.reveal = 1; ghost.setLook(); ghost.state = 'idle'; }
   }
 
-  // Corner it: the darkness fades and it talks to you.
+  // Corner her: the darkness fades and she talks to you.
   const meet = (game) => {
     talking = true;
     ghost.startReveal();
@@ -375,18 +333,47 @@ export function build(world, { models = {} } = {}) {
         } },
     ], { with: ghost.root.position }).then(() => { talking = false; });
   };
-  // Talk to it again later.
+  // A practice fight with her.
+  const spar = (game) => {
+    const P = game.player, gp = ghost.pos;
+    let dx = P.pos.x - gp.x, dz = P.pos.z - gp.z; const d = Math.hypot(dx, dz) || 1; dx /= d; dz /= d;
+    const px = gp.x + dx * 4.5, pz = gp.z + dz * 4.5;
+    const zone = {
+      spots: { player: new THREE.Vector3(px, G(px, pz), pz), enemy: new THREE.Vector3(gp.x, G(gp.x, gp.z), gp.z) },
+      enemy: { name: GHOST, maxHp: 12, maxSp: 8, atk: 1, attackText: 'swings a shadowy fist at you', model: ghost.root, top: 3.4,
+        intro: `${GHOST} is ready for a practice fight!`,
+        picture: { height: 2.15, dist: 3.0, yaw: Math.atan2(dx, dz) } },
+    };
+    return game.fight(zone).then(({ won, lost }) => {
+      progress.sparred = true; saveProgress();
+      const lines = won ? [
+        { who: GHOST, text: 'Ow, ow, ow... okay! You win! You\u2019re stronger than you look.' },
+        { who: GHOST, text: "That's good. Whatever's out there won't go easy on you like I did." },
+      ] : lost ? [
+        { who: GHOST, text: "Oh no! Are you alright?! I-I didn't mean to hit you that hard..." },
+        { who: GHOST, text: "Let's just call that practice. Remember to Catch Breath when you're tired, okay?" },
+      ] : [
+        { who: GHOST, text: "Oh! That's okay. Running away is smart sometimes. I do it all the time." },
+      ];
+      return game.talk(lines, { with: ghost.root.position });
+    });
+  };
+  // Talk to her again later.
   const chat = (game) => {
     talking = true;
     game.talk([
-      { who: GHOST, text: progress.taught ? 'Oh! Hello again. Do you want me to go over the basics again?' : 'Oh, hello again. Did you... want me to teach you the basics after all?',
-        choices: ['Yes, please', 'No, thanks'],
+      { who: GHOST, text: progress.sparred ? 'Oh! Hello again. Did you need something?' : 'Oh, hello again. Did you need something?',
+        choices: ['Teach me the basics', "Let's fight", 'Never mind'],
         then: (k) => {
           if (k === 0) { progress.taught = true; saveProgress(); return basics(); }
+          if (k === 1) return [{ who: GHOST, text: progress.sparred ? 'Again? Okay... Ready when you are!' : "F-fight? Me? Um... okay. Just for practice. Here I come!", onShow: () => { wantSpar = true; } }];
           return [{ who: GHOST, text: 'Okay. Be careful out there.' }];
         } },
-    ], { with: ghost.root.position }).then(() => { talking = false; });
+    ], { with: ghost.root.position }).then(() => {
+      if (wantSpar) { wantSpar = false; return spar(game); }
+    }).then(() => { talking = false; });
   };
+  let wantSpar = false;
   const ghostNear = (P) => ghost && ghost.state === 'idle' && Math.hypot(P.pos.x - ghost.pos.x, P.pos.z - ghost.pos.z) < 3.2;
 
   // You wash up face down a few metres from the water, head towards the land.
@@ -397,7 +384,6 @@ export function build(world, { models = {} } = {}) {
     startLying: true,
     update,
     ghost,   // for tests
-    battleZones,
     // B near the ghost: talk
     interact: (game) => (ghostNear(game.player) && !talking ? { text: 'B — Talk', go: () => chat(game) } : null),
   };

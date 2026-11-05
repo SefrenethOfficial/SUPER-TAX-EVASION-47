@@ -29,30 +29,11 @@ export const MOVES = [
 ];
 const RUN_SPEED = 8;
 
-// A head-and-shoulders picture of a fighter, rendered from the live scene.
-export function portrait(renderer, scene, target, { height = 1.6, dist = 2.2, yaw = 0 } = {}) {
-  const rt = new THREE.WebGLRenderTarget(PORTRAIT, PORTRAIT, { colorSpace: THREE.SRGBColorSpace });
-  const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 50);
-  const look = target.clone().add(new THREE.Vector3(0, height, 0));
-  cam.position.copy(look).add(new THREE.Vector3(Math.sin(yaw) * dist, 0.15, Math.cos(yaw) * dist));
-  cam.lookAt(look);
-  const fog = scene.fog;
-  scene.fog = null;                       // no mist in the picture
-  renderer.setRenderTarget(rt);
-  renderer.render(scene, cam);
-  const px = new Uint8Array(PORTRAIT * PORTRAIT * 4);
-  renderer.readRenderTargetPixels(rt, 0, 0, PORTRAIT, PORTRAIT, px);
-  renderer.setRenderTarget(null);
-  scene.fog = fog;
-  rt.dispose();
-  const c = document.createElement('canvas');
-  c.width = c.height = PORTRAIT;
-  const g = c.getContext('2d');
-  const img = g.createImageData(PORTRAIT, PORTRAIT);
-  for (let y = 0; y < PORTRAIT; y++) img.data.set(px.subarray((PORTRAIT - 1 - y) * PORTRAIT * 4, (PORTRAIT - y) * PORTRAIT * 4), y * PORTRAIT * 4);
-  g.putImageData(img, 0, 0);
-  return c.toDataURL();
-}
+// Fighter pictures are live: each frame, a head-and-shoulders view of each
+// fighter is rendered straight into the game canvas, inside the picture frame
+// above their battle slot (nothing is read back from the GPU).
+const picCam = new THREE.PerspectiveCamera(30, 1, 0.1, 50);
+const tmpV = new THREE.Vector3(), tmpS = new THREE.Vector2();
 
 export class Battle {
   // fighters: { player: { name, hp, maxHp, sp, maxSp, pos, picture }, enemy: { ...same } }
@@ -69,14 +50,14 @@ export class Battle {
     this.ending = false;
     this.t = 0;
     this.build();
-    this.say(`${enemy.name} stands in your way!`);
+    this.say(enemy.intro || `${enemy.name} stands in your way!`);
   }
 
   slot(f, side) {
     const el = document.createElement('div');
     el.className = `bslot ${side}`;
     el.innerHTML = `
-      <img class="bpic" src="${f.picture}" alt="">
+      <div class="bpic"></div>
       <div class="bpanel">
         <div class="bname">${f.name}</div>
         <div class="bstat hp"><span class="lbl">Health</span><div class="bar"><i></i></div><span class="num"></span></div>
@@ -179,7 +160,7 @@ export class Battle {
     el.className = `bdmg ${cls}`;
     el.textContent = text;
     this.ui.append(el);
-    const v = f.pos.clone(); v.y += 2.3;
+    const v = f.pos.clone(); v.y += f.top ?? 2.3;
     v.project(this.camera);
     el.style.left = `${(v.x * 0.5 + 0.5) * innerWidth}px`;
     el.style.top = `${(-v.y * 0.5 + 0.5) * innerHeight}px`;
@@ -294,6 +275,38 @@ export class Battle {
     this.ui.classList.remove('on');
     if (this.enemy.model) this.enemy.model.rotation.set(0, this.enemy.model.rotation.y, 0);   // the dummy stands back up
     this.onEnd({ won: this.enemy.hp <= 0, lost: this.player.hp <= 0 });
+  }
+
+  // Draw the two fighter pictures into their frames (call after the main render).
+  renderPictures(renderer, scene) {
+    const size = renderer.getSize(tmpS);
+    const fog = scene.fog, near = fog && fog.near, far = fog && fog.far;
+    if (fog) { fog.near = 1e4; fog.far = 2e4; }          // no mist in the pictures
+    const auto = renderer.autoClear;
+    renderer.autoClear = false;
+    renderer.setScissorTest(true);
+    for (const f of [this.player, this.enemy]) {
+      const el = f.el && f.el.querySelector('.bpic');
+      if (!el || !f.picture) continue;
+      const r = el.getBoundingClientRect();
+      const b = 2;                                          // inside the frame's border
+      const x = r.left + b, w = r.width - b * 2, h = r.height - b * 2, y = size.y - (r.bottom - b);
+      if (w <= 0 || h <= 0) continue;
+      const { height = 1.6, dist = 2.2, yaw = 0 } = f.picture;
+      const at = (f.actor ? f.actor.pos : f.pos);
+      const look = tmpV.set(at.x, at.y + height, at.z);
+      picCam.aspect = w / h; picCam.updateProjectionMatrix();
+      picCam.position.set(look.x + Math.sin(yaw) * dist, look.y + 0.15, look.z + Math.cos(yaw) * dist);
+      picCam.lookAt(look);
+      renderer.setViewport(x, y, w, h);
+      renderer.setScissor(x, y, w, h);
+      renderer.clear();
+      renderer.render(scene, picCam);
+    }
+    renderer.setScissorTest(false);
+    renderer.setViewport(0, 0, size.x, size.y);
+    renderer.autoClear = auto;
+    if (fog) { fog.near = near; fog.far = far; }
   }
 
   update(dt) {

@@ -1,19 +1,19 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Input } from './input.js?v=32';
-import { World } from './world.js?v=32';
-import { Player, buildCharacter } from './player.js?v=32';
-import { FX } from './fx.js?v=32';
-import { GameAudio } from './audio.js?v=32';
-import { Battle, portrait } from './battle.js?v=32';
-import { Dialogue } from './dialogue.js?v=32';
+import { Input } from './input.js?v=36';
+import { World } from './world.js?v=36';
+import { Player, buildCharacter } from './player.js?v=36';
+import { FX } from './fx.js?v=36';
+import { GameAudio } from './audio.js?v=36';
+import { Battle } from './battle.js?v=36';
+import { Dialogue } from './dialogue.js?v=36';
 // The open world, one area per module.
-import * as blank from './stages/blank.js?v=32';
-import * as beach from './stages/beach.js?v=32';
+import * as blank from './stages/blank.js?v=36';
+import * as beach from './stages/beach.js?v=36';
 
 // Bump VERSION (and the ?v= on every local import) whenever files change,
 // so browsers never mix old and new code.
-const VERSION = '32';
+const VERSION = '36';
 const STAGES = { beach, blank };
 
 const canvas = document.getElementById('game');
@@ -165,13 +165,18 @@ function talk(lines, { with: other = null } = {}) {
     return pick;
   });
 }
-const game = { get player() { return player; }, get fx() { return S.fx; }, input, talk, get talking() { return dialogue.active; }, get battling() { return !!S.battle; } };
+const game = { get player() { return player; }, get fx() { return S.fx; }, input, talk, fight: (zone) => { player.locked = true; return startBattle(zone); }, get talking() { return dialogue.active; }, get battling() { return !!S.battle; } };
 
 // --- Battles -------------------------------------------------------------------------
 const promptEl = $('prompt');
+const BATTLE_MUSIC = 'battle.mp3';   // the enemy song
+// zone: { spots: { player, enemy }, enemy: { name, maxHp, maxSp, atk, ... } }
+// Resolves with { won, lost } (both false if you ran) once you're back exploring.
 function startBattle(zone) {
   const sp = zone.spots;
   fade.classList.add('on');
+  audio.music(zone.enemy.music || BATTLE_MUSIC);
+  const done = new Promise((res) => { S.battleDone = res; });
   setTimeout(() => {
     // stand the player on their mark, facing the enemy
     player.pos.copy(sp.player);
@@ -183,8 +188,8 @@ function startBattle(zone) {
     const E = zone.enemy;
     const fighters = {
       player: { name: 'You', hp: player.health, maxHp: 8, sp: player.stamina, maxSp: player.maxStamina, pos: sp.player.clone(), actor: player,
-        picture: portrait(renderer, S.scene, sp.player, { height: 1.7, dist: 2.0, yaw: player.yaw }) },
-      enemy: { ...E, hp: E.maxHp, sp: E.maxSp, pos: sp.enemy, picture: portrait(renderer, S.scene, sp.enemy, E.picture) },
+        picture: { height: 1.7, dist: 2.0, yaw: player.yaw } },
+      enemy: { ...E, hp: E.maxHp, sp: E.maxSp, pos: sp.enemy, picture: E.picture },
     };
     document.exitPointerLock?.();
     document.body.classList.add('in-battle');
@@ -192,9 +197,12 @@ function startBattle(zone) {
     S.battle.onDamage = (f) => { if (f.actor) player.health = f.hp; };
     fade.classList.remove('on');
   }, 400);
+  return done;
 }
-function endBattle({ lost } = {}) {
+function endBattle(result = {}) {
+  const { lost } = result;
   fade.classList.add('on');
+  audio.music(S.mod.MUSIC);             // back to the area's music (or quiet)
   setTimeout(() => {
     S.battle = null;
     player.locked = false;
@@ -205,6 +213,8 @@ function endBattle({ lost } = {}) {
     document.body.classList.remove('in-battle');
     resetCamera(player);
     fade.classList.remove('on');
+    const d = S.battleDone; S.battleDone = null;
+    if (d) setTimeout(() => d(result), 250);
   }, 400);
 }
 
@@ -223,6 +233,7 @@ start.addEventListener('click', () => {
   audio.unlock();
   // decode area music now so it starts straight away
   for (const m of Object.values(STAGES)) if (m.MUSIC) audio.buffer(m.MUSIC);
+  audio.buffer(BATTLE_MUSIC);
   const card = $('course-card');
   card.classList.remove('show'); void card.offsetWidth; if (S.mod.NAME) card.classList.add('show');
   input.requestLock();
@@ -287,7 +298,7 @@ function step(dt) {
       S.battle.update(dt);
       if (S.level.update) S.level.update(dt, game);
       S.fx.update(dt);
-      if (!window.__noRender) renderer.render(S.scene, camera);
+      if (!window.__noRender) { renderer.render(S.scene, camera); S.battle.renderPictures(renderer, S.scene); }
       return;
     }
     // things to do with B (instead of punching): talk to someone, start a battle

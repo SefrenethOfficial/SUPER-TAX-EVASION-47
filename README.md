@@ -10,13 +10,13 @@ The first area. You wake up face down on the sand in thick sea fog under a heavy
 
 ### The shy ghost
 
-When you get up, a dark figure is floating up ahead. Walk towards it and it backs away, always facing you, as fast as you can run. Chase it until it's pinned against the edge of the beach, and the darkness fades off it: it's Vivian, a shy ghost, who apologises for running and offers to teach you the basics (moving, jumping, the camera, and how battles work). Say no and you can ask again later: walk up and press **B** to talk. Meeting and the lesson are remembered between visits (clear the site's storage to meet again). The ghost's name is `GHOST` at the top of `src/stages/beach.js`.
+When you get up, a dark figure is floating up ahead. Walk towards it and it backs away, always facing you, as fast as you can run. Chase it until it's pinned against the edge of the beach, and the darkness fades: it's Vivian, a shy ghost, who apologises for running and offers to teach you the basics (moving, jumping, the camera, and how battles work). Afterwards, walk up to her and press **B** to talk: she'll go over the basics again, or have a practice fight with you. Meeting and the lesson are remembered between visits (clear the site's storage to meet again). The ghost's name is `GHOST` at the top of `src/stages/beach.js`.
 
 ### Battles (work in progress)
 
-Battles are turn-based. For now there's a temporary test ring of stones on the beach, just inland from where you wake up, with a training dummy in it: walk into the ring and press **B** to start a battle. Each side gets a battle slot (a checkered panel showing Health and Stamina) with a picture of the fighter above it. The commands are **Fight**, **Item** (no items yet) and **Run** (ends the battle).
+Battles are turn-based. For now the only one is a practice fight with Vivian (talk to her and pick **Let's fight**). She has 12 Health and goes easy on you, hitting back for 1. The enemy song plays during battles. Each side gets a battle slot (a checkered panel showing Health and Stamina) with a picture of the fighter above it. The commands are **Fight**, **Item** (no items yet) and **Run** (ends the battle).
 
-**Fight** opens your moves, each with a Stamina (SP) cost: **Punch** (2 SP, 2–3 damage), **Kick** (4 SP, 4–5), **Flurry** (6 SP, jab, jab, kick for three hits of 2–3) and **Catch Breath** (skip your attack, +3 SP). Moves you can't afford are greyed out, and the message box describes the move you're on. You run up, strike and run back; then the enemy takes its turn (the dummy wobbles back at you for 1). You get 1 SP back each round. Beat the enemy and it keels over; your Stamina refills after the battle. Getting knocked out just ends the battle for now.
+**Fight** opens your moves, each with a Stamina (SP) cost: **Punch** (2 SP, 2–3 damage), **Kick** (4 SP, 4–5), **Flurry** (6 SP, jab, jab, kick for three hits of 2–3) and **Catch Breath** (skip your attack, +3 SP). Moves you can't afford are greyed out, and the message box describes the move you're on. You run up, strike and run back; then the enemy takes its turn. You get 1 SP back each round. Beat the enemy and it keels over; your Stamina refills after the battle. Getting knocked out just ends the battle for now.
 
 `src/stages/blank.js` is an empty test area (`?stage=blank`).
 
@@ -63,5 +63,7 @@ Character model: "Fully Rigged Low Poly Character for blender" by [satyasrichait
 Traffic cone hat: "Traffic Cone" by [hinndia](https://sketchfab.com/hinndia) on [Sketchfab](https://sketchfab.com/3d-models/traffic-cone-573feef839d7450cb3e12da9986e7a98), licensed [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/).
 
 Ghost model: "Vivian" by [Peardian](https://sketchfab.com/Peardian) on [Sketchfab](https://sketchfab.com/3d-models/vivian-8a2afe0fea6f4e558c24289bf40d5ad4), licensed [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/).
+
+Battle music ("Enemy"): supplied by the project owner.
 
 Voice lines: supplied by the project owner; from Nintendo's Super Mario 64.

@@ -105,7 +105,7 @@ body.in-battle #logo, body.in-battle #hint, body.in-battle #health { display: no
 .bslot { position: absolute; bottom: 24px; width: min(270px, 32vw); display: flex; flex-direction: column; align-items: center; }
 .bslot.left { left: 24px; }
 .bslot.right { right: 24px; }
-.bpic { width: 96px; height: 96px; border: 2px solid #c9c3b2; border-radius: 4px; background: #2a2d30; box-shadow: 0 4px 12px rgba(0,0,0,.5); margin-bottom: -6px; position: relative; z-index: 1; image-rendering: auto; }
+.bpic { width: 96px; height: 96px; border: 2px solid #c9c3b2; border-radius: 4px; background: transparent; box-shadow: 0 4px 12px rgba(0,0,0,.5); margin-bottom: -6px; position: relative; z-index: 1; }
 .bpanel { width: 100%; padding: 16px 14px 12px; border: 2px solid #c9c3b2; border-radius: 4px; box-shadow: 0 6px 18px rgba(0,0,0,.55);
   background-color: #2b2e31;
   background-image: repeating-conic-gradient(#33373a 0 25%, #26292b 0 50%);
