@@ -1,18 +1,18 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Input } from './input.js?v=29';
-import { World } from './world.js?v=29';
-import { Player, buildCharacter } from './player.js?v=29';
-import { FX } from './fx.js?v=29';
-import { GameAudio } from './audio.js?v=29';
-import { Battle, portrait } from './battle.js?v=29';
+import { Input } from './input.js?v=30';
+import { World } from './world.js?v=30';
+import { Player, buildCharacter } from './player.js?v=30';
+import { FX } from './fx.js?v=30';
+import { GameAudio } from './audio.js?v=30';
+import { Battle, portrait } from './battle.js?v=30';
 // The open world, one area per module.
-import * as blank from './stages/blank.js?v=29';
-import * as beach from './stages/beach.js?v=29';
+import * as blank from './stages/blank.js?v=30';
+import * as beach from './stages/beach.js?v=30';
 
 // Bump VERSION (and the ?v= on every local import) whenever files change,
 // so browsers never mix old and new code.
-const VERSION = '29';
+const VERSION = '30';
 const STAGES = { beach, blank };
 
 const canvas = document.getElementById('game');

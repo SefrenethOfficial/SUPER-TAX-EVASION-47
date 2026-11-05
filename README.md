@@ -12,7 +12,7 @@ The first area. You wake up face down on the sand in thick sea fog under a heavy
 
 Battles are turn-based. For now there's a temporary test ring of stones on the beach, just inland from where you wake up, with a training dummy in it: walk into the ring and press **B** to start a battle. Each side gets a battle slot (a checkered panel showing Health and Stamina) with a picture of the fighter above it. The commands are **Fight**, **Item** (no items yet) and **Run** (ends the battle).
 
-**Fight:** you run up and strike for 2–3 damage, which costs 3 Stamina; then the enemy takes its turn (the dummy wobbles back at you for 1). You get 1 Stamina back each round, and if you're too tired to attack you catch your breath (+2) instead. Beat the enemy and it keels over; your Stamina refills after the battle. Getting knocked out just ends the battle for now. Pick with the stick / arrow keys and **A**, or click; **B** goes back.
+**Fight** opens your moves, each with a Stamina (SP) cost: **Punch** (2 SP, 2–3 damage), **Kick** (4 SP, 4–5), **Flurry** (6 SP, jab, jab, kick for three hits of 2–3) and **Catch Breath** (skip your attack, +3 SP). Moves you can't afford are greyed out, and the message box describes the move you're on. You run up, strike and run back; then the enemy takes its turn (the dummy wobbles back at you for 1). You get 1 SP back each round. Beat the enemy and it keels over; your Stamina refills after the battle. Getting knocked out just ends the battle for now.
 
 `src/stages/blank.js` is an empty test area (`?stage=blank`).
 

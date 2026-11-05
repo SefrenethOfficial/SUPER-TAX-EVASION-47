@@ -102,7 +102,7 @@ body.aiming #crosshair { display: block; }
 #battle { position: fixed; inset: 0; pointer-events: none; opacity: 0; transition: opacity .35s; font-family: Georgia, 'Times New Roman', serif; color: #ece9e0; }
 #battle.on { opacity: 1; pointer-events: auto; }
 body.in-battle #logo, body.in-battle #hint, body.in-battle #health { display: none; }
-.bslot { position: absolute; bottom: 24px; width: min(280px, 34vw); display: flex; flex-direction: column; align-items: center; }
+.bslot { position: absolute; bottom: 24px; width: min(270px, 32vw); display: flex; flex-direction: column; align-items: center; }
 .bslot.left { left: 24px; }
 .bslot.right { right: 24px; }
 .bpic { width: 96px; height: 96px; border: 2px solid #c9c3b2; border-radius: 4px; background: #2a2d30; box-shadow: 0 4px 12px rgba(0,0,0,.5); margin-bottom: -6px; position: relative; z-index: 1; image-rendering: auto; }
@@ -131,3 +131,9 @@ body.in-battle #logo, body.in-battle #hint, body.in-battle #health { display: no
 .bdmg.good { color: #f1e6c8; }
 .bdmg.bad { color: #e0574a; }
 @keyframes bdmg { 0% { opacity: 0; margin-top: 10px; } 15% { opacity: 1; margin-top: 0; } 70% { opacity: 1; } 100% { opacity: 0; margin-top: -40px; } }
+
+.bmenu.wide { width: 200px; }
+.bmenu button { display: flex; align-items: baseline; gap: 10px; }
+.bmenu button .cost { margin-left: auto; font-size: 13px; font-weight: 400; opacity: .8; }
+.bmenu button.sel::before { margin-right: 4px; }
+.bdmg.sp { color: #8fd277; font-size: 24px; }

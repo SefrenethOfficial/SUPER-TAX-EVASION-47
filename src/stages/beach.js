@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { Terrain } from '../terrain.js?v=29';
-import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture } from '../textures.js?v=29';
+import { Terrain } from '../terrain.js?v=30';
+import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture } from '../textures.js?v=30';
 
 // ---------------------------------------------------------------------------
 // THE WASHED-UP BEACH: the first area of the open world. You wake up face down

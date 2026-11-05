@@ -8,14 +8,25 @@ import * as THREE from 'three';
 //   - the command menu: Fight, Item, Run
 // Pick with the stick / arrow keys and A (Space), or click. B goes back.
 //
-// Fight: you run up and strike (costs Stamina), then the enemy takes its turn.
-// Too tired to fight and you catch your breath instead. Stamina comes back a
-// little every turn.
+// Fight opens your moves. Each attack costs Stamina: you run up, strike, and
+// run back; then the enemy takes its turn. Catch Breath skips your attack to
+// get Stamina back. Stamina also comes back a little every round.
 // ---------------------------------------------------------------------------
 
 const PORTRAIT = 128;
-const FIGHT_COST = 3;      // Stamina per attack
 const REGEN = 1;           // Stamina back at the end of each round
+
+// Your moves. hits: the animation for each blow, when it lands (s after it
+// starts), how long it lasts, and its damage range.
+export const MOVES = [
+  { name: 'Punch', cost: 2, desc: 'A quick jab. 2-3 damage.', hits: [{ state: 'punch1', at: 0.1, dur: 0.45, dmg: [2, 3] }] },
+  { name: 'Kick', cost: 4, desc: 'A spinning kick. 4-5 damage.', hits: [{ state: 'kick', at: 0.22, dur: 0.6, dmg: [4, 5] }] },
+  { name: 'Flurry', cost: 6, desc: 'Jab, jab, kick. Three hits of 2-3.', hits: [
+    { state: 'punch1', at: 0.1, dur: 0.28, dmg: [2, 3] },
+    { state: 'punch2', at: 0.1, dur: 0.28, dmg: [2, 3] },
+    { state: 'kick', at: 0.22, dur: 0.6, dmg: [2, 3] }] },
+  { name: 'Catch Breath', cost: 0, rest: 3, desc: 'Skip your attack and get 3 Stamina back.' },
+];
 const RUN_SPEED = 8;
 
 // A head-and-shoulders picture of a fighter, rendered from the live scene.
@@ -105,14 +116,19 @@ export class Battle {
   showMenu(kind) {
     this.menu = kind;
     this.sel = 0;
+    const P = this.player;
     const items = kind === 'main'
-      ? [['Fight', () => this.fight()], ['Item', () => this.showMenu('items')], ['Run', () => this.run()]]
-      : [['(no items)', null], ['Back', () => this.showMenu('main')]];
+      ? [['Fight', () => this.showMenu('fight')], ['Item', () => this.showMenu('items')], ['Run', () => this.run()]]
+      : kind === 'fight'
+        ? [...MOVES.map((m) => [m.name, P.sp >= m.cost ? () => this.useMove(m) : null, m.cost ? `${m.cost} SP` : '', m.desc]), ['Back', () => this.showMenu('main'), '', '']]
+        : [['(no items)', null], ['Back', () => this.showMenu('main')]];
     this.items = items;
     this.cmds.innerHTML = '';
-    items.forEach(([label, fn], i) => {
+    this.cmds.classList.toggle('wide', kind === 'fight');
+    items.forEach(([label, fn, cost], i) => {
       const b = document.createElement('button');
       b.textContent = label;
+      if (cost) { const c = document.createElement('span'); c.className = 'cost'; c.textContent = cost; b.append(c); }
       b.disabled = !fn;
       b.addEventListener('mouseenter', () => { if (fn) { this.sel = i; this.highlight(); } });
       b.addEventListener('click', (e) => { e.stopPropagation(); if (fn && !this.ending) fn(); });
@@ -124,6 +140,11 @@ export class Battle {
 
   highlight() {
     [...this.cmds.children].forEach((b, i) => b.classList.toggle('sel', i === this.sel));
+    // in the moves list, describe the one you're on
+    if (this.menu === 'fight') {
+      const [name, fn, , desc] = this.items[this.sel];
+      this.say(desc ? (fn ? desc : `${desc} Not enough Stamina.`) : 'What will you do?');
+    } else if (this.menu === 'main' && this.t > 0) this.say('What will you do?');
   }
 
   // --- Turns -------------------------------------------------------------------------
@@ -131,19 +152,24 @@ export class Battle {
 
   busy(on) { this.cmds.classList.toggle('gone', on); }
 
-  fight() {
+  useMove(m) {
     const P = this.player;
     this.busy(true);
-    if (P.sp < FIGHT_COST) {
-      P.sp = Math.min(P.maxSp, P.sp + 2);
+    this.menu = 'none';
+    if (m.rest) {
+      P.sp = Math.min(P.maxSp, P.sp + m.rest);
       this.refresh();
-      this.say("You're too tired to fight, so you catch your breath.");
+      this.popup(P, `+${m.rest} SP`, 'sp');
+      this.say('You catch your breath.');
       this.setPhase('rest');
       return;
     }
-    P.sp -= FIGHT_COST;
+    P.sp -= m.cost;
     this.refresh();
-    this.say('You attack!');
+    this.move = m;
+    this.hitIndex = 0;
+    this.dealt = 0;
+    this.say(`You use ${m.name}!`);
     this.setPhase('approach');
   }
 
@@ -186,19 +212,27 @@ export class Battle {
     this.pt += dt;
     switch (this.phase) {
       case 'approach':
-        if (this.runTo(a, E.pos.x, E.pos.z, 1.5) || this.pt > 2.5) { a.fwd = 0; this.faceEnemy(); a.setState('punch1'); this.setPhase('strike'); }
+        if (this.runTo(a, E.pos.x, E.pos.z, 1.5) || this.pt > 2.5) { a.fwd = 0; this.faceEnemy(); a.setState(this.move.hits[0].state); this.setPhase('strike'); }
         break;
-      case 'strike':
-        if (this.pt > 0.12 && !this.hit) {
+      case 'strike': {
+        const h = this.move.hits[this.hitIndex];
+        if (this.pt > h.at && !this.hit) {
           this.hit = true;
-          const n = 2 + Math.floor(Math.random() * 2);
+          const n = h.dmg[0] + Math.floor(Math.random() * (h.dmg[1] - h.dmg[0] + 1));
+          this.dealt += n;
           this.damage(E, n);
-          this.wobbleV += 7;
-          this.fx.shake(0.25);
-          this.say(`You hit the ${E.name} for ${n}!`);
+          this.wobbleV += 4 + n;
+          this.fx.shake(0.15 + n * 0.04);
         }
-        if (this.pt > 0.55) { this.hit = false; this.setPhase('return'); }
+        if (this.pt > h.dur) {
+          this.hit = false;
+          this.hitIndex++;
+          const next = this.move.hits[this.hitIndex];
+          if (next && E.hp > 0) { this.faceEnemy(); a.state = ''; a.setState(next.state); this.pt = 0; }
+          else { this.say(`${this.move.name} hits the ${E.name} for ${this.dealt}!`); this.setPhase('return'); }
+        }
         break;
+      }
       case 'return':
         if (this.runTo(a, P.pos.x, P.pos.z, 0.15) || this.pt > 2.5) {
           a.pos.x = P.pos.x; a.pos.z = P.pos.z; a.fwd = 0; this.faceEnemy();
