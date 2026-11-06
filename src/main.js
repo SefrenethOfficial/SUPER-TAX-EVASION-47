@@ -1,22 +1,22 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Input } from './input.js?v=51';
-import { World } from './world.js?v=51';
-import { Player, buildCharacter } from './player.js?v=51';
-import { FX } from './fx.js?v=51';
-import { GameAudio } from './audio.js?v=51';
-import { Dialogue } from './dialogue.js?v=51';
-import { Combat } from './combat.js?v=51';
-import { BASE_MOVES, weaponMesh } from './items.js?v=51';
-import { save } from './save.js?v=51';
-import { Inventory, QUICK } from './inventory.js?v=51';
+import { Input } from './input.js?v=52';
+import { World } from './world.js?v=52';
+import { Player, buildCharacter } from './player.js?v=52';
+import { FX } from './fx.js?v=52';
+import { GameAudio } from './audio.js?v=52';
+import { Dialogue } from './dialogue.js?v=52';
+import { Combat } from './combat.js?v=52';
+import { BASE_MOVES, weaponMesh } from './items.js?v=52';
+import { save } from './save.js?v=52';
+import { Inventory, QUICK } from './inventory.js?v=52';
 // The open world, one area per module.
-import * as blank from './stages/blank.js?v=51';
-import * as beach from './stages/beach.js?v=51';
+import * as blank from './stages/blank.js?v=52';
+import * as beach from './stages/beach.js?v=52';
 
 // Bump VERSION (and the ?v= on every local import) whenever files change,
 // so browsers never mix old and new code.
-const VERSION = '51';
+const VERSION = '52';
 const STAGES = { beach, blank };
 
 const canvas = document.getElementById('game');
