@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { rockTexture } from '../textures.js?v=49';
+import { rockTexture } from '../textures.js?v=50';
 
 // ---------------------------------------------------------------------------
 // THE HOLLOW THRONE: up a pass in the west wall of the Obsidian Fieldlands, a
@@ -108,7 +108,7 @@ const base = { hy: 0, tx: 0.08, ty: 0, hd: 0, sLx: -0.2, sLz: -0.15, sRx: -0.35,
 const pose = (o) => ({ ...base, ...o });
 const P_ = {
   idle: pose({}),
-  sit: pose({ hy: -0.75, tx: 0.05, tL: -1.5, tR: -1.5, kL: 1.5, kR: 1.5, sRx: -0.9, eR: -0.6, sLx: -0.9, sLz: -0.35, eL: -0.9, sw: 1.7 }),
+  sit: pose({ hy: -0.75, tx: 0.05, tL: -1.5, tR: -1.5, kL: 1.5, kR: 1.5, sRx: -0.9, eR: -0.6, sLx: -0.9, sLz: -0.35, eL: -0.9, sw: 2.95 }),
   raise: pose({ tx: -0.1, sRx: -3.0, sRz: 0.1, eR: -0.3, sLx: -2.9, sLz: -0.4, eL: -0.4, sw: 0.8, hy: -0.1, tL: -0.3, kL: 0.4 }),
   strike: pose({ hy: -0.35, tx: 0.5, sRx: -0.9, sRz: 0.05, eR: -0.2, sLx: -0.85, sLz: -0.45, eL: -0.3, tL: -0.7, kL: 0.9, tR: 0.35, kR: 0.3, sw: 1.4, hd: 0.2 }),
   sweepA: pose({ hy: -0.25, ty: 1.1, sRx: -1.45, sRz: 0.7, eR: -0.15, sLx: -0.4, sLz: -0.6, kL: 0.4, kR: 0.4, tL: -0.2, sw: 1.6 }),
@@ -117,9 +117,9 @@ const P_ = {
   air: pose({ tx: -0.15, sRx: -3.0, eR: -0.3, sLx: -2.8, sLz: -0.4, eL: -0.4, sw: 0.8, tL: -0.9, kL: 1.3, tR: -0.4, kR: 1.0 }),
   thrustA: pose({ hy: -0.3, ty: 0.7, tx: 0.1, sRx: -1.2, sRz: 0.35, eR: -1.7, sLx: -1.3, sLz: -0.2, eL: -0.6, sw: 2.9, tL: -0.6, kL: 0.8, tR: 0.4, kR: 0.4 }),
   thrustB: pose({ hy: -0.4, ty: -0.2, tx: 0.4, sRx: -1.55, sRz: 0.05, eR: 0, sLx: -0.4, sLz: -0.7, sw: 1.55, tL: -1.0, kL: 1.0, tR: 0.6, kR: 0.4 }),
-  plant: pose({ hy: -0.25, tx: 0.25, sRx: -0.95, sRz: 0.05, eR: -0.5, sLx: -0.95, sLz: -0.4, eL: -0.6, sw: 1.75, kL: 0.3, kR: 0.3 }),
+  plant: pose({ hy: -0.25, tx: 0.25, sRx: -0.95, sRz: 0.05, eR: -0.5, sLx: -0.95, sLz: -0.4, eL: -0.6, sw: 2.95, kL: 0.3, kR: 0.3 }),
   roar: pose({ tx: -0.35, hd: -0.55, sRx: -0.7, sRz: 1.0, sLx: -0.7, sLz: -1.0, eL: -0.4, eR: -0.4, sw: 0.6, hy: -0.15, kL: 0.3, kR: 0.3 }),
-  kneel: pose({ hy: -0.95, tx: 0.55, hd: 0.6, tL: -1.5, kL: 1.5, tR: 0.3, kR: 1.9, sRx: -0.95, eR: -0.6, sLx: -0.3, sLz: -0.2, eL: -0.2, sw: 1.75 }),
+  kneel: pose({ hy: -0.95, tx: 0.55, hd: 0.6, tL: -1.5, kL: 1.5, tR: 0.3, kR: 1.9, sRx: -0.95, eR: -0.6, sLx: -0.3, sLz: -0.2, eL: -0.2, sw: 2.95 }),
 };
 
 function applyPose(model, p) {
@@ -550,72 +550,159 @@ export function build(ctx) {
     braziers.push({ f, l });
   }
 
-  // the fog gate: a wall of slowly swirling mist you can't walk through until
-  // you choose to step into it
-  const c = document.createElement('canvas'); c.width = c.height = 128;
-  const g2 = c.getContext('2d');
-  for (let i = 0; i < 90; i++) {
-    const x = Math.random() * 128, yy = Math.random() * 128, r = 10 + Math.random() * 26;
-    const gr = g2.createRadialGradient(x, yy, 0, x, yy, r);
-    gr.addColorStop(0, 'rgba(235,235,240,0.35)'); gr.addColorStop(1, 'rgba(235,235,240,0)');
-    g2.fillStyle = gr;
-    for (const dx of [-128, 0, 128]) for (const dy of [-128, 0, 128]) { g2.beginPath(); g2.arc(x + dx, yy + dy, r, 0, Math.PI * 2); g2.fill(); }
+  // the fog gate: a curtain of slowly swirling mist hanging across the whole
+  // gap in the ring, following its curve, with soft edges and puffs of fog
+  // rolling along the bottom. You can't walk through it until you choose to
+  // step into it.
+  const puff = (n, a0, a1) => {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const g2 = c.getContext('2d');
+    for (let i = 0; i < n; i++) {
+      const x = Math.random() * 128, yy = Math.random() * 128, r = 10 + Math.random() * 26;
+      const gr = g2.createRadialGradient(x, yy, 0, x, yy, r);
+      gr.addColorStop(0, `rgba(235,235,240,${a0})`); gr.addColorStop(1, `rgba(235,235,240,${a1})`);
+      g2.fillStyle = gr;
+      for (const dx of [-128, 0, 128]) for (const dy of [-128, 0, 128]) { g2.beginPath(); g2.arc(x + dx, yy + dy, r, 0, Math.PI * 2); g2.fill(); }
+    }
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    return t;
+  };
+  // fades the curtain out at its sides and towards the top
+  const edge = (() => {
+    const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+    const g2 = c.getContext('2d'), img = g2.createImageData(64, 64);
+    for (let j = 0; j < 64; j++) for (let i = 0; i < 64; i++) {
+      const u = i / 63, v = 1 - j / 63;                              // v: 0 at the bottom
+      const side = Math.min(1, Math.min(u, 1 - u) / 0.18);
+      const top = 1 - Math.pow(Math.max(0, (v - 0.45) / 0.55), 1.4);
+      const k = Math.round(255 * side * side * Math.max(0, top));
+      img.data.set([k, k, k, 255], (j * 64 + i) * 4);
+    }
+    g2.putImageData(img, 0, 0);
+    return new THREE.CanvasTexture(c);
+  })();
+  const GAP = 0.41;                    // half the gap in the ring, as an angle
+  const curtain = [];
+  for (const [r, op, sx] of [[ARENA.r - 0.5, 0.7, 3], [ARENA.r, 0.75, 4], [ARENA.r + 0.5, 0.6, 5]]) {
+    const map = puff(90, 0.35, 0);
+    map.repeat.set(sx, 1.2);
+    const mat = new THREE.MeshBasicMaterial({ map, alphaMap: edge, transparent: true, opacity: op, depthWrite: false, side: THREE.DoubleSide, color: 0xe4e4ec });
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 8, 24, 1, true, Math.PI / 2 - GAP, GAP * 2), mat);
+    m.position.set(ARENA.x, y + 3.6, ARENA.z);
+    m.renderOrder = 4;
+    scene.add(m);
+    curtain.push(m);
   }
-  const fogTex = new THREE.CanvasTexture(c);
-  fogTex.wrapS = fogTex.wrapT = THREE.RepeatWrapping;
-  const fogMat = new THREE.MeshBasicMaterial({ map: fogTex, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide, color: 0xe8e8f0 });
-  const fogWall = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), fogMat);
-  fogWall.position.set(GATE.x, y + 3, GATE.z);
-  fogWall.rotation.y = Math.PI / 2;
-  scene.add(fogWall);
-  const fogWall2 = fogWall.clone(); fogWall2.material = fogMat.clone(); fogWall2.position.x += 0.25;
-  scene.add(fogWall2);
-  const gateBox = box([GATE.x - 0.3, y - 1, GATE.z - 3], [GATE.x + 0.3, y + 6, GATE.z + 3], stoneMat, { visible: false });
+  // puffs rolling along the foot of it
+  const puffTex = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const g2 = c.getContext('2d'), gr = g2.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, 'rgba(235,235,242,0.9)'); gr.addColorStop(0.5, 'rgba(235,235,242,0.35)'); gr.addColorStop(1, 'rgba(235,235,242,0)');
+    g2.fillStyle = gr; g2.fillRect(0, 0, 64, 64);
+    return new THREE.CanvasTexture(c);
+  })();
+  const puffs = [];
+  for (let i = 0; i < 22; i++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: puffTex, transparent: true, opacity: 0.5, depthWrite: false, color: 0xdcdce4 }));
+    const a = -GAP + Math.random() * GAP * 2, r = ARENA.r + (Math.random() - 0.5) * 1.6;
+    s.userData = { a, r, ph: Math.random() * 6.3, h: 0.6 + Math.random() * 2.2, k: 2.5 + Math.random() * 2.5 };
+    s.scale.setScalar(s.userData.k);
+    s.renderOrder = 5;
+    scene.add(s);
+    puffs.push(s);
+  }
+  const fogParts = [...curtain, ...puffs];
+  // what stops you walking through: a row of blocks along the curve
+  const gateBoxes = [];
+  for (let i = 0; i <= 9; i++) {
+    const a = -GAP + (i / 9) * GAP * 2, x = ARENA.x + Math.cos(a) * ARENA.r, z = ARENA.z + Math.sin(a) * ARENA.r;
+    const b = box([x - 0.6, y - 1, z - 1.0], [x + 0.6, y + 8, z + 1.0], stoneMat, { visible: false });
+    b.home = [b.min.clone(), b.max.clone()];
+    gateBoxes.push(b);
+  }
+  const gateSolid = (on) => { for (const b of gateBoxes) { if (on) { b.min.copy(b.home[0]); b.max.copy(b.home[1]); } else { b.min.set(9999, 9999, 9999); b.max.set(9999, 9999, 9999); } } };
 
-  // the Warden, seated
+  // the Warden, seated, head bowed
   const warden = wardenModel();
   const seatPos = new THREE.Vector3(tx + 0.2, y + 0.55, ARENA.z);
+  const daisPos = new THREE.Vector3(tx + 1.0, y + 0.6, ARENA.z);
   const standPos = new THREE.Vector3(ARENA.x - 6, y, ARENA.z);
   warden.position.copy(seatPos);
   warden.rotation.y = Math.PI / 2;     // facing the entrance (+x)
   warden.scale.setScalar(0.92);
-  const sitPose = P_.sit, idlePose = P_.idle, seated = { ...sitPose };
-  applyPose(warden, seated);
+  const seated = { ...P_.sit, hd: 0.55 };
+  const cur = { ...seated };
+  applyPose(warden, cur);
   scene.add(warden);
 
-  let t = 0, rise = 0, risen = false;
+  // Rising, as a little scene (seconds from the start):
+  //   0 - 1.0   he stirs: lifts his head, the slit of his eyes catching the light
+  //   1.0 - 2.3 grips the sword and pushes himself up off the throne
+  //   2.3 - 3.7 steps down off the dais and walks out towards you
+  //   3.7 - 4.7 throws his arms out and roars
+  const RISE = 4.7;
+  let t = 0, rt = -1, onRoar = null, roared = false;
+  const ease = (k) => k * k * (3 - 2 * k);
+  const seg = (a, b2) => Math.max(0, Math.min(1, (rt - a) / (b2 - a)));
   return {
-    warden, standPos, gateBox, fogWall, fogWall2,
+    warden, standPos, seatPos, RISE, pose: cur,
     gateIn: new THREE.Vector3(GATE.x - 3.5, y, GATE.z),      // where you step to through the fog
     playerSpot: new THREE.Vector3(ARENA.x + 7, y, ARENA.z),
-    rise() { risen = true; },
-    // the fog closes behind you once you're in
-    sealGate() { fogWall.visible = fogWall2.visible = true; gateBox.min.set(GATE.x - 0.3, y - 1, GATE.z - 3); gateBox.max.set(GATE.x + 0.3, y + 6, GATE.z + 3); },
-    passGate() { gateBox.min.set(9999, 9999, 9999); gateBox.max.set(9999, 9999, 9999); },
-    openGate() {
-      fogWall.visible = fogWall2.visible = false;
-      gateBox.min.set(9999, 9999, 9999); gateBox.max.set(9999, 9999, 9999);
-      if (gateBox.mesh) gateBox.mesh.visible = false;
+    rise(roar) { rt = 0; onRoar = roar; },
+    // standing just outside the fog, anywhere along it
+    nearGate(P) {
+      const dx = P.pos.x - ARENA.x, dz = P.pos.z - ARENA.z, d = Math.hypot(dx, dz);
+      return d > ARENA.r + 0.3 && d < ARENA.r + 3.5 && Math.abs(Math.atan2(dz, dx)) < GAP + 0.03 && Math.abs(P.pos.y - y) < 3;
     },
+    // the fog closes behind you once you're in
+    sealGate() { for (const f of fogParts) f.visible = true; gateSolid(true); },
+    passGate() { gateSolid(false); },
+    openGate() { for (const f of fogParts) f.visible = false; gateSolid(false); },
     remove() { scene.remove(warden); },
     update(dt) {
       t += dt;
-      fogTex.offset.set(t * 0.02, t * 0.05);
-      fogWall2.material.map.offset.set(-t * 0.03, t * 0.04);
+      curtain.forEach((m, i) => m.material.map.offset.set(t * (0.015 + i * 0.008) * (i % 2 ? -1 : 1), t * (0.04 + i * 0.01)));
+      for (const s of puffs) {
+        const u = s.userData;
+        u.a += dt * 0.02 * Math.sin(u.ph); if (Math.abs(u.a) > GAP) u.ph += Math.PI;
+        s.position.set(ARENA.x + Math.cos(u.a) * u.r, y + u.h + Math.sin(t * 0.7 + u.ph) * 0.3, ARENA.z + Math.sin(u.a) * u.r);
+        s.material.rotation = t * 0.1 + u.ph;
+        s.scale.setScalar(u.k * (1 + Math.sin(t * 0.5 + u.ph) * 0.12));
+      }
       for (const b of braziers) { b.l.intensity = 12 + Math.sin(t * 12 + b.f.position.x) * 2.5; b.f.scale.y = 1 + Math.sin(t * 10 + b.f.position.z) * 0.15; }
-      // rising from the throne and stepping down
-      // rising from the throne (pushing up on his sword) and stepping down
-      if (risen && rise < 1 && !this.fighting) {
-        rise = Math.min(1, rise + dt / 2.4);
-        const k = rise * rise * (3 - 2 * rise);
-        warden.position.lerpVectors(seatPos, standPos, Math.max(0, (k - 0.35) / 0.65));
-        warden.position.y += Math.sin(Math.max(0, (k - 0.35) / 0.65) * Math.PI) * 0.6;
-        seated.hy = sitPose.hy; for (const key of POSE_KEYS) seated[key] = sitPose[key] + (idlePose[key] - sitPose[key]) * Math.min(1, k * 1.6);
-        applyPose(warden, seated);
+      if (rt >= 0 && rt < RISE && !this.fighting) {
+        rt += dt;
+        let want;
+        if (rt < 1.0) {
+          // stirring
+          want = { ...seated, hd: 0.55 - 0.75 * ease(seg(0.2, 1.0)), sRx: -0.9 - 0.2 * ease(seg(0.5, 1.0)) };
+          warden.position.copy(seatPos);
+        } else if (rt < 2.3) {
+          // pushing up on the sword
+          const k = ease(seg(1.0, 2.3));
+          want = {};
+          const mid = { ...P_.crouch, sw: 3.0, sRx: -0.8, eR: -0.7, hd: -0.2 };
+          for (const key of POSE_KEYS) want[key] = k < 0.5 ? seated[key] + (mid[key] - seated[key]) * (k * 2) : mid[key] + (P_.plant[key] - mid[key]) * (k * 2 - 1);
+          warden.position.lerpVectors(seatPos, daisPos, k);
+        } else if (rt < 3.7) {
+          // stepping down and walking out
+          const k = seg(2.3, 3.7), ph = rt * 6.5;
+          want = { ...P_.idle, tL: Math.sin(ph) * 0.5, tR: -Math.sin(ph) * 0.5, kL: 0.1 + Math.max(0, -Math.sin(ph)) * 0.7, kR: 0.1 + Math.max(0, Math.sin(ph)) * 0.7, hy: -Math.abs(Math.cos(ph)) * 0.07, sLx: -0.2 - Math.sin(ph) * 0.3 };
+          warden.position.lerpVectors(daisPos, standPos, ease(k));
+          warden.position.y = lerp(daisPos.y, standPos.y, Math.min(1, k * 3));   // off the dais in the first stride
+        } else {
+          // the roar
+          want = P_.roar;
+          warden.position.copy(standPos);
+          if (!roared) { roared = true; if (onRoar) onRoar(); }
+        }
+        blendPose(cur, want, Math.min(1, dt * (rt > 3.7 ? 6 : 8)));
+        applyPose(warden, cur);
       }
       if (!this.fighting) warden.userData.capeJ.rotation.x = 0.12 + Math.sin(t * 1.3) * 0.05;
     },
-    get standing() { return rise >= 1; },
+    get standing() { return rt >= RISE; },
   };
 }
 

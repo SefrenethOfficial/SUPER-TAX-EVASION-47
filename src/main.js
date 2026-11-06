@@ -1,22 +1,22 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Input } from './input.js?v=49';
-import { World } from './world.js?v=49';
-import { Player, buildCharacter } from './player.js?v=49';
-import { FX } from './fx.js?v=49';
-import { GameAudio } from './audio.js?v=49';
-import { Dialogue } from './dialogue.js?v=49';
-import { Combat } from './combat.js?v=49';
-import { BASE_MOVES, weaponMesh } from './items.js?v=49';
-import { save } from './save.js?v=49';
-import { Inventory, QUICK } from './inventory.js?v=49';
+import { Input } from './input.js?v=50';
+import { World } from './world.js?v=50';
+import { Player, buildCharacter } from './player.js?v=50';
+import { FX } from './fx.js?v=50';
+import { GameAudio } from './audio.js?v=50';
+import { Dialogue } from './dialogue.js?v=50';
+import { Combat } from './combat.js?v=50';
+import { BASE_MOVES, weaponMesh } from './items.js?v=50';
+import { save } from './save.js?v=50';
+import { Inventory, QUICK } from './inventory.js?v=50';
 // The open world, one area per module.
-import * as blank from './stages/blank.js?v=49';
-import * as beach from './stages/beach.js?v=49';
+import * as blank from './stages/blank.js?v=50';
+import * as beach from './stages/beach.js?v=50';
 
 // Bump VERSION (and the ?v= on every local import) whenever files change,
 // so browsers never mix old and new code.
-const VERSION = '49';
+const VERSION = '50';
 const STAGES = { beach, blank };
 
 const canvas = document.getElementById('game');
@@ -77,6 +77,17 @@ function resetCamera(player) {
 }
 
 function updateCamera(dt, player) {
+  // a little scene playing: the area says where the camera is and what it looks at
+  if (S.cutscene) {
+    input.consumeCam();
+    const shot = S.cutscene(dt);
+    const k = S.cutAt ? 1 - Math.exp(-3.5 * dt) : 1;
+    camera.position.lerp(shot.pos, k);
+    S.cutLook = S.cutAt ? S.cutLook.lerp(shot.look, k) : shot.look.clone();
+    S.cutAt = true;
+    camera.lookAt(S.cutLook);
+    return;
+  }
   const c = input.consumeCam();
   if (!player.locked) {
     cam.yaw -= c.x;
@@ -145,7 +156,9 @@ function loadStage(key, { from, respawn } = {}) {
     player.onDeath = () => {
       banner('YOU FELL', 'died');
       const at = S.level.respawnFor ? S.level.respawnFor(player.pos) : null;
-      setTimeout(() => go(S.key, { respawn: at }), 3200);
+      // the area may have more to show first (your party being cut down)
+      const more = S.level.onPlayerDeath ? S.level.onPlayerDeath(game) : null;
+      Promise.all([new Promise((r) => setTimeout(r, 3200)), more]).then(() => go(S.key, { respawn: at }));
     };
     player.canGuard = () => save.learned.includes('guard');
     player.onGuard = (n) => S.combat.float(player.pos.clone().setY(player.pos.y + 2.3), `Guarded (${n})`, 'note');
@@ -255,6 +268,8 @@ const game = {
   partyInfo: () => [],
   // change the music for the part of the area you're in (null = quiet)
   music(file) { S.areaMusic = file; },
+  // take over the camera for a little scene: fn(dt) -> { pos, look }; null hands it back
+  cutscene(fn) { S.cutscene = fn; S.cutAt = false; document.body.classList.toggle('cutscene', !!fn); if (!fn) resetCamera(player); },
   // show an area title card
   card(name) {
     document.querySelectorAll('.course-name').forEach((el) => { el.textContent = name; });

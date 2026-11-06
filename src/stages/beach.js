@@ -1,15 +1,15 @@
 import * as THREE from 'three';
-import { Terrain } from '../terrain.js?v=49';
-import { ShyGhost } from '../ghost.js?v=49';
-import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture, obsidianTexture, strataTexture } from '../textures.js?v=49';
-import * as Fieldlands from './obsidian-fieldlands.js?v=49';
-import * as Hollow from './lantern-hollow.js?v=49';
-import * as Throne from './hollow-throne.js?v=49';
-import { NPC } from '../npc.js?v=49';
-import { Pickup } from '../pickup.js?v=49';
-import { save, store, flag, learn } from '../save.js?v=49';
-import { telegraph } from '../combat.js?v=49';
-import { Gibs } from '../gibs.js?v=49';
+import { Terrain } from '../terrain.js?v=50';
+import { ShyGhost } from '../ghost.js?v=50';
+import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture, obsidianTexture, strataTexture } from '../textures.js?v=50';
+import * as Fieldlands from './obsidian-fieldlands.js?v=50';
+import * as Hollow from './lantern-hollow.js?v=50';
+import * as Throne from './hollow-throne.js?v=50';
+import { NPC } from '../npc.js?v=50';
+import { Pickup } from '../pickup.js?v=50';
+import { save, store, flag, learn } from '../save.js?v=50';
+import { telegraph } from '../combat.js?v=50';
+import { Gibs } from '../gibs.js?v=50';
 
 // ---------------------------------------------------------------------------
 // THE WASHED-UP BEACH: the first area of the open world. You wake up face down
@@ -397,9 +397,9 @@ export function build(world, { models = {}, combat } = {}) {
   // Party members fight on their own (and can't be hurt): Vivian throws bolts of
   // shadow from where she floats, Marrow wades in with his lantern.
   combat.addAlly({ kind: 'bolt', every: 2.4, dmg: 2, range: 15, from: () => ghost.pos.clone().setY(ghost.root.position.y - 0.4),
-    active: () => !!(ghost && progress.party && ghost.state === 'follow') });
+    active: () => !!(ghost && progress.party && ghost.state === 'follow') && !falling });
   combat.addAlly({ kind: 'melee', every: 2.8, dmg: 3, range: 10, from: () => marrow.pos,
-    active: () => inParty('marrow') && !marrowHit,
+    active: () => inParty('marrow') && !marrowHit && !falling,
     onMelee: (foe, hit) => { marrowHit = { foe, t: 0, hit }; } });
   const gibs = new Gibs(scene, G);
   for (const e of fields.enemies) { e.gibs = gibs; combat.add(e); }
@@ -422,6 +422,9 @@ export function build(world, { models = {}, combat } = {}) {
   const bossReward = new Pickup(scene, { id: 'blade', weapon: 'blade', pos: new THREE.Vector3(Throne.ARENA.x, Throne.PLATEAU.y, Throne.ARENA.z) });
   if (!save.flags.wardenDead && !bossReward.taken) scene.remove(bossReward.root);
   pickups.push(bossReward);
+  // Through the fog: the camera cuts away to the throne to watch him rise
+  // (see the rise in hollow-throne.js), then back to you, and it begins.
+  let intro = null;
   const enterFog = (game) => {
     bossBusy = true;
     const P = game.player;
@@ -433,29 +436,49 @@ export function build(world, { models = {}, combat } = {}) {
       if (ghost && progress.party) { ghost.pos.set(P.pos.x + 1.5, 0, P.pos.z + 2); }
       if (inParty('marrow')) { marrow.pos.set(P.pos.x + 1.5, P.pos.y, P.pos.z - 2); }
       throne.sealGate();
+      game.music(Throne.MUSIC);
+      intro = { t: 0, game };
+      const W = throne.warden, look = new THREE.Vector3(), pos = new THREE.Vector3(), y = Throne.PLATEAU.y;
+      game.cutscene(() => {
+        const k = intro ? intro.t : 99;
+        W.getWorldPosition(look);
+        if (k < 2.4) {
+          // close on the throne, low, slowly pushing in as he stirs and stands
+          pos.set(throne.seatPos.x + 7.5 - k * 0.8, y + 2.2 + k * 0.15, throne.seatPos.z + 4.2 - k * 0.3);
+          look.y += 2.9;
+        } else {
+          // pulling back alongside him as he walks out and roars
+          pos.set(W.position.x + 7.5, y + 3.2, W.position.z + 7.5);
+          look.y += 2.6;
+        }
+        return { pos, look };
+      });
+      throne.rise(() => { game.banner('THE HOLLOW WARDEN'); game.fx.shake(0.6); });
     });
-    game.music(Throne.MUSIC);
-    setTimeout(() => { throne.rise(); game.banner('THE HOLLOW WARDEN'); }, 900);
-    setTimeout(() => {
-      warden = new Throne.Warden(throne.warden, { scene, G, telegraph, fx: game.fx, gibs });
-      throne.fighting = true;
-      warden.onPhase = () => game.toast("The Warden's armour splits open. Fire pours out!");
-      warden.onDie = () => {
-        flag('wardenDead');
-        game.banner('WARDEN FELLED', 'felled');
-        game.music(null);
-        setTimeout(() => {
-          throne.remove(); throne.openGate();
-          combat.remove(warden); warden.remove(); warden = null;
-          scene.add(bossReward.root);
-          game.toast('The fog clears from the throne.');
-        }, 3400);
-      };
-      combat.add(warden);
-      warden.start();
-      P.locked = false;
-      bossBusy = false;
-    }, 3400);
+  };
+  const startFight = (game) => {
+    const P = game.player;
+    intro = null;
+    game.cutscene(null);
+    warden = new Throne.Warden(throne.warden, { scene, G, telegraph, fx: game.fx, gibs });
+    warden.cur = { ...throne.pose };
+    throne.fighting = true;
+    warden.onPhase = () => game.toast("The Warden's armour splits open. Fire pours out!");
+    warden.onDie = () => {
+      flag('wardenDead');
+      game.banner('WARDEN FELLED', 'felled');
+      game.music(null);
+      setTimeout(() => {
+        throne.remove(); throne.openGate();
+        combat.remove(warden); warden.remove(); warden = null;
+        scene.add(bossReward.root);
+        game.toast('The fog clears from the throne.');
+      }, 3400);
+    };
+    combat.add(warden);
+    warden.start();
+    P.locked = false;
+    bossBusy = false;
   };
 
   // --- Waves lapping: drift the water textures --------------------------------------
@@ -464,7 +487,7 @@ export function build(world, { models = {}, combat } = {}) {
     t += dt;
     if (ghost && game) {
       if (sparring) sparUpdate(dt, game);
-      ghost.update(dt, game.player);
+      if (!(falling && falling.vivian && falling.vivian.dying)) ghost.update(dt, falling && falling.vivian ? falling.vivian.lookAt : game.player);
       if (ghost.state === 'cornered' && !talking) meet(game);
     }
     if (game) {
@@ -482,8 +505,9 @@ export function build(world, { models = {}, combat } = {}) {
       hollow.update(dt, P);
       throne.update(dt);
       gibs.update(dt);
+      if (intro) { intro.t += dt; if (throne.standing) startFight(game); }
       if (warden) {
-        warden.update(dt, P);
+        warden.update(dt, falling ? falling.target() : P);
         // no leaving till it's over: the fog walls the arena in
         if (warden.alive) {
           const ox = P.pos.x - Throne.ARENA.x, oz = P.pos.z - Throne.ARENA.z, od = Math.hypot(ox, oz), lim = Throne.ARENA.r - 1.4;
@@ -492,14 +516,16 @@ export function build(world, { models = {}, combat } = {}) {
       }
       hermit.update(dt, P);
       for (const p of pickups) p.update(dt);
-      if (inParty('marrow')) followMarrow(dt, P);
+      if (inParty('marrow') && !falling) followMarrow(dt, P);
+      if (falling) fallingUpdate(dt, game);
       game.partyInfo = () => [
         ...(ghost && progress.party ? [{ name: GHOST, role: 'Shadow bolts' }] : []),
         ...(inParty('marrow') ? [{ name: 'Marrow', role: 'Lantern swings' }] : []),
       ];
       // the monsters out there
       const busy = game.talking || bossBusy || (game.bag && game.bag.open);
-      for (const e of fields.enemies) e.update(dt, P, busy);
+      const prey = falling ? falling.target() : P;
+      for (const e of fields.enemies) e.update(dt, prey, busy);
     }
     wt.offset.set(t * 0.004, t * 0.012);
     wt2.offset.set(-t * 0.006, t * 0.008);
@@ -652,6 +678,8 @@ export function build(world, { models = {}, combat } = {}) {
     // nothing to talk to or pick up mid-fight: not even your party
     if (talking || bossBusy || sparring || (warden && warden.alive)) return null;
     for (const p of pickups) if (p.near(P)) return { text: `E \u2014 Pick up ${p.label}`, go: () => { const what = p.take(); game.toast(`Got ${what}`); } };
+    // the fog gate before anyone: your party's often right beside you
+    if (!save.flags.wardenDead && throne.nearGate(P)) return { text: 'E \u2014 Step through the fog', go: () => enterFog(game) };
     for (const [key, n] of Object.entries(hollow.npcs)) {
       if (near(P, n)) return { text: `E \u2014 Talk to ${n.name}`, go: () => say(game, () => hollow.talks[key]({ game, npc: n, partyHeal, setRest,
         inParty: () => inParty('marrow'),
@@ -662,7 +690,6 @@ export function build(world, { models = {}, combat } = {}) {
         } })) };
     }
     if (near(P, hermit)) return { text: 'E \u2014 Talk to the Hermit', go: () => say(game, () => talkHermit(game)) };
-    if (!save.flags.wardenDead && Math.hypot(P.pos.x - (Throne.GATE.x + 1.2), P.pos.z - Throne.GATE.z) < 3.2) return { text: 'E \u2014 Step through the fog', go: () => enterFog(game) };
     // Vivian last: she's often right beside you
     if (ghostNear(P)) return { text: `E \u2014 Talk to ${GHOST}`, go: () => chat(game) };
     return null;
@@ -679,6 +706,76 @@ export function build(world, { models = {}, combat } = {}) {
     hollow: [[hollow.restSpot.x, hollow.restSpot.z, hollow.restYaw], [150, 280, Math.PI / 2]],
     throne: [[Throne.GATE.x + 6, Throne.GATE.z, -Math.PI / 2], [-170, Throne.PLATEAU.z, -Math.PI / 2]],   // outside the fog, never in the arena
   };
+  // --- When you fall, your party doesn't last long either ---------------------------
+  // Whatever killed you turns on them, one at a time: the monsters (or the
+  // Warden) go for them as they would for you. Marrow is cut down (his head
+  // comes off and he topples); Vivian is struck through, darkens back into a
+  // shadow, stretches and comes apart in sparks.
+  let falling = null;
+  const victim = (who, pos, onKilled) => ({
+    who, pos, locked: false, health: 1, invuln: 0, dead: false,
+    hurt(dmg, fx, fz) { if (this.dead) return false; this.dead = true; this.health = 0; onKilled(fx, fz); return true; },
+  });
+  const onPlayerDeath = (game) => {
+    const P = game.player;
+    const list = [];
+    if (ghost && progress.party && ghost.state === 'follow') {
+      const v = victim('vivian', ghost.pos, (fx, fz) => { v.dying = { t: 0, fx, fz }; ghost.state = 'down'; });
+      v.lookAt = { pos: P.pos.clone(), yaw: 0 };
+      ghost.state = 'spar';           // (holds still, facing you)
+      list.push(v);
+    }
+    if (inParty('marrow')) list.push(victim('marrow', marrow.pos, (fx, fz) => {
+      const parts = marrow.model.userData.parts;
+      const away = new THREE.Vector3(marrow.pos.x - fx, 0, marrow.pos.z - fz).normalize();
+      gibs.fling(parts.head, away.clone().multiplyScalar(4).add(new THREE.Vector3(0, 6, 0)), { spin: 10, life: 30 });
+      P.bleed && P.bleed(marrow.pos.clone().setY(marrow.pos.y + 1.6), 18);
+      falling.marrowFall = { t: 0, yaw: Math.atan2(away.x, away.z) };
+    }));
+    if (!list.length) return null;
+    // the nearest thing that's after you turns on them
+    for (const e of fields.enemies) if (e.alive && Math.hypot(e.pos.x - P.pos.x, e.pos.z - P.pos.z) < 22) { e.engaged = true; if (e.mode === 'idle') e.set('chase'); }
+    return new Promise((res) => {
+      falling = { list, t: 0, done: res, vivian: list.find((v) => v.who === 'vivian'),
+        target() { return this.list.find((v) => !v.dead) || this.list[this.list.length - 1]; } };
+    });
+  };
+  const fallingUpdate = (dt, game) => {
+    const F = falling;
+    F.t += dt;
+    // they stand their ground over you, shaking
+    const living = F.list.filter((v) => !v.dead);
+    if (living.length && F.t > 7) for (const v of living) v.hurt(99, v.pos.x + 1, v.pos.z);     // (nothing came for them: they fall anyway)
+    const V = F.vivian;
+    if (V && V.dying) {
+      const d = V.dying; d.t += dt;
+      const k = Math.min(1, d.t / 1.6);
+      ghost.reveal = Math.max(0, 1 - k * 1.5); ghost.setLook();
+      for (const m of ghost.mats) { m.transparent = true; m.opacity = Math.max(0, 0.9 - Math.max(0, k - 0.5) * 1.8); }
+      ghost.root.position.y += dt * (0.4 + k * 2.5);
+      ghost.root.rotation.y += dt * (4 + k * 18);
+      ghost.root.scale.set(1 - k * 0.7, 1 + k * 0.9, 1 - k * 0.7);
+      ghost.shadow.material.opacity = 0.25 * (1 - k);
+      if (Math.random() < dt * 30) game.fx.sparkle(ghost.root.position.clone().add(new THREE.Vector3(0, 1, 0)), 3);
+      if (k >= 1 && ghost.root.visible) { ghost.root.visible = false; game.fx.sparkle(ghost.root.position.clone().add(new THREE.Vector3(0, 1, 0)), 20); }
+    }
+    if (F.marrowFall) {
+      const M = F.marrowFall; M.t += dt;
+      const k = Math.min(1, M.t / 0.9), e = k * k;
+      marrow.yaw = M.yaw + Math.PI;
+      marrow.root.rotation.set(-e * 1.5, marrow.yaw, 0, 'YXZ');      // topples back, away from the blow
+      const parts = marrow.model.userData.parts;
+      parts.armL.rotation.x = -e * 2.2; parts.armR.rotation.x = -e * 1.6;
+      if (k >= 1 && !M.thud) { M.thud = true; game.fx.dust(marrow.pos, 10); game.fx.shake(0.2); }
+    } else if (inParty('marrow')) {
+      // braced, lantern up, facing whatever's coming
+      const tgt = fields.enemies.find((e) => e.alive && e.engaged) || warden;
+      if (tgt) { marrow.yaw += Math.atan2(Math.sin(Math.atan2(tgt.pos.x - marrow.pos.x, tgt.pos.z - marrow.pos.z) - marrow.yaw), Math.cos(Math.atan2(tgt.pos.x - marrow.pos.x, tgt.pos.z - marrow.pos.z) - marrow.yaw)) * Math.min(1, dt * 6); marrow.root.rotation.y = marrow.yaw; }
+      const parts = marrow.model.userData.parts; parts.armR.rotation.x = -1.2 + Math.sin(F.t * 20) * 0.05;
+    }
+    if (!living.length && !F.over) { F.over = true; setTimeout(() => F.done(), 1600); }
+  };
+
   const respawnFor = (pos) => {
     const r = Throne.contains(pos.x, pos.z) ? 'throne' : Hollow.contains(pos.x, pos.z) ? 'hollow' : pos.z > Fieldlands.SLOPE.z1 - 10 ? 'fields' : 'beach';
     let best = null, bd = Infinity;
@@ -686,7 +783,7 @@ export function build(world, { models = {}, combat } = {}) {
     return best;
   };
   return {
-    respawnFor,
+    respawnFor, onPlayerDeath,
     spawn: rested ? hollow.restSpot.clone() : new THREE.Vector3(sx, G(sx, sz), sz),
     spawnYaw: rested ? hollow.restYaw : 0,
     startLying: !rested,

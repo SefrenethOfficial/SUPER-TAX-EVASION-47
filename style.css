@@ -98,7 +98,7 @@ body.aiming #crosshair { display: block; }
 #prompt.on { opacity: 1; }
 /* --- Fighting: Health and Stamina, numbers, enemy bars ---------------------------------- */
 #hud { position: fixed; left: 20px; bottom: 20px; width: min(300px, 46vw); pointer-events: none; font: 13px Georgia, 'Times New Roman', serif; color: #ece9e0; text-shadow: 0 1px 2px #000; z-index: 12; transition: opacity .3s; }
-body:has(#start:not(.hidden)) #hud, body.talking #hud { opacity: 0; }
+body:has(#start:not(.hidden)) #hud, body.talking #hud, body.cutscene #hud, body.cutscene #prompt { opacity: 0; }
 #hud .hbar { height: 12px; margin: 4px 0; background: rgba(0,0,0,.55); border: 1px solid rgba(220,215,200,.45); border-radius: 2px; overflow: hidden; position: relative; }
 #hud .hbar i { display: block; height: 100%; transition: width .18s; }
 #hud .hp i { background: linear-gradient(#c94a3c, #8a2620); }
