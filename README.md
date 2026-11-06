@@ -30,7 +30,7 @@ Up a pass in the west wall of the fieldlands (follow the path west), a dark, smo
 
 ## Items, weapons and moves
 
-Press **I** (or **Tab**) to open your **bag**: equip a weapon, use Herbs and the like on yourself, and see your moves and party. Items can also be used in battle with **Item**.
+Press **I** (or **Tab**) to open your **bag**: equip a weapon, use Herbs and the like on yourself, and see your moves and party. On PC the mouse is freed while it's open: click **Equip** / **Use**, or move with W / S or the arrow keys and press Space, Enter or E; I, Tab or Esc closes it. Items can also be used in battle with **Item**.
 
 - **Weapons** add damage to every blow you land, and you hold the one you've equipped: **Driftwood Club** (+1, washed up by the wreck), **Obsidian Dagger** (+2, on top of Obsidian Peak), **Ashen Blade** (+4, from the Warden).
 - **Items**: **Herb** (+4 Health), **Hearth Salve** (+8 Health), **Tonic** (+5 Stamina), **Ember Flask** (thrown in battle for 7 damage). Look for the glints: around the beach and fields, up the West Peak and the East Range, and from Hesta.

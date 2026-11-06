@@ -1,23 +1,23 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Input } from './input.js?v=42';
-import { World } from './world.js?v=42';
-import { Player, buildCharacter } from './player.js?v=42';
-import { FX } from './fx.js?v=42';
-import { GameAudio } from './audio.js?v=42';
-import { Battle } from './battle.js?v=42';
-import { Dialogue } from './dialogue.js?v=42';
-import { MOVES } from './battle.js?v=42';
-import { LEARNABLE, WEAPONS, weaponMesh } from './items.js?v=42';
-import { save } from './save.js?v=42';
-import { Inventory } from './inventory.js?v=42';
+import { Input } from './input.js?v=43';
+import { World } from './world.js?v=43';
+import { Player, buildCharacter } from './player.js?v=43';
+import { FX } from './fx.js?v=43';
+import { GameAudio } from './audio.js?v=43';
+import { Battle } from './battle.js?v=43';
+import { Dialogue } from './dialogue.js?v=43';
+import { MOVES } from './battle.js?v=43';
+import { LEARNABLE, WEAPONS, weaponMesh } from './items.js?v=43';
+import { save } from './save.js?v=43';
+import { Inventory } from './inventory.js?v=43';
 // The open world, one area per module.
-import * as blank from './stages/blank.js?v=42';
-import * as beach from './stages/beach.js?v=42';
+import * as blank from './stages/blank.js?v=43';
+import * as beach from './stages/beach.js?v=43';
 
 // Bump VERSION (and the ?v= on every local import) whenever files change,
 // so browsers never mix old and new code.
-const VERSION = '42';
+const VERSION = '43';
 const STAGES = { beach, blank };
 
 const canvas = document.getElementById('game');

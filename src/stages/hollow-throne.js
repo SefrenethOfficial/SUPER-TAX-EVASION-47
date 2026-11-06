@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { rockTexture } from '../textures.js?v=42';
+import { rockTexture } from '../textures.js?v=43';
 
 // ---------------------------------------------------------------------------
 // THE HOLLOW THRONE: up a pass in the west wall of the Obsidian Fieldlands, a

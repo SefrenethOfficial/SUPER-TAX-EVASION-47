@@ -177,7 +177,12 @@ body.talking #logo, body.talking #hint { opacity: .35; }
 #bag .icols { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
 @media (max-width: 600px) { #bag .icols { grid-template-columns: 1fr; } }
 #bag h3 { font-size: 13px; letter-spacing: .14em; text-transform: uppercase; opacity: .7; margin: 12px 0 6px; font-weight: 400; }
-#bag .irow { display: flex; justify-content: space-between; width: 100%; padding: 7px 10px; margin: 3px 0; font: 16px Georgia, serif; color: #ece9e0; background: rgba(20,22,24,.85); border: 1px solid rgba(201,195,178,.3); border-radius: 3px; cursor: pointer; text-align: left; }
+#bag .irow { display: flex; align-items: center; gap: 10px; box-sizing: border-box; width: 100%; padding: 6px 8px 6px 10px; margin: 3px 0; font: 16px Georgia, serif; color: #ece9e0; background: rgba(20,22,24,.85); border: 1px solid rgba(201,195,178,.3); border-radius: 3px; cursor: pointer; text-align: left; }
+#bag .iname { flex: 1; }
+#bag .iact { font: 700 13px Georgia, serif; letter-spacing: .05em; color: #ece9e0; padding: 4px 12px; cursor: pointer; background: rgba(60,58,50,.9); border: 1px solid rgba(232,223,196,.6); border-radius: 3px; }
+#bag .iact:hover { background: rgba(96,90,72,.95); }
+#bag .iclose { display: block; margin: 10px 0 0 auto; font: 700 14px Georgia, serif; color: #ece9e0; padding: 6px 18px; cursor: pointer; background: rgba(20,22,24,.9); border: 1px solid rgba(201,195,178,.5); border-radius: 3px; }
+#bag .idesc b { color: #f1e6c8; font-weight: 700; }
 #bag .irow.sel { border-color: #e8dfc4; background: rgba(60,58,50,.92); }
 #bag .irow.dim { color: #9a978e; }
 #bag .itag { opacity: .75; font-size: 13px; }

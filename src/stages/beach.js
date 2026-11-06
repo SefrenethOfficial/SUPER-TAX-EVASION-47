@@ -1,13 +1,13 @@
 import * as THREE from 'three';
-import { Terrain } from '../terrain.js?v=42';
-import { ShyGhost } from '../ghost.js?v=42';
-import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture, obsidianTexture } from '../textures.js?v=42';
-import * as Fieldlands from './obsidian-fieldlands.js?v=42';
-import * as Hollow from './lantern-hollow.js?v=42';
-import * as Throne from './hollow-throne.js?v=42';
-import { NPC } from '../npc.js?v=42';
-import { Pickup } from '../pickup.js?v=42';
-import { save, store, flag, learn, addWeapon, addItem } from '../save.js?v=42';
+import { Terrain } from '../terrain.js?v=43';
+import { ShyGhost } from '../ghost.js?v=43';
+import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture, obsidianTexture } from '../textures.js?v=43';
+import * as Fieldlands from './obsidian-fieldlands.js?v=43';
+import * as Hollow from './lantern-hollow.js?v=43';
+import * as Throne from './hollow-throne.js?v=43';
+import { NPC } from '../npc.js?v=43';
+import { Pickup } from '../pickup.js?v=43';
+import { save, store, flag, learn, addWeapon, addItem } from '../save.js?v=43';
 
 // ---------------------------------------------------------------------------
 // THE WASHED-UP BEACH: the first area of the open world. You wake up face down
