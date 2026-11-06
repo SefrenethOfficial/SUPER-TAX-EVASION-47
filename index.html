@@ -6,7 +6,7 @@
   <title>SUPER TAX EVASION 47</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=45">
+  <link rel="stylesheet" href="style.css?v=46">
   <script type="importmap">
     {
       "imports": {
@@ -19,13 +19,14 @@
 <body>
   <canvas id="game"></canvas>
 
-  <img id="logo" src="assets/logo.png?v=45" alt="SUPER TAX EVASION 47">
+  <img id="logo" src="assets/logo.png?v=46" alt="SUPER TAX EVASION 47">
 
-  <div id="health"><span>8</span></div>
+  <div id="floaters"></div>
+  <div id="hud"><div class="hbar hp"><i></i></div><div class="hbar sp"><i></i></div><div class="hrow" id="hudrow"></div></div>
+  <div id="bossbar"><span class="bname"></span><div class="hbar"><i></i></div></div>
   <pre id="debug" class="hidden"></pre>
   <div id="fade"></div>
   <div id="prompt"></div>
-  <div id="battle"></div>
   <div id="dialogue"></div>
   <div id="bag"></div>
   <div id="banner"></div>
@@ -39,6 +40,8 @@
       <tr><td>A</td><td>Space · gamepad A</td></tr>
       <tr><td>B</td><td>J / X / left click · gamepad X or B</td></tr>
       <tr><td>Z</td><td>Shift / K / right click · triggers or bumpers</td></tr>
+      <tr><td>Fight</td><td>B attacks (punch, punch, kick; dive, slide kick, jump kick); Z in the air to ground pound · crouch to guard once taught</td></tr>
+      <tr><td>Items</td><td>1 Herb · 2 Hearth Salve · 3 Tonic · 4 throw an Ember Flask</td></tr>
       <tr><td>Bag</td><td>I / Tab: equip weapons, use items (click, or W / S and Enter / E; Esc closes)</td></tr>
       <tr><td>Music</td><td>M to mute / unmute</td></tr>
       <tr><td>Camera</td><td>Mouse · Q / E · R / F · wheel · right stick</td></tr>
@@ -49,7 +52,7 @@
 
   <div id="start">
     <div class="card">
-      <img class="title" src="assets/logo.png?v=45" alt="SUPER TAX EVASION 47">
+      <img class="title" src="assets/logo.png?v=46" alt="SUPER TAX EVASION 47">
       <div class="course"><span class="course-name"></span></div>
       <div id="loading">Loading…</div>
       <div class="go">Click to play</div>
@@ -66,6 +69,6 @@
     </div>
   </div>
 
-  <script type="module" src="src/main.js?v=45"></script>
+  <script type="module" src="src/main.js?v=46"></script>
 </body>
 </html>

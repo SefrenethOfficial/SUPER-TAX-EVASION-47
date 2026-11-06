@@ -4,7 +4,8 @@ import * as THREE from 'three';
 // Items, weapons and the moves you can learn.
 // ---------------------------------------------------------------------------
 
-// Consumables. use: what it does in battle (on the fighter using it, or the enemy).
+// Consumables. Use them from the bag, or straight away with the number keys
+// (see QUICK in inventory.js).
 export const ITEMS = {
   herb: { name: 'Herb', desc: 'A bitter leaf. Restores 4 Health.', heal: 4 },
   tonic: { name: 'Tonic', desc: 'A fizzing drink. Restores 5 Stamina.', stamina: 5 },
@@ -20,11 +21,14 @@ export const WEAPONS = {
   blade: { name: 'Ashen Blade', desc: "The Warden's sword, still warm. +4 damage per hit.", atk: 4 },
 };
 
-// Moves a teacher can show you, on top of Punch, Kick, Flurry and Catch Breath.
+// The attacks everyone knows (they're your moves: see combat.js).
+export const BASE_MOVES = ['Punch combo', 'Dive', 'Slide kick', 'Jump kick', 'Ground pound'];
+
+// What a teacher can show you, on top of those. Each changes how a move works.
 export const LEARNABLE = {
-  guard: { name: 'Guard', cost: 1, guard: true, desc: 'Brace yourself: take half damage until your next turn.' },
-  heavy: { name: 'Heavy Swing', cost: 5, desc: 'Put your whole weight into it. 6-8 damage.', hits: [{ state: 'kick', at: 0.25, dur: 0.7, dmg: [6, 8] }] },
-  skybreaker: { name: 'Skybreaker', cost: 7, desc: 'Leap and come crashing down. 9-11 damage.', hits: [{ state: 'punch2', at: 0.2, dur: 0.4, dmg: [3, 3] }, { state: 'kick', at: 0.2, dur: 0.6, dmg: [6, 8] }] },
+  guard: { name: 'Guard', desc: 'Crouch to guard: blows do half damage and barely move you.' },
+  heavy: { name: 'Heavy Swing', desc: 'The kick that ends your punch combo hits far harder (+4 damage).' },
+  skybreaker: { name: 'Skybreaker', desc: 'Your ground pound shakes the earth: it hits everything around you (+4 damage).' },
 };
 
 // A small model of each weapon, in metres, held by the grip at the origin with

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { NPC } from '../npc.js?v=45';
-import { save, flag, addItem, learn } from '../save.js?v=45';
-import { plankTexture, rockTexture } from '../textures.js?v=45';
+import { NPC } from '../npc.js?v=46';
+import { save, flag, addItem, learn } from '../save.js?v=46';
+import { plankTexture, rockTexture } from '../textures.js?v=46';
 
 // ---------------------------------------------------------------------------
 // LANTERN HOLLOW: a green valley east of the Obsidian Fieldlands, through a
@@ -114,12 +114,13 @@ function talkBruno(ctx) {
         if (!pick) return [{ who: 'Old Bruno', text: 'Come back when you do.' }];
         if (pick[1] === 'guard') return [
           { who: 'Old Bruno', text: 'Feet apart. Arms up. When it comes, you take it on the guard, not the face.' },
-          { who: '', text: 'You learned Guard! (1 Stamina: take half damage until your next turn.)', onShow: () => learn('guard') },
+          { who: 'Old Bruno', text: 'Get low and set your feet. Crouch, and whatever hits you does half the hurt.' },
+          { who: '', text: 'You learned Guard! Crouch to guard: blows do half damage and barely move you.', onShow: () => learn('guard') },
         ];
         if (!armed) return [{ who: 'Old Bruno', text: "Heavy Swing needs something heavy to swing. Come back with a weapon. There's driftwood enough on that beach." }];
         return [
           { who: 'Old Bruno', text: "Don't swing with your arms. Swing with your hips. Let the weight do the work." },
-          { who: '', text: 'You learned Heavy Swing! (5 Stamina, 6-8 damage.)', onShow: () => learn('heavy') },
+          { who: '', text: 'You learned Heavy Swing! The kick at the end of your punch combo now hits far harder.', onShow: () => learn('heavy') },
         ];
       } },
   ], { with: ctx.npc.root.position });

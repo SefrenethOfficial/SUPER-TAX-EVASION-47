@@ -2,8 +2,9 @@ import * as THREE from 'three';
 
 // ---------------------------------------------------------------------------
 // Enemies you meet out in the world. They wander near where they live, chase
-// you when you come close, and touching one starts a turn-based battle with it.
-// Beaten ones are gone; run away and they leave you be for a few seconds.
+// you when you come close, and fight in real time: they wind up (they flash
+// and crouch, so you can see it coming), lunge, and need a moment to recover,
+// which is your opening. Hit them and they stagger back.
 // ---------------------------------------------------------------------------
 
 const glass = () => new THREE.MeshPhongMaterial({ color: 0x17151d, specular: 0x8f86c8, shininess: 110, flatShading: true });
@@ -12,9 +13,8 @@ const glass = () => new THREE.MeshPhongMaterial({ color: 0x17151d, specular: 0x8
 export const KINDS = {
   // a little hopping shard of obsidian with glowing eyes
   shardling: {
-    name: 'Shardling', maxHp: 8, maxSp: 4, atk: 2, attackText: 'slashes at you with a glassy edge',
+    name: 'Shardling', maxHp: 6, atk: 1, windup: 0.5, lunge: 9, recover: 0.8, reach: 1.6,
     speed: 5.2, sight: 11, radius: 0.55, top: 1.9,
-    picture: { height: 0.75, dist: 2.2 },
     build() {
       const g = new THREE.Group();
       const body = new THREE.Mesh(new THREE.OctahedronGeometry(0.55, 0), glass());
@@ -37,9 +37,8 @@ export const KINDS = {
   },
   // a mossy, round grazer with obsidian spines down its back
   thornback: {
-    name: 'Thornback', maxHp: 15, maxSp: 5, atk: 3, attackText: 'charges into you',
+    name: 'Thornback', maxHp: 14, atk: 2, windup: 0.75, lunge: 13, recover: 1.2, reach: 2.4,
     speed: 4.2, sight: 13, radius: 0.95, top: 2.4,
-    picture: { height: 1.0, dist: 3.2 },
     build() {
       const g = new THREE.Group();
       const moss = new THREE.MeshLambertMaterial({ color: 0x4f6a3a, flatShading: true });
@@ -82,8 +81,18 @@ export class FieldEnemy {
     this.yaw = Math.random() * 6.3;
     this.t = Math.random() * 10;
     this.wait = Math.random() * 2;
-    this.cool = 0;                 // after you run away, it leaves you alone for a bit
+    this.name = this.kind.name;
+    this.radius = this.kind.radius;
+    this.height = this.kind.top * 0.7;
+    this.maxHp = this.kind.maxHp; this.hp = this.maxHp;
     this.alive = true;
+    this.engaged = false;     // it's after you
+    this.mode = 'idle';       // idle | chase | windup | lunge | recover | stagger | dying
+    this.mt = 0;
+    this.knock = new THREE.Vector3();
+    // everything on it flashes white when hit, red while winding up
+    this.mats = [];
+    this.model.traverse((o) => { if (o.material && o.material.emissive) this.mats.push(o.material); });
     this.place();
   }
 
@@ -93,25 +102,50 @@ export class FieldEnemy {
     this.root.rotation.y = this.yaw;
   }
 
-  // returns true when it touches you
+  set(mode) { this.mode = mode; this.mt = 0; }
+
+  glow(r, g, b) { for (const m of this.mats) m.emissive.setRGB(r, g, b); }
+
+  takeHit(dmg, from) {
+    if (!this.alive) return;
+    this.hp = Math.max(0, this.hp - dmg);
+    this.engaged = true;
+    this.flash = 0.15;
+    const dx = this.pos.x - from.x, dz = this.pos.z - from.z, d = Math.hypot(dx, dz) || 1;
+    const k = this.kind.maxHp > 10 ? 4 : 8;
+    this.knock.set((dx / d) * k, 0, (dz / d) * k);
+    if (this.hp <= 0) { this.set('dying'); this.alive = false; if (this.onDie) this.onDie(this); return; }
+    // big ones only flinch out of a wind-up sometimes
+    if (this.mode !== 'lunge' && (this.kind.maxHp < 10 || Math.random() < 0.5)) this.set('stagger');
+  }
+
   update(dt, player, busy) {
-    if (!this.alive) return false;
-    this.t += dt;
-    this.cool = Math.max(0, this.cool - dt);
     const K = this.kind;
+    this.t += dt; this.mt += dt;
+    const m = this.model;
+    if (this.mode === 'dying') {
+      // tips over, sinks and fades
+      m.rotation.x = Math.min(1.4, this.mt * 4);
+      m.position.y = -this.mt * 0.6;
+      this.root.scale.setScalar(Math.max(0.01, 1 - this.mt * 0.8));
+      this.glow(0.6, 0.5, 0.9);
+      this.pos.addScaledVector(this.knock, dt); this.knock.multiplyScalar(0.9);
+      this.root.position.copy(this.pos);
+      if (this.mt > 1.2) { this.scene.remove(this.root); this.mode = 'gone'; }
+      return;
+    }
+    if (!this.alive) return;
     let moving = false;
-    if (!busy) {
-      const dx = player.pos.x - this.pos.x, dz = player.pos.z - this.pos.z, d = Math.hypot(dx, dz);
-      const sees = d < K.sight && Math.abs(player.pos.y - this.pos.y) < 4 && this.cool <= 0 && !player.locked;
-      if (sees) {
-        // chase
-        this.turnTo(Math.atan2(dx, dz), dt * 6);
-        const sp = K.speed;
-        this.pos.x += Math.sin(this.yaw) * sp * dt; this.pos.z += Math.cos(this.yaw) * sp * dt;
-        moving = true;
-        if (d < K.radius + 0.7) return true;
-      } else {
-        // wander near home
+    const dx = player.pos.x - this.pos.x, dz = player.pos.z - this.pos.z, d = Math.hypot(dx, dz);
+    const near = Math.abs(player.pos.y - this.pos.y) < 4 && !player.locked && !busy && player.health > 0;
+    if (!near && this.mode !== 'stagger') { if (this.mode !== 'idle') this.set('idle'); this.engaged = false; }
+    // stop chasing when you get far enough away or it strays too far from home
+    if (this.engaged && (d > K.sight * 2.2 || Math.hypot(this.pos.x - this.home.x, this.pos.z - this.home.z) > 40)) { this.engaged = false; this.set('idle'); }
+    if (this.mode === 'idle' && near && d < K.sight) { this.engaged = true; this.set('chase'); }
+
+    this.flash = Math.max(0, (this.flash || 0) - dt);
+    switch (this.mode) {
+      case 'idle': {
         const tx = this.target.x - this.pos.x, tz = this.target.z - this.pos.z, td = Math.hypot(tx, tz);
         if (td < 0.5) {
           this.wait -= dt;
@@ -122,14 +156,56 @@ export class FieldEnemy {
           }
         } else {
           this.turnTo(Math.atan2(tx, tz), dt * 3);
-          this.pos.x += Math.sin(this.yaw) * 1.6 * dt; this.pos.z += Math.cos(this.yaw) * 1.6 * dt;
+          this.step(1.6 * dt);
           moving = true;
         }
+        break;
       }
-      this.place();
+      case 'chase':
+        this.turnTo(Math.atan2(dx, dz), dt * 7);
+        if (d > K.reach + K.radius) { this.step(K.speed * dt); moving = true; }
+        else if (this.mt > 0.25) this.set('windup');
+        break;
+      case 'windup':
+        // crouch, shake and glow: it's about to go
+        this.turnTo(Math.atan2(dx, dz), dt * 4);
+        m.scale.y = 1 - Math.min(1, this.mt / K.windup) * 0.2;
+        m.position.x = Math.sin(this.t * 60) * 0.04;
+        if (this.mt > K.windup) { this.set('lunge'); this.didHit = false; }
+        break;
+      case 'lunge': {
+        const go = Math.max(0, 1 - this.mt / 0.25);
+        this.step(K.lunge * go * dt);
+        m.scale.y = 1.08;
+        // one hit per lunge, if you're in front of it and not in the air above
+        if (!this.didHit && d < K.radius + 0.75 && player.pos.y - this.pos.y < 1.6) {
+          this.didHit = true;
+          player.hurt(K.atk, this.pos.x, this.pos.z, K.maxHp > 10 ? 1.3 : 0.9);
+        }
+        if (this.mt > 0.3) this.set('recover');
+        break;
+      }
+      case 'recover':
+        m.scale.y = 1; m.position.x = 0;
+        if (this.mt > K.recover) this.set('chase');
+        break;
+      case 'stagger':
+        m.scale.y = 1; m.position.x = 0;
+        m.rotation.x = -Math.max(0, 0.4 - this.mt) ;
+        if (this.mt > 0.45) { m.rotation.x = 0; this.set('chase'); }
+        break;
     }
+    // being knocked back
+    if (this.knock.lengthSq() > 0.01) {
+      this.pos.x += this.knock.x * dt; this.pos.z += this.knock.z * dt;
+      this.knock.multiplyScalar(Math.pow(0.02, dt));
+    }
+    this.place();
+    if (this.flash > 0) this.glow(0.9, 0.9, 0.9);
+    else if (this.mode === 'windup') { const k = 0.4 + 0.4 * Math.abs(Math.sin(this.t * 22)); this.glow(k, 0.08, 0.02); }
+    else this.glow(0, 0, 0);
     // how it moves: hops, or a waddle
-    const m = this.model;
+    if (this.mode === 'windup' || this.mode === 'lunge') return;
     if (K.gait === 'hop') {
       const h = moving ? Math.abs(Math.sin(this.t * 9)) : Math.abs(Math.sin(this.t * 2)) * 0.15;
       m.position.y = h * 0.35;
@@ -138,22 +214,23 @@ export class FieldEnemy {
       m.position.y = moving ? Math.abs(Math.sin(this.t * 7)) * 0.08 : 0;
       m.rotation.z = moving ? Math.sin(this.t * 7) * 0.06 : Math.sin(this.t * 1.5) * 0.02;
     }
-    return false;
+  }
+
+  step(s) {
+    const nx = this.pos.x + Math.sin(this.yaw) * s, nz = this.pos.z + Math.cos(this.yaw) * s;
+    // don't walk off cliffs or up walls
+    const h = this.ground(nx, nz);
+    if (Math.abs(h - this.pos.y) > Math.max(0.6, Math.abs(s) * 1.5)) return;
+    this.pos.x = nx; this.pos.z = nz;
   }
 
   turnTo(want, k) {
     this.yaw += Math.atan2(Math.sin(want - this.yaw), Math.cos(want - this.yaw)) * Math.min(1, k);
   }
 
-  // Battle stats for this enemy, fighting from where it is now.
-  fighter(facing) {
-    const K = this.kind;
-    return { name: K.name, maxHp: K.maxHp, maxSp: K.maxSp, atk: K.atk, attackText: K.attackText, model: this.model, top: K.top,
-      picture: { ...K.picture, yaw: facing } };
-  }
-
   remove() {
     this.alive = false;
+    this.mode = 'gone';
     this.scene.remove(this.root);
   }
 }

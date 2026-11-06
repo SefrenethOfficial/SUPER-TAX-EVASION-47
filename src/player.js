@@ -250,6 +250,18 @@ export class Player {
   // invulnerable. onHurt / onDeath let the game update the HUD and respawn.
   hurt(amount, fromX, fromZ, power = 1) {
     if (this.invuln > 0 || this.locked || this.health <= 0) return false;
+    // guarding (crouched, once Bruno has taught you): half damage, and you hold your ground
+    if (this.canGuard && this.canGuard() && this.grounded && (this.state === 'crouch' || this.state === 'crouchwalk')) {
+      amount = Math.max(1, Math.ceil(amount / 2));
+      this.health = Math.max(0, this.health - amount);
+      this.invuln = 0.8;
+      this.fwd = -3 * power;
+      this.fx.shake(0.15);
+      if (this.onGuard) this.onGuard(amount);
+      if (this.onHurt) this.onHurt(this.health);
+      if (this.health <= 0) { this.setState('hurt'); if (this.onDeath) this.onDeath(); }
+      return true;
+    }
     this.health = Math.max(0, this.health - amount);
     this.invuln = 2;
     this.yaw = Math.atan2(fromX - this.pos.x, fromZ - this.pos.z);   // face the hit

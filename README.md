@@ -14,41 +14,41 @@ Past the grassland north of the beach, a dirt path runs down a long slope to a w
 
 It's styled after the Obsidian Fieldlands of *Pokémon Legends: Arceus*: rolling, sunlit green plains with big patches of tall grass swaying in the wind and wildflowers everywhere, a little **camp** of tents where the path comes down, a **river** winding through the plains (with a wooden bridge where the path crosses), fed by a **waterfall** pouring over dark obsidian cliffs at the far end, a **lake** ringed by cliffs of layered rock, a raised **plateau** in the middle with woods on top and a path up its south side, a deep **forest** in the east around one enormous tree, a **flower meadow**, rock stacks, boulders and scattered trees, and a great snow-capped mountain on the hazy horizon.
 
-**Enemies** roam the fields: **Shardlings** (little hopping shards of obsidian; 8 Health, hit for 2) and **Thornbacks** (mossy grazers with obsidian spines; 15 Health, hit for 3). They wander, chase you when you get close, and touching one starts a battle. Beaten enemies are gone; run away and they leave you alone for a few seconds. If your party is knocked out you come round on the beach again, and the enemies are back. Out of battle your Health slowly comes back.
+**Enemies** roam the fields: **Shardlings** (little hopping shards of obsidian; 6 Health, quick, hit for 1) and **Thornbacks** (mossy grazers with obsidian spines; 14 Health, slower, hit for 2 with a long charge). They wander, and when you come close they chase you and fight in real time: each one flashes red and crouches just before it lunges, then needs a moment to recover (your opening). Hit them and they're knocked back. If you fall you come round where you last rested, and the enemies are back. When nothing's after you, your Health slowly comes back.
 
 ## Lantern Hollow
 
 Through a pass in the east wall of the fieldlands (follow the path east), a green valley with the **Sunken Lantern** tavern, lit by a fire and lanterns along the road. Inside:
 
-- **Hesta**, the barkeep. **Rest by the fire** to heal your whole party, and from then on you come round here when you're knocked out (souls-style). She'll also spare you some supplies once (Herbs, a Hearth Salve, an Ember Flask), and tell you about the place.
-- **Marrow**, a sellsword with a lantern: **recruitable**. He walks behind you and fights in your party (14 Health; Lantern Bash, Cleave, Guard, Catch Breath). Ask him to wait and he stays where you leave him.
-- **Old Bruno**, a retired guardsman: a **move teacher**. Teaches **Guard** (1 SP, half damage until your next turn) and **Heavy Swing** (5 SP, 6–8 damage; he wants you to have a weapon first).
+- **Hesta**, the barkeep. **Rest by the fire** to get your Health and Stamina back, and from then on you come round here when you fall (souls-style). She'll also spare you some supplies once (Herbs, a Hearth Salve, an Ember Flask), and tell you about the place.
+- **Marrow**, a sellsword with a lantern: **recruitable**. He walks behind you, and when something comes after you he rushes in and clouts it with his lantern (3 damage every few seconds). Ask him to wait and he stays where you leave him.
+- **Old Bruno**, a retired guardsman: a **move teacher**. Teaches **Guard** (crouch to guard: blows do half damage and barely move you) and **Heavy Swing** (the kick that ends your punch combo does +4 damage; he wants you to have a weapon first).
 
-A **Hermit** on top of the **plateau** in the middle of the fieldlands teaches **Skybreaker** (7 SP, a two-hit leap and crash, 9–11) to anyone who makes the climb.
+A **Hermit** on top of the **plateau** in the middle of the fieldlands teaches **Skybreaker** (your ground pound shakes the earth: it hits everything around you, for +4 damage) to anyone who makes the climb.
 
 ## The Hollow Throne
 
-Up a pass in the west wall of the fieldlands (follow the path west), a dark, smoky plateau with a ruined ring of pillars around a throne. Step through the wall of fog at the entrance and the **Hollow Warden** rises: a soulslike boss fight with his own music. He has 60 Health and two phases. He brings his greatsword down on one of you, sweeps across the whole party, and every third turn winds up a huge blow a turn ahead (a good time to Guard). At half Health his armour splits and he fights with fire. Beat him (**WARDEN FELLED**) and his **Ashen Blade** is yours; fall (**YOU FELL**) and you come round where you last rested.
+Up a pass in the west wall of the fieldlands (follow the path west), a dark, smoky plateau with a ruined ring of pillars around a throne. Step through the wall of fog at the entrance, the fog seals behind you, and the **Hollow Warden** rises: a real-time soulslike boss fight with his own music and a Health bar along the bottom of the screen. He has 90 Health and two phases, and every attack marks the ground red where it will land: an overhead **slam** in front of him, a wide **sweep** (jump it), and a **leap** that comes down where you were standing. At half Health his armour splits and he adds a **ring of fire** that rolls out across the arena (jump it) and a **rain of embers** in burning circles round you (keep moving). Beat him (**WARDEN FELLED**) and the fog clears and his **Ashen Blade** is yours; fall (**YOU FELL**) and you come round where you last rested.
 
 ## Items, weapons and moves
 
-Press **I** (or **Tab**) to open your **bag**: equip a weapon, use Herbs and the like on yourself, and see your moves and party. On PC the mouse is freed while it's open: click **Equip** / **Use**, or move with W / S or the arrow keys and press Space, Enter or E; I, Tab or Esc closes it. Items can also be used in battle with **Item**.
+Press **I** (or **Tab**) to open your **bag**: equip a weapon, use Herbs and the like on yourself, and see your moves and party. On PC the mouse is freed while it's open: click **Equip** / **Use**, or move with W / S or the arrow keys and press Space, Enter or E; I, Tab or Esc closes it. Out in the world the **number keys** use items straight away: **1** Herb, **2** Hearth Salve, **3** Tonic, **4** throws an Ember Flask at the nearest enemy.
 
 - **Weapons** add damage to every blow you land, and you hold the one you've equipped: **Driftwood Club** (+1, washed up by the wreck), **Obsidian Dagger** (+2, among the black rocks under the waterfall), **Ashen Blade** (+4, from the Warden).
-- **Items**: **Herb** (+4 Health), **Hearth Salve** (+8 Health), **Tonic** (+5 Stamina), **Ember Flask** (thrown in battle for 7 damage). Look for the glints: around the beach and fields, on the plateau, by the great tree, and from Hesta.
+- **Items**: **Herb** (+4 Health), **Hearth Salve** (+8 Health), **Tonic** (+5 Stamina), **Ember Flask** (thrown at the nearest enemy: 7 damage to everything where it bursts). Look for the glints: around the beach and fields, on the plateau, by the great tree, and from Hesta.
 - **Moves**: Punch, Kick, Flurry and Catch Breath to start, plus whatever the teachers show you.
 
-Your party's Health carries over between fights until you rest. Everything (items, weapons, moves, recruits, the Warden) is saved in the browser.
+Everything (items, weapons, moves, recruits, the Warden) is saved in the browser.
 
 ### The shy ghost
 
-When you get up, a dark figure is floating up ahead. Walk towards it and it backs away, always facing you, as fast as you can run. Chase it until it's pinned against the edge of the beach, and the darkness fades: it's Vivian, a shy ghost, who apologises for running and offers to teach you the basics (moving, jumping, the camera, and how battles work). Afterwards, walk up to her and press **B** to talk: she'll go over the basics again, have a practice fight with you, or **join your party**. In your party she floats along behind you everywhere and fights at your side (10 Health; Shadow Fist 2 SP for 2–3, Dark Flame 5 SP for 4–6, Catch Breath). Ask her to wait and she'll stay where you left her. Meeting and the lesson are remembered between visits (clear the site's storage to meet again). The ghost's name is `GHOST` at the top of `src/stages/beach.js`.
+When you get up, a dark figure is floating up ahead. Walk towards it and it backs away, always facing you, as fast as you can run. Chase it until it's pinned against the edge of the beach, and the darkness fades: it's Vivian, a shy ghost, who apologises for running and offers to teach you the basics (moving, jumping, the camera, and how fighting works). Afterwards, walk up to her and press **B** to talk: she'll go over the basics again, have a practice fight with you (she circles you and darts in, flashing red first; knock her Health to nothing to win, and she stops if she's hurt you too much or you walk away), or **join your party**. In your party she floats along behind you everywhere and throws bolts of shadow at anything that comes after you (2 damage every few seconds). Ask her to wait and she'll stay where you left her. Meeting and the lesson are remembered between visits (clear the site's storage to meet again). The ghost's name is `GHOST` at the top of `src/stages/beach.js`.
 
-### Battles (work in progress)
+### Fighting
 
-Battles are turn-based: against the fieldlands' enemies, or a practice fight with Vivian (talk to her and pick **Let's spar**; she goes easy on you). Everyone in your party takes a turn in order, then the enemy attacks one of you; a fighter at 0 Health is down, and you lose if the whole party is. The enemy song plays during battles. Each side gets a battle slot (a checkered panel showing Health and Stamina) with a picture of the fighter above it. The commands are **Fight**, **Item** (no items yet) and **Run** (ends the battle).
+Fighting is real time, and your moves are your attacks: press **B** for a punch, punch, kick combo; punch while running to **dive**; **slide kick** and **jump kick** hit too; and the **ground pound** (Z in the air) slams down on whatever's under you. Everything in front of you when a blow lands takes damage (your weapon adds to every hit), and a number pops up over it; enemies show a small Health bar once they're in a fight.
 
-**Fight** opens your moves, each with a Stamina (SP) cost: **Punch** (2 SP, 2–3 damage), **Kick** (4 SP, 4–5), **Flurry** (6 SP, jab, jab, kick for three hits of 2–3) and **Catch Breath** (skip your attack, +3 SP). Moves you can't afford are greyed out, and the message box describes the move you're on. You run up, strike and run back; then the enemy takes its turn. You get 1 SP back each round. Beat the enemy and it keels over; your Stamina refills after the battle. Getting knocked out just ends the battle for now.
+Every attack costs **Stamina** (the yellow bar under your Health, bottom left). It comes back quickly when you stop swinging; with none left your blows do nothing, so pick your moments. Enemies flash red before they strike: jump or get out of the way, then hit back while they recover. Your **party fights on its own**: Vivian and Marrow attack whatever's after you (they can't be hurt; bosses shrug off half of what they do). The enemy song plays while monsters are after you.
 
 `src/stages/blank.js` is an empty test area (`?stage=blank`).
 
@@ -78,14 +78,14 @@ Touch screens get an on-screen stick plus A / B / Z buttons.
 - `src/textures.js`: procedural textures (sand, grass, rock, dirt, planks, water) painted at load time
 - `src/audio.js`: music and voice lines
 - `src/stages/obsidian-fieldlands.js`: the basin below the beach (shares the beach's ground): plains, river, falls, lake, plateau, forest, camp, tall grass, flowers, enemies, the weather
-- `src/fieldenemy.js`: enemies out in the world (Shardling, Thornback): wander, chase, start a battle on touch
+- `src/fieldenemy.js`: enemies out in the world (Shardling, Thornback): wander, chase, wind up, lunge, recover, stagger
+- `src/combat.js`: real-time fighting: your attacks by move, Stamina, party members' attacks, thrown flasks, quick items, damage numbers, enemy and boss Health bars, red ground telegraphs
 - `src/stages/lantern-hollow.js`: the valley and tavern east of the fieldlands, with Hesta, Marrow and Old Bruno
 - `src/stages/hollow-throne.js`: the boss arena west of the fieldlands, the fog gate and the Hollow Warden
 - `src/npc.js`: people built from simple shapes, who look at you when you come near
 - `src/items.js`, `src/save.js`, `src/inventory.js`, `src/pickup.js`: items, weapons and learnable moves; the save; the bag screen; things to pick up
 - `src/ghost.js`: the shy ghost (backs away until cornered, darkness fading off)
 - `src/dialogue.js`: dialogue box with typed-out text and choices
-- `src/battle.js`: turn-based battles: battle slots, fighter pictures, the Fight / Item / Run menu, battle camera
 - `src/stages/beach.js`: the washed-up beach (terrain, sea, wreck, palms, overcast sky)
 - `src/input.js`: keyboard, mouse, gamepad and touch
 - `src/fx.js`: dust, sparkles, impact shockwave, camera shake

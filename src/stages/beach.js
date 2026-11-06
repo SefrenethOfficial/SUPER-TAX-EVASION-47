@@ -1,13 +1,14 @@
 import * as THREE from 'three';
-import { Terrain } from '../terrain.js?v=45';
-import { ShyGhost } from '../ghost.js?v=45';
-import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture, obsidianTexture, strataTexture } from '../textures.js?v=45';
-import * as Fieldlands from './obsidian-fieldlands.js?v=45';
-import * as Hollow from './lantern-hollow.js?v=45';
-import * as Throne from './hollow-throne.js?v=45';
-import { NPC } from '../npc.js?v=45';
-import { Pickup } from '../pickup.js?v=45';
-import { save, store, flag, learn, addWeapon, addItem } from '../save.js?v=45';
+import { Terrain } from '../terrain.js?v=46';
+import { ShyGhost } from '../ghost.js?v=46';
+import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture, obsidianTexture, strataTexture } from '../textures.js?v=46';
+import * as Fieldlands from './obsidian-fieldlands.js?v=46';
+import * as Hollow from './lantern-hollow.js?v=46';
+import * as Throne from './hollow-throne.js?v=46';
+import { NPC } from '../npc.js?v=46';
+import { Pickup } from '../pickup.js?v=46';
+import { save, store, flag, learn } from '../save.js?v=46';
+import { telegraph } from '../combat.js?v=46';
 
 // ---------------------------------------------------------------------------
 // THE WASHED-UP BEACH: the first area of the open world. You wake up face down
@@ -34,10 +35,12 @@ const basics = () => [
   { who: GHOST, text: 'Space jumps. If you jump again just as you land, you go higher. Three in a row and you really fly.' },
   { who: GHOST, text: 'Shift crouches. Crouch while you run and then jump, and you leap a long way. Press Shift in the air to slam down.' },
   { who: GHOST, text: 'In the air, next to a wall, jump again to kick off it. And you can grab onto ledges and climb up.' },
-  { who: GHOST, text: "J, X or a click to punch. Punch while you're running and you dive forward." },
+  { who: GHOST, text: "J, X or a click to punch. Keep pressing for a punch, punch, kick. Punch while you're running and you dive forward." },
   { who: GHOST, text: 'The mouse moves the camera. Or Q and E, R and F. H shows all the controls if you forget.' },
-  { who: GHOST, text: "Fights here go in turns. Pick Fight and you choose a move. Every move costs Stamina..." },
-  { who: GHOST, text: "...so watch it. If you run low, Catch Breath gets some back. And if it goes badly, you can always Run." },
+  { who: GHOST, text: "Those are how you fight, too. Punches, kicks, dives, a slam from the air: they all hurt whatever's in the way." },
+  { who: GHOST, text: "Every blow costs Stamina, the yellow bar. Stop swinging for a moment and it comes back. Swing with none left and you'll barely scratch them." },
+  { who: GHOST, text: "Monsters flash red just before they lunge. That's when you jump, or get out of the way. Then hit them while they're catching their breath." },
+  { who: GHOST, text: "Number keys use things from your bag straight away: 1 a Herb, 2 a Salve, 3 a Tonic, 4 throws an Ember Flask." },
   { who: GHOST, text: "If you want to practise fighting... you could fight me. Just come and talk to me. I'll, um, try to go easy on you." },
   { who: GHOST, text: "That's... all the basics. Sorry if that was too much." },
 ];
@@ -154,7 +157,7 @@ function palm(rng) {
   return { group: g, top };
 }
 
-export function build(world, { models = {} } = {}) {
+export function build(world, { models = {}, combat } = {}) {
   const scene = world.scene;
   // --- Overcast: a grey sky, mist, flat light ------------------------------------
   // thick sea fog: you can barely see past the wreck
@@ -334,7 +337,7 @@ export function build(world, { models = {} } = {}) {
     { who: 'Hermit', text: '...Someone climbed all this way? For an old man and a lot of wind?' },
     { who: 'Hermit', text: "Then you've legs, and you've stubbornness. That's half of what I teach." },
     { who: 'Hermit', text: "Watch. You leap, you hang there, and you bring the whole sky down with you. Skybreaker, my master called it." },
-    { who: '', text: 'You learned Skybreaker! (7 Stamina: a leap and a crash, 9-11 damage.)', onShow: () => learn('skybreaker') },
+    { who: '', text: 'You learned Skybreaker! Your ground pound now shakes the earth, hitting everything around you, and hard.', onShow: () => learn('skybreaker') },
   ], { with: hermit.root.position });
 
   // --- Your party: Vivian, and Marrow once he joins --------------------------------
@@ -345,35 +348,58 @@ export function build(world, { models = {} } = {}) {
     if (on) save.recruits.push(who);
     store();
   };
-  // Marrow walks along behind your other shoulder
+  // Marrow walks along behind your other shoulder, and when there's a fight he
+  // rushes in and swings his lantern at whatever's nearest
+  let marrowHit = null;       // { foe, t, hit() }
   const followMarrow = (dt, P) => {
     const s = Math.sin(P.yaw), c = Math.cos(P.yaw);
-    const tx = P.pos.x - s * 2.6 - c * 1.5, tz = P.pos.z - c * 2.6 + s * 1.5;
+    let tx = P.pos.x - s * 2.6 - c * 1.5, tz = P.pos.z - c * 2.6 + s * 1.5, rush = false;
+    if (marrowHit) {
+      const f = marrowHit.foe;
+      marrowHit.t += dt;
+      if (!f.alive || marrowHit.t > 2.2) marrowHit = null;
+      else {
+        const ax = marrow.pos.x - f.pos.x, az = marrow.pos.z - f.pos.z, ad = Math.hypot(ax, az) || 1;
+        tx = f.pos.x + (ax / ad) * (f.radius + 1.1); tz = f.pos.z + (az / ad) * (f.radius + 1.1);
+        rush = true;
+        if (ad < f.radius + 1.6 && marrowHit.swing === undefined) marrowHit.swing = 0;
+      }
+    }
     const fx = tx - marrow.pos.x, fz = tz - marrow.pos.z, fd = Math.hypot(fx, fz);
     if (fd > 40) { marrow.pos.x = tx; marrow.pos.z = tz; }
-    else if (fd > 0.05) { const sp = Math.min(fd * 2.4, 16) * dt; marrow.pos.x += (fx / fd) * Math.min(sp, fd); marrow.pos.z += (fz / fd) * Math.min(sp, fd); }
+    else if (fd > 0.05) { const sp = Math.min(fd * (rush ? 5 : 2.4), rush ? 13 : 16) * dt; marrow.pos.x += (fx / fd) * Math.min(sp, fd); marrow.pos.z += (fz / fd) * Math.min(sp, fd); }
     const fy = world.floorBelow(marrow.pos.x, marrow.pos.z, P.pos.y + 4);
     marrow.pos.y = Number.isFinite(fy) && fy > -1e3 ? fy : P.pos.y;
     marrow.root.position.copy(marrow.pos);
-    const yaw = fd > 1 ? Math.atan2(fx, fz) : P.yaw;
-    marrow.yaw += Math.atan2(Math.sin(yaw - marrow.yaw), Math.cos(yaw - marrow.yaw)) * Math.min(1, dt * 6);
+    let yaw = fd > 1 ? Math.atan2(fx, fz) : P.yaw;
+    if (marrowHit) yaw = Math.atan2(marrowHit.foe.pos.x - marrow.pos.x, marrowHit.foe.pos.z - marrow.pos.z);
+    marrow.yaw += Math.atan2(Math.sin(yaw - marrow.yaw), Math.cos(yaw - marrow.yaw)) * Math.min(1, dt * 8);
     marrow.root.rotation.y = marrow.yaw;
-    // a bit of a stride when walking
     const parts = marrow.model.userData.parts, walk = Math.min(1, fd / 1.5);
+    if (marrowHit && marrowHit.swing !== undefined) {
+      // the lantern goes up... and comes down
+      marrowHit.swing += dt;
+      const k = marrowHit.swing;
+      parts.armR.rotation.x = k < 0.3 ? -2.6 * (k / 0.3) : -2.6 + 3.4 * Math.min(1, (k - 0.3) / 0.12);
+      if (k > 0.36 && !marrowHit.done) { marrowHit.done = true; marrowHit.hit(); }
+      if (k > 0.75) { marrowHit = null; parts.armR.rotation.x = 0; }
+      return;
+    }
+    // a bit of a stride when walking
     parts.armL.rotation.x = Math.sin(t * 9) * 0.5 * walk; parts.armR.rotation.x = -Math.sin(t * 9) * 0.5 * walk;
     marrow.model.position.y = Math.abs(Math.sin(t * 9)) * 0.06 * walk;
   };
   const marrowHome = { pos: marrow.pos.clone(), yaw: marrow.homeYaw };
   if (save.flags.marrowAt) { marrow.pos.set(save.flags.marrowAt.x, save.flags.marrowAt.y, save.flags.marrowAt.z); marrow.root.position.copy(marrow.pos); }
-  const MARROW_MOVES = [
-    { name: 'Lantern Bash', cost: 2, desc: 'A clout with his lantern. 3-4 damage.', hits: [{ at: 0.2, dur: 0.5, dmg: [3, 4] }] },
-    { name: 'Cleave', cost: 5, desc: 'A great two-handed cut. 5-7 damage.', hits: [{ at: 0.3, dur: 0.7, dmg: [5, 7] }] },
-    { name: 'Guard', cost: 1, guard: true, desc: 'He braces: half damage until his next turn.' },
-    { name: 'Catch Breath', cost: 0, rest: 3, desc: 'Skip his attack and get 3 Stamina back.' },
-  ];
-  // party HP is kept between fights (until you rest)
-  const partyHp = save.flags.partyHp || {};
-  const member = (key, def) => ({ ...def, hp: partyHp[key] ?? def.maxHp, key });
+
+  // Party members fight on their own (and can't be hurt): Vivian throws bolts of
+  // shadow from where she floats, Marrow wades in with his lantern.
+  combat.addAlly({ kind: 'bolt', every: 2.4, dmg: 2, range: 15, from: () => ghost.pos.clone().setY(ghost.root.position.y - 0.4),
+    active: () => !!(ghost && progress.party && ghost.state === 'follow') });
+  combat.addAlly({ kind: 'melee', every: 2.8, dmg: 3, range: 10, from: () => marrow.pos,
+    active: () => inParty('marrow') && !marrowHit,
+    onMelee: (foe, hit) => { marrowHit = { foe, t: 0, hit }; } });
+  for (const e of fields.enemies) combat.add(e);
 
   // --- Region names and music ------------------------------------------------------
   const regionOf = (P) => (Throne.contains(P.pos.x, P.pos.z) ? 'throne' : Hollow.contains(P.pos.x, P.pos.z) ? 'hollow' : fields.inside ? 'fields' : 'beach');
@@ -386,7 +412,9 @@ export function build(world, { models = {} } = {}) {
   let region = 'beach';
 
   // --- The Hollow Warden -------------------------------------------------------------
-  let bossBusy = false;
+  // Step through the fog and it closes behind you; he rises from his throne and
+  // it's you (and your party) or him.
+  let bossBusy = false, warden = null;
   if (save.flags.wardenDead) { throne.remove(); throne.openGate(); }
   const bossReward = new Pickup(scene, { id: 'blade', weapon: 'blade', pos: new THREE.Vector3(Throne.ARENA.x, Throne.PLATEAU.y, Throne.ARENA.z) });
   if (!save.flags.wardenDead && !bossReward.taken) scene.remove(bossReward.root);
@@ -395,42 +423,44 @@ export function build(world, { models = {} } = {}) {
     bossBusy = true;
     const P = game.player;
     P.locked = true;
-    game.fade(() => { P.pos.copy(throne.gateIn); P.pos.y = G(P.pos.x, P.pos.z); P.yaw = -Math.PI / 2; P.fwd = 0; });
+    throne.passGate();
+    game.fade(() => {
+      P.pos.copy(throne.gateIn); P.pos.y = G(P.pos.x, P.pos.z); P.yaw = -Math.PI / 2; P.fwd = 0;
+      // your party comes through with you
+      if (ghost && progress.party) { ghost.pos.set(P.pos.x + 1.5, 0, P.pos.z + 2); }
+      if (inParty('marrow')) { marrow.pos.set(P.pos.x + 1.5, P.pos.y, P.pos.z - 2); }
+      throne.sealGate();
+    });
+    game.music(Throne.MUSIC);
     setTimeout(() => { throne.rise(); game.banner('THE HOLLOW WARDEN'); }, 900);
     setTimeout(() => {
-      const sp = throne.playerSpot.clone(); sp.y = G(sp.x, sp.z);
-      const ep = throne.standPos.clone();
-      game.fight({
-        spots: { player: sp, enemy: ep },
-        enemy: Throne.wardenFighter(throne.warden, Math.PI / 2),
-        allies: allies(),
-      }).then((res) => {
-        const { won, lost } = res;
-        keepHp(res);
-        bossBusy = false;
-        if (won) {
-          flag('wardenDead');
+      warden = new Throne.Warden(throne.warden, { scene, G, telegraph, fx: game.fx });
+      throne.fighting = true;
+      warden.onPhase = () => game.toast("The Warden's armour splits open. Fire pours out!");
+      warden.onDie = () => {
+        flag('wardenDead');
+        game.banner('WARDEN FELLED', 'felled');
+        game.music(null);
+        setTimeout(() => {
           throne.remove(); throne.openGate();
+          combat.remove(warden); warden.remove(); warden = null;
           scene.add(bossReward.root);
-          game.banner('WARDEN FELLED', 'felled');
           game.toast('The fog clears from the throne.');
-        } else if (lost) {
-          game.banner('YOU FELL', 'died');
-          setTimeout(() => game.respawn(), 2200);
-        } else {
-          // ran: back out through the fog
-          P.pos.set(Throne.GATE.x + 3, Throne.PLATEAU.y, Throne.GATE.z);
-          P.locked = false;
-        }
-      });
-    }, 3600);
+        }, 2600);
+      };
+      combat.add(warden);
+      warden.start();
+      P.locked = false;
+      bossBusy = false;
+    }, 3400);
   };
 
   // --- Waves lapping: drift the water textures --------------------------------------
   let t = 0;
   const update = (dt, game) => {
     t += dt;
-    if (ghost && game && !game.battling) {
+    if (ghost && game) {
+      if (sparring) sparUpdate(dt, game);
       ghost.update(dt, game.player);
       if (ghost.state === 'cornered' && !talking) meet(game);
     }
@@ -448,16 +478,17 @@ export function build(world, { models = {} } = {}) {
       }
       hollow.update(dt, P);
       throne.update(dt);
+      if (warden) warden.update(dt, P);
       hermit.update(dt, P);
       for (const p of pickups) p.update(dt);
-      if (inParty('marrow') && !game.battling) followMarrow(dt, P);
+      if (inParty('marrow')) followMarrow(dt, P);
       game.partyInfo = () => [
-        ...(ghost && progress.party ? [{ name: GHOST, hp: partyHp.vivian ?? 10, maxHp: 10 }] : []),
-        ...(inParty('marrow') ? [{ name: 'Marrow', hp: partyHp.marrow ?? 14, maxHp: 14 }] : []),
+        ...(ghost && progress.party ? [{ name: GHOST, role: 'Shadow bolts' }] : []),
+        ...(inParty('marrow') ? [{ name: 'Marrow', role: 'Lantern swings' }] : []),
       ];
-      // enemies: touch one and it's a fight
-      const busy = game.battling || game.talking || fighting || bossBusy || (game.bag && game.bag.open);
-      for (const e of fields.enemies) if (e.update(dt, game.player, busy) && !busy) { fightEnemy(game, e); break; }
+      // the monsters out there
+      const busy = game.talking || bossBusy || (game.bag && game.bag.open);
+      for (const e of fields.enemies) e.update(dt, P, busy);
     }
     wt.offset.set(t * 0.004, t * 0.012);
     wt2.offset.set(-t * 0.006, t * 0.008);
@@ -498,30 +529,67 @@ export function build(world, { models = {} } = {}) {
         } },
     ], { with: ghost.root.position }).then(() => { talking = false; });
   };
-  // A practice fight with her.
+  // A practice fight with her: she circles you and darts in now and then (she
+  // flashes red first). Knock her Health to nothing and you win; she stops if
+  // she's knocked you about too much, or if you walk away.
+  let sparring = null;
   const spar = (game) => {
-    const P = game.player, gp = ghost.pos;
-    let dx = P.pos.x - gp.x, dz = P.pos.z - gp.z; const d = Math.hypot(dx, dz) || 1; dx /= d; dz /= d;
-    const px = gp.x + dx * 4.5, pz = gp.z + dz * 4.5;
-    const zone = {
-      spots: { player: new THREE.Vector3(px, G(px, pz), pz), enemy: new THREE.Vector3(gp.x, G(gp.x, gp.z), gp.z) },
-      enemy: { name: GHOST, maxHp: 12, maxSp: 8, atk: 1, attackText: 'swings a shadowy fist at you', model: ghost.root, top: 3.4,
-        intro: `${GHOST} is ready for a practice fight!`,
-        picture: { height: 2.15, dist: 3.0, yaw: Math.atan2(dx, dz) } },
-    };
-    return game.fight(zone).then(({ won, lost }) => {
-      progress.sparred = true; saveProgress();
-      const lines = won ? [
-        { who: GHOST, text: 'Ow, ow, ow... okay! You win! You\u2019re stronger than you look.' },
-        { who: GHOST, text: "That's good. Whatever's out there won't go easy on you like I did." },
-      ] : lost ? [
-        { who: GHOST, text: "Oh no! Are you alright?! I-I didn't mean to hit you that hard..." },
-        { who: GHOST, text: "Let's just call that practice. Remember to Catch Breath when you're tired, okay?" },
-      ] : [
-        { who: GHOST, text: "Oh! That's okay. Running away is smart sometimes. I do it all the time." },
-      ];
-      return game.talk(lines, { with: ghost.root.position });
-    });
+    const P = game.player;
+    const foe = { name: GHOST, pos: ghost.pos, radius: 0.55, height: 2.4, maxHp: 12, hp: 12, alive: true, engaged: true, noAllies: true,
+      takeHit(d) { this.hp = Math.max(0, this.hp - d); sparring.flinch = 0.3; if (this.hp <= 0) endSpar(game, 'won'); } };
+    sparring = { foe, mode: 'circle', mt: 0, ang: Math.atan2(ghost.pos.x - P.pos.x, ghost.pos.z - P.pos.z), mark: null, flinch: 0 };
+    ghost.state = 'spar';
+    combat.add(foe);
+    game.toast(`Practice fight with ${GHOST}!`);
+    return new Promise((res) => { sparring.done = res; });
+  };
+  const endSpar = (game, how) => {
+    const sp = sparring; if (!sp) return;
+    sparring = null;
+    sp.foe.alive = false;
+    combat.remove(sp.foe);
+    if (sp.mark) sp.mark.remove();
+    ghost.state = progress.party ? 'follow' : 'idle';
+    progress.sparred = true; saveProgress();
+    const lines = how === 'won' ? [
+      { who: GHOST, text: 'Ow, ow, ow... okay! You win! You\u2019re stronger than you look.' },
+      { who: GHOST, text: "That's good. Whatever's out there won't go easy on you like I did." },
+    ] : how === 'lost' ? [
+      { who: GHOST, text: "Oh no! Are you alright?! I-I didn't mean to hit you that hard..." },
+      { who: GHOST, text: "Let's call that practice. Remember: when I flash red, jump or get out of the way!" },
+    ] : [
+      { who: GHOST, text: "Oh! Leaving? That's okay. Running away is smart sometimes. I do it all the time." },
+    ];
+    setTimeout(() => { talking = true; game.talk(lines, { with: ghost.root.position }).then(() => { talking = false; sp.done(); }); }, how === 'won' ? 500 : 900);
+  };
+  const sparUpdate = (dt, game) => {
+    const sp = sparring, P = game.player;
+    sp.mt += dt;
+    sp.flinch = Math.max(0, sp.flinch - dt);
+    const d = Math.hypot(P.pos.x - ghost.pos.x, P.pos.z - ghost.pos.z);
+    if (d > 26) return endSpar(game, 'ran');
+    if (P.health <= 2) return endSpar(game, 'lost');
+    if (sp.mode === 'circle') {
+      // drift round you at a few metres
+      sp.ang += dt * 0.9;
+      const tx = P.pos.x + Math.sin(sp.ang) * 4.5, tz = P.pos.z + Math.cos(sp.ang) * 4.5;
+      const k = Math.min(1, dt * (sp.flinch > 0 ? 1 : 3));
+      ghost.pos.x += (tx - ghost.pos.x) * k; ghost.pos.z += (tz - ghost.pos.z) * k;
+      if (sp.mt > 2.2 && sp.flinch <= 0) { sp.mode = 'windup'; sp.mt = 0; sp.mark = telegraph(scene, { x: ghost.pos.x, y: G(ghost.pos.x, ghost.pos.z), z: ghost.pos.z, r: 0.9 }); }
+    } else if (sp.mode === 'windup') {
+      sp.mark.set(Math.min(1, sp.mt / 0.6));
+      sp.mark.mesh.position.set(ghost.pos.x, G(ghost.pos.x, ghost.pos.z) + 0.08, ghost.pos.z);
+      for (const m of ghost.mats) m.color.setRGB(1, 0.45 + 0.4 * Math.abs(Math.sin(sp.mt * 20)), 0.45);
+      if (sp.mt > 0.6) {
+        sp.mode = 'dash'; sp.mt = 0; sp.mark.remove(); sp.mark = null; ghost.setLook();
+        const dx = P.pos.x - ghost.pos.x, dz = P.pos.z - ghost.pos.z, l = Math.hypot(dx, dz) || 1;
+        sp.dir = [dx / l, dz / l]; sp.hit = false;
+      }
+    } else if (sp.mode === 'dash') {
+      ghost.pos.x += sp.dir[0] * 14 * dt; ghost.pos.z += sp.dir[1] * 14 * dt;
+      if (!sp.hit && d < 1.3 && P.pos.y - G(P.pos.x, P.pos.z) < 1.4) { sp.hit = true; P.hurt(1, ghost.pos.x, ghost.pos.z, 0.8); }
+      if (sp.mt > 0.45) { sp.mode = 'circle'; sp.mt = 0; sp.ang = Math.atan2(ghost.pos.x - P.pos.x, ghost.pos.z - P.pos.z); }
+    }
   };
   // --- Vivian in your party: she follows you and fights at your side ------------------
   const setParty = (on) => {
@@ -531,43 +599,6 @@ export function build(world, { models = {} } = {}) {
     ghost.state = on ? 'follow' : 'idle';
   };
   if (ghost && progress.party) ghost.state = 'follow';
-  const VIVIAN_MOVES = [
-    { name: 'Shadow Fist', cost: 2, desc: 'A punch wrapped in shadow. 2-3 damage.', hits: [{ at: 0.2, dur: 0.5, dmg: [2, 3] }] },
-    { name: 'Dark Flame', cost: 5, desc: 'A burst of ghostly fire. 4-6 damage.', hits: [{ at: 0.3, dur: 0.75, dmg: [4, 6] }] },
-    { name: 'Catch Breath', cost: 0, rest: 3, desc: 'Skip her attack and get 3 Stamina back.' },
-  ];
-  const allies = () => [
-    ...(ghost && progress.party ? [member('vivian', { name: GHOST, maxHp: 10, maxSp: 8, moves: VIVIAN_MOVES, node: ghost.root, lift: 1.1, top: 3.1, picture: { height: 2.55, dist: 3.0 } })] : []),
-    ...(inParty('marrow') ? [member('marrow', { name: 'Marrow', maxHp: 14, maxSp: 6, moves: MARROW_MOVES, node: marrow.root, lift: 0, top: 2.5, picture: { height: 1.65, dist: 2.2 } })] : []),
-  ];
-  // after a fight: remember how hurt everyone is
-  const keepHp = (result) => {
-    for (const f of result.party || []) if (f.key) partyHp[f.key] = Math.max(1, f.hp);
-    save.flags.partyHp = partyHp; store();
-  };
-
-  // --- Fighting the fieldlands' enemies ---------------------------------------------
-  let fighting = false;
-  const fightEnemy = (game, e) => {
-    fighting = true;
-    const P = game.player;
-    let dx = P.pos.x - e.pos.x, dz = P.pos.z - e.pos.z; const d = Math.hypot(dx, dz) || 1; dx /= d; dz /= d;
-    const px = e.pos.x + dx * 4.5, pz = e.pos.z + dz * 4.5;
-    e.yaw = Math.atan2(dx, dz); e.place();
-    game.fight({
-      spots: { player: new THREE.Vector3(px, G(px, pz), pz), enemy: new THREE.Vector3(e.pos.x, e.pos.y, e.pos.z) },
-      enemy: e.fighter(Math.atan2(dx, dz)),
-      allies: allies(),
-    }).then((res) => {
-      const { won, lost } = res;
-      keepHp(res);
-      if (won) e.remove();
-      else e.cool = 4;                               // ran away: it leaves you alone for a bit
-      fighting = false;
-      if (lost) { game.banner('YOU FELL', 'died'); setTimeout(() => game.respawn(), 2200); }   // knocked out: you come round where you last rested
-    });
-  };
-
   // Talk to her again later.
   const chat = (game) => {
     talking = true;
@@ -577,19 +608,20 @@ export function build(world, { models = {} } = {}) {
         choices: ['Teach me the basics', "Let's spar", inParty ? 'Wait here for now' : 'Come with me?', 'Never mind'],
         then: (k) => {
           if (k === 0) { progress.taught = true; saveProgress(); return basics(); }
-          if (k === 1) return [{ who: GHOST, text: progress.sparred ? 'Again? Okay... Ready when you are!' : "F-fight? Me? Um... okay. Just for practice. Here I come!", onShow: () => { wantSpar = true; } }];
+          if (k === 1) return [{ who: GHOST, text: progress.sparred ? 'Again? Okay... Ready when you are!' : "F-fight? Me? Um... okay. Just for practice. When I flash red, I'm coming for you! Here I come!", onShow: () => { wantSpar = true; } }];
           if (k === 2 && inParty) return [{ who: GHOST, text: "Oh. Okay. I'll wait right here. Come back for me, alright?", onShow: () => setParty(false) }];
           if (k === 2) return [
             { who: GHOST, text: 'M-me? Come with you?' },
             { who: GHOST, text: '...Nobody has ever asked me that before.' },
             { who: GHOST, text: "Okay! I'll come. I'll try to be useful, I promise. I'm good at shadows, and... and hiding.", onShow: () => setParty(true) },
-            { who: '', text: `${GHOST} joined your party! She'll fight at your side.` },
+            { who: '', text: `${GHOST} joined your party! She'll throw bolts of shadow at anything that comes after you.` },
           ];
           return [{ who: GHOST, text: inParty ? 'Okay! Lead the way.' : 'Okay. Be careful out there.' }];
         } },
     ], { with: ghost.root.position }).then(() => {
+      talking = false;
       if (wantSpar) { wantSpar = false; return spar(game); }
-    }).then(() => { talking = false; });
+    });
   };
   let wantSpar = false;
   const ghostNear = (P) => ghost && (ghost.state === 'idle' || ghost.state === 'follow') && Math.hypot(P.pos.x - ghost.pos.x, P.pos.z - ghost.pos.z) < 3.4;
@@ -598,7 +630,7 @@ export function build(world, { models = {} } = {}) {
   const sx = 0, sz = shoreZ(0) + 6;
   const rested = save.flags.restAt === 'tavern';
   // resting by Hesta's fire heals everyone and makes it where you come round
-  const partyHeal = () => { for (const k of Object.keys(partyHp)) delete partyHp[k]; save.flags.partyHp = partyHp; store(); if (gameRef) { gameRef.player.health = 8; gameRef.player.stamina = gameRef.player.maxStamina; } };
+  const partyHeal = () => { if (gameRef) { gameRef.player.heal(8); gameRef.player.stamina = gameRef.player.maxStamina; } };
   const setRest = () => flag('restAt', 'tavern');
   let gameRef = null;
   const near = (P, n, r = 2.6) => Math.hypot(P.pos.x - n.pos.x, P.pos.z - n.pos.z) < r && Math.abs(P.pos.y - n.pos.y) < 2.2;
@@ -606,7 +638,7 @@ export function build(world, { models = {} } = {}) {
   const interact = (game) => {
     gameRef = game;
     const P = game.player;
-    if (talking || bossBusy) return null;
+    if (talking || bossBusy || sparring) return null;
     for (const p of pickups) if (p.near(P)) return { text: `B \u2014 Pick up ${p.label}`, go: () => { const what = p.take(); game.toast(`Got ${what}`); } };
     for (const [key, n] of Object.entries(hollow.npcs)) {
       if (near(P, n)) return { text: `B \u2014 Talk to ${n.name}`, go: () => say(game, () => hollow.talks[key]({ game, npc: n, partyHeal, setRest,
@@ -627,10 +659,9 @@ export function build(world, { models = {} } = {}) {
   return {
     spawn: rested ? hollow.restSpot.clone() : new THREE.Vector3(sx, G(sx, sz), sz),
     spawnYaw: rested ? hollow.restYaw : 0,
-    spawnYaw: 0,
     startLying: !rested,
     update,
-    ghost, fields, hollow, throne, pickups, hermit,   // for tests
+    ghost, fields, hollow, throne, pickups, hermit, get warden() { return warden; },   // for tests
     // B near the ghost: talk
     interact,
   };

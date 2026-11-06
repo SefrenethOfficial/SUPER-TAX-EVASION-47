@@ -1,23 +1,22 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Input } from './input.js?v=45';
-import { World } from './world.js?v=45';
-import { Player, buildCharacter } from './player.js?v=45';
-import { FX } from './fx.js?v=45';
-import { GameAudio } from './audio.js?v=45';
-import { Battle } from './battle.js?v=45';
-import { Dialogue } from './dialogue.js?v=45';
-import { MOVES } from './battle.js?v=45';
-import { LEARNABLE, WEAPONS, weaponMesh } from './items.js?v=45';
-import { save } from './save.js?v=45';
-import { Inventory } from './inventory.js?v=45';
+import { Input } from './input.js?v=46';
+import { World } from './world.js?v=46';
+import { Player, buildCharacter } from './player.js?v=46';
+import { FX } from './fx.js?v=46';
+import { GameAudio } from './audio.js?v=46';
+import { Dialogue } from './dialogue.js?v=46';
+import { Combat } from './combat.js?v=46';
+import { BASE_MOVES, weaponMesh } from './items.js?v=46';
+import { save } from './save.js?v=46';
+import { Inventory, QUICK } from './inventory.js?v=46';
 // The open world, one area per module.
-import * as blank from './stages/blank.js?v=45';
-import * as beach from './stages/beach.js?v=45';
+import * as blank from './stages/blank.js?v=46';
+import * as beach from './stages/beach.js?v=46';
 
 // Bump VERSION (and the ?v= on every local import) whenever files change,
 // so browsers never mix old and new code.
-const VERSION = '45';
+const VERSION = '46';
 const STAGES = { beach, blank };
 
 const canvas = document.getElementById('game');
@@ -43,18 +42,28 @@ const texLoader = new THREE.TextureLoader();
 
 // --- HUD ------------------------------------------------------------------------
 const $ = (id) => document.getElementById(id);
-const debug = $('debug'), help = $('help'), fade = $('fade'), healthEl = $('health');
-let healthShownUntil = 0;
-function showHealth(h) {
-  const col = h >= 7 ? '#3cc8ff' : h >= 5 ? '#4fd84a' : h >= 3 ? '#ffd23f' : '#ff4a3a';
-  healthEl.style.setProperty('--fill', `${(h / 8) * 100}%`);
-  healthEl.style.setProperty('--col', col);
-  healthEl.querySelector('span').textContent = h;
-  healthShownUntil = performance.now() + 3500;
+const debug = $('debug'), help = $('help'), fade = $('fade');
+// Health and Stamina bars, bottom left, with your party and quick items under them
+const hud = $('hud'), hpBar = hud.querySelector('.hp i'), spBar = hud.querySelector('.sp i'), spWrap = hud.querySelector('.sp'), hudRow = $('hudrow');
+let hudText = '';
+function showHealth(h) { hpBar.style.width = `${(Math.max(0, h) / 8) * 100}%`; }
+function updateHud() {
+  showHealth(player.health);
+  spBar.style.width = `${(player.stamina / player.maxStamina) * 100}%`;
+  const party = game.partyInfo().map((f) => `<span>with <b>${f.name}</b></span>`);
+  const quick = Object.entries(QUICK).filter(([id]) => save.items[id]).map(([id, k]) => `<span>${k} <b>${({ herb: 'Herb', salve: 'Salve', tonic: 'Tonic', ember: 'Ember' })[id]}</b> x${save.items[id]}</span>`);
+  const text = [...party, ...quick].join('');
+  if (text !== hudText) { hudText = text; hudRow.innerHTML = text; }
 }
 addEventListener('keydown', (e) => {
   if (e.code === 'KeyH') help.classList.toggle('hidden');
-  if ((e.code === 'KeyI' || e.code === 'Tab') && player && S && !S.battle && !dialogue.active) { e.preventDefault(); bag.toggle(); }
+  if ((e.code === 'KeyI' || e.code === 'Tab') && player && S && !dialogue.active) { e.preventDefault(); bag.toggle(); }
+  // quick items: 1 Herb, 2 Salve, 3 Tonic, 4 throw an Ember Flask
+  const n = { Digit1: 1, Digit2: 2, Digit3: 3, Digit4: 4, Numpad1: 1, Numpad2: 2, Numpad3: 3, Numpad4: 4 }[e.code];
+  if (n && player && S && !dialogue.active && !bag.open && !player.locked && player.health > 0) {
+    const id = Object.keys(QUICK).find((k) => QUICK[k] === n);
+    S.combat.quickUse(id, player);
+  }
   if (e.code === 'KeyM') audio.toggleMute();
   if (e.code === 'F3' || e.code === 'Backquote') { e.preventDefault(); debug.classList.toggle('hidden'); }
 });
@@ -121,14 +130,20 @@ function loadStage(key, { from } = {}) {
   const world = new World(scene, VERSION);
   world.low = LOW;
   const fx = new FX(scene);
-  const level = mod.build(world, { models: stageModels[key] || {} });
+  if (S && S.combat) S.combat.clear();
+  const combat = new Combat({ scene, camera, fx, hud: { floaters: $('floaters'), bossBar: $('bossbar') } });
+  combat.onTired = () => { spWrap.classList.remove('tired'); void spWrap.offsetWidth; spWrap.classList.add('tired'); };
+  const level = mod.build(world, { models: stageModels[key] || {}, combat });
 
   if (!player) {
     player = new Player(world, character, fx);
     player.onHurt = showHealth;
     player.sfx = (n) => audio.voice(n);
     player.sfxStop = (n) => audio.stopVoice(n);
-    player.onDeath = () => setTimeout(() => go(S.key), 1200);
+    // knocked down for good: YOU FELL, and you come round where you last rested
+    player.onDeath = () => { banner('YOU FELL', 'died'); setTimeout(() => go(S.key), 2600); };
+    player.canGuard = () => save.learned.includes('guard');
+    player.onGuard = (n) => S.combat.float(player.pos.clone().setY(player.pos.y + 2.3), `Guarded (${n})`, 'note');
   } else {
     player.world = world; player.fx = fx;
     scene.add(player.root, player.blob);
@@ -142,14 +157,14 @@ function loadStage(key, { from } = {}) {
   if (level.startLying && !entry) player.setState('washed');   // wake up on the ground
 
   player.tryGrab = null; player.onThrow = null;
-  S = { key, mod, scene, world, fx, level, portals: level.portals || [], battleZones: level.battleZones || [], battle: null, busy: false, talkWith: null };
+  S = { key, mod, scene, world, fx, level, combat, portals: level.portals || [], busy: false, talkWith: null, areaMusic: mod.MUSIC, playing: undefined, fightMusic: 0 };
 
   resetCamera(player);
   document.querySelectorAll('.course-name').forEach((el) => { el.textContent = mod.NAME; });
   const card = $('course-card');
   card.classList.remove('show'); void card.offsetWidth; if (S.mod.NAME) card.classList.add('show');
   showHealth(player.health);
-  audio.music(mod.MUSIC);
+  playMusic(mod.MUSIC);
   window.__game = { renderer, scene, camera, cam, updateCamera, fx, input, audio, S, go, loadStage, bag, game };
   window.__player = player;
 }
@@ -169,10 +184,6 @@ function talk(lines, { with: other = null } = {}) {
     document.body.classList.remove('talking');
     return pick;
   });
-}
-// Your moves: the basics, plus any you've been taught.
-function playerMoves() {
-  return [...MOVES.slice(0, 3), ...save.learned.map((id) => LEARNABLE[id]).filter(Boolean), MOVES[3]];
 }
 
 // The weapon in your hand.
@@ -227,7 +238,7 @@ const bag = new Inventory($('bag'), input, {
   player: () => player,
   getParty: () => [{ name: 'You', hp: player.health, maxHp: 8 }, ...game.partyInfo()],
   onEquip: (id) => showWeapon(id),
-  baseMoves: MOVES,
+  baseMoves: BASE_MOVES,
 });
 
 const game = {
@@ -237,7 +248,7 @@ const game = {
   // members of your party besides you, for the bag's party list (the area fills this in)
   partyInfo: () => [],
   // change the music for the part of the area you're in (null = quiet)
-  music(file) { if (S.areaMusic === file) return; S.areaMusic = file; if (!S.battle) audio.music(file); },
+  music(file) { S.areaMusic = file; },
   // show an area title card
   card(name) {
     document.querySelectorAll('.course-name').forEach((el) => { el.textContent = name; });
@@ -245,66 +256,18 @@ const game = {
   },
   // knocked out: come round at the area's start again
   respawn() { setTimeout(() => go(S.key), 300); },
-  get player() { return player; }, get fx() { return S.fx; }, input, talk, fight: (zone) => { player.locked = true; return startBattle(zone); }, get talking() { return dialogue.active; }, get battling() { return !!S.battle; } };
+  get player() { return player; }, get fx() { return S.fx; }, get combat() { return S.combat; }, input, talk, get talking() { return dialogue.active; } };
 
-// --- Battles -------------------------------------------------------------------------
 const promptEl = $('prompt');
-const BATTLE_MUSIC = 'battle.mp3';   // the enemy song
-// zone: { spots: { player, enemy }, enemy: { name, maxHp, maxSp, atk, ... } }
-// Resolves with { won, lost } (both false if you ran) once you're back exploring.
-function startBattle(zone) {
-  const sp = zone.spots;
-  fade.classList.add('on');
-  audio.music(zone.enemy.music || BATTLE_MUSIC);
-  const done = new Promise((res) => { S.battleDone = res; });
-  setTimeout(() => {
-    // stand the player on their mark, facing the enemy
-    player.pos.copy(sp.player);
-    player.fwd = 0; player.vy = 0;
-    player.setState('ground');
-    player.yaw = Math.atan2(sp.enemy.x - sp.player.x, sp.enemy.z - sp.player.z);
-    player.locked = true;
-    player.update(1 / 60, input, cam.yaw);
-    const E = zone.enemy;
-    const party = [{ name: 'You', hp: player.health, maxHp: 8, sp: player.stamina, maxSp: player.maxStamina, pos: sp.player.clone(), actor: player,
-      moves: playerMoves(), atkBonus: WEAPONS[save.equipped] ? WEAPONS[save.equipped].atk : 0,
-      picture: { height: 1.7, dist: 2.0, yaw: player.yaw } }];
-    // anyone travelling with you stands behind you and off to the side
-    const ax = sp.enemy.x - sp.player.x, az = sp.enemy.z - sp.player.z, al = Math.hypot(ax, az) || 1;
-    (zone.allies || []).forEach((A, i) => {
-      const k = i + 1, x = sp.player.x - (ax / al) * 1.7 * k + (az / al) * 1.9 * k, z = sp.player.z - (az / al) * 1.7 * k - (ax / al) * 1.9 * k;
-      const y = S.world.floorBelow(x, z, sp.player.y + 6);
-      const pos = new THREE.Vector3(x, Number.isFinite(y) ? y : sp.player.y, z);
-      A.node.position.set(pos.x, pos.y + (A.lift || 0), pos.z);
-      A.node.rotation.set(0, player.yaw, 0);
-      party.push({ ...A, hp: A.hp ?? A.maxHp, sp: A.sp ?? A.maxSp, pos, picture: { ...A.picture, yaw: player.yaw } });
-    });
-    const enemy = { ...E, hp: E.maxHp, sp: E.maxSp, pos: sp.enemy, picture: E.picture };
-    document.exitPointerLock?.();
-    document.body.classList.add('in-battle');
-    S.battle = new Battle({ ui: $('battle'), input, camera, fx: S.fx, party, enemy, onEnd: endBattle });
-    S.battle.onDamage = (f) => { if (f.actor) player.health = f.hp; };
-    fade.classList.remove('on');
-  }, 400);
-  return done;
-}
-function endBattle(result = {}) {
-  const { lost } = result;
-  fade.classList.add('on');
-  audio.music(S.areaMusic !== undefined ? S.areaMusic : S.mod.MUSIC);   // back to the area's music (or quiet)
-  setTimeout(() => {
-    S.battle = null;
-    player.locked = false;
-    player.stamina = player.maxStamina;          // catch your breath after a fight
-    if (lost) player.health = 8;                  // (for now) knocked out just means you come round
-    player.invuln = 0;
-    player.setState('ground');
-    document.body.classList.remove('in-battle');
-    resetCamera(player);
-    fade.classList.remove('on');
-    const d = S.battleDone; S.battleDone = null;
-    if (d) setTimeout(() => d(result), 250);
-  }, 400);
+// Music: the area's own, or the enemy song while monsters are after you
+// (a boss brings its own: the area switches to it).
+const BATTLE_MUSIC = 'battle.mp3';
+function playMusic(file) { if (S && S.playing === file) return; if (S) S.playing = file; audio.music(file); }
+function updateMusic(dt) {
+  const fighting = S.combat.foes.some((f) => f.alive && f.engaged && !f.boss && !f.noAllies);
+  S.fightMusic = fighting ? 4 : Math.max(0, S.fightMusic - dt);     // keeps going a few seconds after
+  const boss = S.combat.foes.some((f) => f.boss && f.alive);
+  playMusic(S.fightMusic > 0 && !boss ? BATTLE_MUSIC : S.areaMusic);
 }
 
 // Switch area behind a fade.
@@ -323,6 +286,7 @@ start.addEventListener('click', () => {
   // decode area music now so it starts straight away
   for (const m of Object.values(STAGES)) if (m.MUSIC) audio.buffer(m.MUSIC);
   audio.buffer(BATTLE_MUSIC);
+  audio.buffer('boss.mp3');
   const card = $('course-card');
   card.classList.remove('show'); void card.offsetWidth; if (S.mod.NAME) card.classList.add('show');
   input.requestLock();
@@ -385,32 +349,27 @@ function step(dt) {
     dialogue.update(dt);
     bag.update(dt);
     player.locked = player.locked || bag.open;
-    if (bag.wasOpen && !bag.open && !dialogue.active && !S.battle) player.locked = false;
+    if (bag.wasOpen && !bag.open && !dialogue.active) player.locked = false;
     bag.wasOpen = bag.open;
-    if (S.battle) {
-      player.update(dt, input, cam.yaw);     // locked: just idles
-      S.battle.update(dt);
-      if (S.level.update) S.level.update(dt, game);
-      S.fx.update(dt);
-      if (!window.__noRender) { renderer.render(S.scene, camera); S.battle.renderPictures(renderer, S.scene); }
-      return;
-    }
-    // things to do with B (instead of punching): talk to someone, start a battle
-    const free = !S.busy && !dialogue.active && !fade.classList.contains('on') && player.grounded && player.state === 'ground';
-    const zone = free ? S.battleZones.find((z) => Math.hypot(player.pos.x - z.x, player.pos.z - z.z) < z.r) : null;
-    const act = free ? (S.level.interact && S.level.interact(game)) || (zone && { text: 'B — Start a test battle', go: () => { player.locked = true; startBattle(zone); } }) : null;
+    // things to do with B (instead of punching): talk to someone, pick something up
+    const free = !S.busy && !dialogue.active && !fade.classList.contains('on') && player.grounded && player.state === 'ground' && player.health > 0;
+    // (not mid-fight, though: then B is always an attack, even with your party right beside you)
+    const act = free && S.fightMusic <= 0 ? S.level.interact && S.level.interact(game) : null;
     promptEl.textContent = act ? act.text : '';
     promptEl.classList.toggle('on', !!act);
     if (act && input.pressed.B) { promptEl.classList.remove('on'); input.pressed.B = false; act.go(); }
     player.update(dt, input, cam.yaw);
-    // out of battle, Health slowly comes back
-    if (player.health > 0 && player.health < 8 && !dialogue.active) {
+    // when nothing's after you, Health slowly comes back
+    if (player.health > 0 && player.health < 8 && !dialogue.active && S.fightMusic <= 0) {
       S.regen = (S.regen || 0) + dt;
       if (S.regen > 6) { S.regen = 0; player.health++; }
     }
     updateCamera(dt, player);
     aimWeapon();
     if (S.level.update) S.level.update(dt, game);
+    S.combat.update(dt, player);
+    updateMusic(dt);
+    updateHud();
     // exits to other areas
     if (!S.busy) {
       for (const p of S.portals) {
@@ -418,7 +377,6 @@ function step(dt) {
         if (q.x > p.min[0] && q.x < p.max[0] && q.y + 0.8 > p.min[1] && q.y < p.max[1] && q.z > p.min[2] && q.z < p.max[2]) { go(p.to, { from: S.key }); break; }
       }
     }
-    healthEl.classList.toggle('show', performance.now() < healthShownUntil || player.health < 8);
     if (!debug.classList.contains('hidden')) {
       debug.textContent = `state ${player.state}\nspeed ${player.fwd.toFixed(2)}\nvy ${player.vy.toFixed(2)}\npos ${player.pos.x.toFixed(1)}, ${player.pos.y.toFixed(2)}, ${player.pos.z.toFixed(1)}\nhealth ${player.health}`;
     }

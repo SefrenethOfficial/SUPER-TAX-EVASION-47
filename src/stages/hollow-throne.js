@@ -1,11 +1,11 @@
 import * as THREE from 'three';
-import { rockTexture } from '../textures.js?v=45';
+import { rockTexture } from '../textures.js?v=46';
 
 // ---------------------------------------------------------------------------
 // THE HOLLOW THRONE: up a pass in the west wall of the Obsidian Fieldlands, a
 // gloomy plateau with a ruined ring of pillars and a throne. The Hollow Warden
 // sits there. Step through the wall of fog at the ring's entrance and he rises:
-// a boss fight with two phases and its own music. Beat him and the fog clears
+// a real-time boss fight with two phases and its own music. Beat him and the fog clears
 // and his blade is yours.
 // ---------------------------------------------------------------------------
 
@@ -70,38 +70,233 @@ function wardenModel() {
   return g;
 }
 
-// The fight itself: attacks for each phase. Some hit the whole party, some are
-// wound up a turn ahead (Guard is a good idea then).
-export function wardenFighter(model, yaw) {
-  let turn = 0;
-  const P1 = [
-    { text: 'brings his greatsword down', dmg: 3 },
-    { text: 'sweeps his blade across your party', dmg: 2, all: true },
-    { text: 'raises his blade high', charge: true, then: { text: 'brings it crashing down', dmg: 6 } },
-  ];
-  const P2 = [
-    { text: 'swings his burning blade', dmg: 4 },
-    { text: 'erupts in a wave of fire', dmg: 3, all: true },
-    { text: 'draws the fire into his blade', charge: true, then: { text: 'unleashes a storm of embers', dmg: 6, all: true } },
-  ];
-  let phase = 1;
-  return {
-    name: 'Hollow Warden', maxHp: 60, maxSp: 12, atk: 3, model, top: 5.2, music: MUSIC,
-    intro: 'The Hollow Warden rises from his throne.',
-    picture: { height: 3.6, dist: 4.6, yaw },
-    choose() {
-      turn++;
-      const set = phase === 1 ? P1 : P2;
-      if (turn % 3 === 0) return set[2];                       // every third turn: a big wind-up
-      return Math.random() < (phase === 1 ? 0.65 : 0.55) ? set[0] : set[1];
-    },
-    onHalf() {
-      phase = 2;
-      model.userData.crack.visible = true;
-      model.userData.edge.material = new THREE.MeshBasicMaterial({ color: 0xffd060 });
-      return "The Warden's armour splits open. Fire pours out from inside!";
-    },
-  };
+// The fight itself, in real time. He walks you down and picks an attack; each
+// one marks the ground red where it will land before it does, so watch the
+// floor and get out of it. Below half Health his armour splits and fire pours
+// out: he adds a ring of flame that rolls outward (jump it) and a rain of
+// embers (keep moving).
+const ATTACKS1 = ['slam', 'slam', 'sweep', 'sweep', 'leap'];
+const ATTACKS2 = ['slam', 'sweep', 'leap', 'ring', 'ring', 'embers', 'embers'];
+export class Warden {
+  constructor(model, { scene, G, telegraph, fx }) {
+    this.model = model; this.scene = scene; this.G = G; this.telegraph = telegraph; this.fx = fx;
+    this.name = 'Hollow Warden';
+    this.boss = true;
+    this.pos = model.position;            // moves the model directly
+    this.radius = 1.3; this.height = 4.2;
+    this.maxHp = 90; this.hp = this.maxHp;
+    this.alive = true; this.engaged = false;
+    this.phase = 1;
+    this.mode = 'wait'; this.mt = 0; this.yaw = model.rotation.y;
+    this.marks = [];
+    this.mats = [];
+    model.traverse((o) => { if (o.material && o.material.emissive) this.mats.push(o.material); });
+    this.last = '';
+  }
+
+  start() { this.engaged = true; this.set('walk'); }
+  set(m) { this.mode = m; this.mt = 0; }
+  clearMarks() { for (const m of this.marks) m.remove(); this.marks = []; }
+
+  takeHit(dmg) {
+    if (!this.alive) return;
+    this.hp = Math.max(0, this.hp - dmg);
+    this.flash = 0.12;
+    if (this.phase === 1 && this.hp <= this.maxHp / 2) {
+      this.phase = 2;
+      this.model.userData.crack.visible = true;
+      this.model.userData.edge.material = new THREE.MeshBasicMaterial({ color: 0xffd060 });
+      this.fx.explode(this.pos.clone().setY(this.pos.y + 2.5));
+      if (this.onPhase) this.onPhase();
+      this.clearMarks();
+      this.set('roar');
+    }
+    if (this.hp <= 0) { this.alive = false; this.clearMarks(); this.set('dying'); if (this.onDie) this.onDie(); }
+  }
+
+  // hurt you if you're within r of (x, z) and (unless air is allowed) on the ground
+  zone(P, x, z, r, dmg, { inner = 0, arc = 0, yaw = 0, jumpable = false } = {}) {
+    const dx = P.pos.x - x, dz = P.pos.z - z, d = Math.hypot(dx, dz);
+    if (d > r || d < inner) return false;
+    if (arc) { const a = Math.atan2(dx, dz) - yaw; if (Math.abs(Math.atan2(Math.sin(a), Math.cos(a))) > arc / 2) return false; }
+    const lift = P.pos.y - this.G(P.pos.x, P.pos.z);
+    if (lift > (jumpable ? 0.7 : 2.4)) return false;
+    return P.hurt(dmg, x, z, dmg >= 4 ? 1.6 : 1.1);
+  }
+
+  pick() {
+    const list = this.phase === 1 ? ATTACKS1 : ATTACKS2;
+    let a;
+    do a = list[Math.floor(Math.random() * list.length)]; while (a === this.last && Math.random() < 0.7);
+    this.last = a;
+    return a;
+  }
+
+  update(dt, P) {
+    this.t = (this.t || 0) + dt; this.mt += dt;
+    const ud = this.model.userData, sw = ud.sword, m = this.model;
+    const y = PLATEAU.y;
+    this.flash = Math.max(0, (this.flash || 0) - dt);
+    for (const mat of this.mats) mat.emissive.setScalar(this.flash > 0 ? 0.7 : 0);
+    if (this.mode === 'dying') {
+      // falls to his knees and crumbles into embers
+      m.position.y = y - Math.min(1.2, this.mt * 0.8);
+      m.rotation.x = Math.min(0.5, this.mt * 0.4);
+      if (Math.floor(this.mt * 8) !== Math.floor((this.mt - dt) * 8)) this.fx.sparkle(this.pos.clone().setY(y + 1 + Math.random() * 3), 6);
+      return;
+    }
+    if (!this.engaged || !this.alive) return;
+    const dx = P.pos.x - this.pos.x, dz = P.pos.z - this.pos.z, d = Math.hypot(dx, dz);
+    const face = (k) => { const want = Math.atan2(dx, dz); this.yaw += Math.atan2(Math.sin(want - this.yaw), Math.cos(want - this.yaw)) * Math.min(1, dt * k); };
+    const fwd = (s) => {
+      this.pos.x += Math.sin(this.yaw) * s; this.pos.z += Math.cos(this.yaw) * s;
+      const ox = this.pos.x - ARENA.x, oz = this.pos.z - ARENA.z, od = Math.hypot(ox, oz), lim = ARENA.r - 2.5;
+      if (od > lim) { this.pos.x = ARENA.x + (ox / od) * lim; this.pos.z = ARENA.z + (oz / od) * lim; }
+    };
+    const ahead = (k) => [this.pos.x + Math.sin(this.yaw) * k, this.pos.z + Math.cos(this.yaw) * k];
+    const k01 = (a, b) => Math.max(0, Math.min(1, (this.mt - a) / (b - a)));
+    const fast = this.phase === 2 ? 0.8 : 1;       // he's quicker when he's burning
+    switch (this.mode) {
+      case 'roar':
+        sw.rotation.x = 2.6 * Math.min(1, this.mt * 3);
+        if (this.mt < dt * 2) this.fx.shake(0.5);
+        if (this.mt > 1.6) this.set('walk');
+        break;
+      case 'walk': {
+        face(4);
+        sw.rotation.x += (0 - sw.rotation.x) * Math.min(1, dt * 6);
+        sw.rotation.y = 0;
+        m.rotation.z = Math.sin(this.t * 5) * 0.03;
+        if (d > 4.2) fwd((this.phase === 2 ? 4.2 : 3.4) * dt);
+        // a beat between attacks, then choose one
+        if (this.mt > 0.9 * fast || (d < 4.5 && this.mt > 0.4)) {
+          const a = this.pick();
+          if (a === 'slam' && d > 7) { if (this.mt > 2.5) this.set('leap'); break; }
+          if (a === 'sweep' && d > 6.5) { if (this.mt > 2.5) this.set('leap'); break; }
+          this.set(a);
+        }
+        break;
+      }
+      case 'slam': {
+        // raise the sword high... and bring it straight down in front of him
+        const W = 1.0 * fast;
+        if (this.mt < W) face(3);
+        const [x, z] = ahead(3.2);
+        if (this.mt < dt * 1.5) this.marks.push(this.telegraph(this.scene, { x, y, z, r: 2.4 }));
+        if (this.marks[0]) { this.marks[0].mesh.position.set(x, y + 0.08, z); this.marks[0].set(k01(0, W)); }
+        sw.rotation.x = this.mt < W ? 2.6 * k01(0, W * 0.6) : 2.6 - 4.0 * k01(W, W + 0.12);
+        if (this.mt >= W && !this.struck) {
+          this.struck = true; this.clearMarks();
+          this.fx.shake(0.45); this.fx.dust(new THREE.Vector3(x, y, z), 14);
+          this.zone(P, x, z, 2.5, 3);
+        }
+        if (this.mt > W + 1.1) { this.struck = false; this.set('walk'); }
+        break;
+      }
+      case 'sweep': {
+        // the blade held out to one side, then swept round in front of him
+        const W = 0.8 * fast;
+        if (this.mt < W) face(3);
+        if (this.mt < dt * 1.5) this.marks.push(this.telegraph(this.scene, { x: this.pos.x, y, z: this.pos.z, r: 5, inner: 0.5, arc: 2.6, yaw: this.yaw }));
+        if (this.marks[0]) { this.marks[0].mesh.position.set(this.pos.x, y + 0.08, this.pos.z); this.marks[0].mesh.rotation.z = this.yaw - Math.PI / 2; this.marks[0].set(k01(0, W)); }
+        sw.rotation.x = -1.5 * k01(0, 0.3);
+        sw.rotation.y = this.mt < W ? 1.3 * k01(0, W * 0.7) : 1.3 - 2.8 * k01(W, W + 0.2);
+        if (this.mt >= W + 0.08 && !this.struck) {
+          this.struck = true; this.clearMarks();
+          this.zone(P, this.pos.x, this.pos.z, 5, 2, { arc: 2.6, yaw: this.yaw, jumpable: true });
+        }
+        if (this.mt > W + 0.9) { this.struck = false; this.set('walk'); }
+        break;
+      }
+      case 'leap': {
+        // crouch, jump, and come down where you were standing
+        const W = 0.6, AIR = 0.9;
+        if (this.mt < W) {
+          face(6);
+          m.scale.y = 0.92 * (1 - 0.15 * k01(0, W));
+          if (!this.to) { this.to = new THREE.Vector3(P.pos.x, y, P.pos.z); this.from = this.pos.clone(); }
+          this.to.x += (P.pos.x - this.to.x) * Math.min(1, dt * 4); this.to.z += (P.pos.z - this.to.z) * Math.min(1, dt * 4);
+          if (!this.marks[0]) this.marks.push(this.telegraph(this.scene, { x: this.to.x, y, z: this.to.z, r: 3.4 }));
+          this.marks[0].mesh.position.set(this.to.x, y + 0.08, this.to.z);
+          this.marks[0].set(k01(0, W + AIR));
+          this.from.copy(this.pos);
+        } else if (this.mt < W + AIR) {
+          m.scale.y = 0.92;
+          const k = k01(W, W + AIR);
+          this.pos.x = this.from.x + (this.to.x - this.from.x) * k;
+          this.pos.z = this.from.z + (this.to.z - this.from.z) * k;
+          this.pos.y = y + Math.sin(k * Math.PI) * 7;
+          sw.rotation.x = 2.6 * k;
+          if (this.marks[0]) this.marks[0].set(k01(0, W + AIR));
+        } else if (!this.struck) {
+          this.struck = true; this.pos.y = y; this.clearMarks();
+          sw.rotation.x = -1.4;
+          this.fx.shake(0.6); this.fx.ring(this.pos); this.fx.dust(this.pos, 20);
+          this.zone(P, this.pos.x, this.pos.z, 3.5, 4);
+        }
+        if (this.mt > W + AIR + 1.2) { this.struck = false; this.to = null; this.set('walk'); }
+        break;
+      }
+      case 'ring': {
+        // plants the sword: a ring of fire rolls out across the arena
+        const W = 0.9;
+        sw.rotation.x = this.mt < W ? 2.6 * k01(0, W * 0.6) : -1.6;
+        if (this.mt < dt * 1.5) this.marks.push(this.telegraph(this.scene, { x: this.pos.x, y, z: this.pos.z, r: 2.0 }));
+        if (this.marks[0] && this.mt < W) this.marks[0].set(k01(0, W));
+        if (this.mt >= W && !this.fire) {
+          this.clearMarks();
+          this.fx.shake(0.4);
+          const geo = new THREE.TorusGeometry(1, 0.06, 6, 64);
+          const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xff7a20, transparent: true, opacity: 0.95 }));
+          mesh.rotation.x = Math.PI / 2;
+          mesh.position.set(this.pos.x, y + 0.3, this.pos.z);
+          mesh.scale.set(1, 1, 6);     // a low wall
+          this.scene.add(mesh);
+          this.fire = { mesh, r: 1, hit: false, x: this.pos.x, z: this.pos.z };
+        }
+        if (this.fire) {
+          const f = this.fire;
+          f.r += dt * 8;
+          f.mesh.scale.set(f.r, f.r, 6);
+          f.mesh.material.opacity = Math.max(0, 0.95 - Math.max(0, f.r - 22) / 6);
+          if (!f.hit) f.hit = this.zone(P, f.x, f.z, f.r + 0.45, 2, { inner: f.r - 0.45, jumpable: true });
+          if (f.r > 28) { this.scene.remove(f.mesh); this.fire = null; this.set('walk'); }
+        }
+        break;
+      }
+      case 'embers': {
+        // raises the blade and embers fall in burning circles round you
+        sw.rotation.x = 2.8;
+        if (this.mt < dt * 1.5) {
+          this.drops = [];
+          for (let i = 0; i < 6; i++) {
+            const a = Math.random() * 6.3, r = i === 0 ? 0 : 2 + Math.random() * 5;
+            const x = P.pos.x + Math.cos(a) * r, z = P.pos.z + Math.sin(a) * r;
+            this.drops.push({ x, z, at: 0.9 + i * 0.18, done: false, mark: this.telegraph(this.scene, { x, y, z, r: 1.8 }) });
+          }
+        }
+        for (const dr of this.drops) {
+          if (dr.done) continue;
+          dr.mark.set(Math.min(1, this.mt / dr.at));
+          if (this.mt >= dr.at) {
+            dr.done = true; dr.mark.remove();
+            this.fx.explode(new THREE.Vector3(dr.x, y + 0.3, dr.z));
+            this.zone(P, dr.x, dr.z, 1.9, 3);
+          }
+        }
+        if (this.mt > 2.6) { this.drops = []; this.set('walk'); }
+        break;
+      }
+    }
+    if (this.mode !== 'leap') { this.pos.y = y; m.scale.y = 0.92 * (1 + Math.sin(this.t * 1.6) * 0.008); }
+    m.rotation.y = this.yaw;
+  }
+
+  remove() {
+    this.clearMarks();
+    if (this.fire) { this.scene.remove(this.fire.mesh); this.fire = null; }
+    for (const dr of this.drops || []) if (!dr.done) dr.mark.remove();
+  }
 }
 
 // Build the plateau: the ring of pillars, the throne, braziers, the fog gate,
@@ -183,6 +378,9 @@ export function build(ctx) {
     gateIn: new THREE.Vector3(GATE.x - 3.5, y, GATE.z),      // where you step to through the fog
     playerSpot: new THREE.Vector3(ARENA.x + 7, y, ARENA.z),
     rise() { risen = true; },
+    // the fog closes behind you once you're in
+    sealGate() { fogWall.visible = fogWall2.visible = true; gateBox.min.set(GATE.x - 0.3, y - 1, GATE.z - 3); gateBox.max.set(GATE.x + 0.3, y + 6, GATE.z + 3); },
+    passGate() { gateBox.min.set(9999, 9999, 9999); gateBox.max.set(9999, 9999, 9999); },
     openGate() {
       fogWall.visible = fogWall2.visible = false;
       gateBox.min.set(9999, 9999, 9999); gateBox.max.set(9999, 9999, 9999);
@@ -195,7 +393,7 @@ export function build(ctx) {
       fogWall2.material.map.offset.set(-t * 0.03, t * 0.04);
       for (const b of braziers) { b.l.intensity = 12 + Math.sin(t * 12 + b.f.position.x) * 2.5; b.f.scale.y = 1 + Math.sin(t * 10 + b.f.position.z) * 0.15; }
       // rising from the throne and stepping down
-      if (risen && rise < 1) {
+      if (risen && rise < 1 && !this.fighting) {
         rise = Math.min(1, rise + dt / 2.2);
         const k = rise * rise * (3 - 2 * rise);
         warden.position.lerpVectors(seatPos, standPos, k);

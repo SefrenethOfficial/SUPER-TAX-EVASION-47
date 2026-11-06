@@ -1,5 +1,7 @@
-import { ITEMS, WEAPONS, LEARNABLE } from './items.js?v=45';
-import { save, useItem, equip } from './save.js?v=45';
+import { ITEMS, WEAPONS, LEARNABLE } from './items.js?v=46';
+// number keys that use an item straight away, without opening the bag
+export const QUICK = { herb: 1, salve: 2, tonic: 3, ember: 4 };
+import { save, useItem, equip } from './save.js?v=46';
 
 // ---------------------------------------------------------------------------
 // The bag: press I (or Tab, or Select on a pad) while exploring. Shows your
@@ -11,7 +13,7 @@ import { save, useItem, equip } from './save.js?v=45';
 // ---------------------------------------------------------------------------
 
 export class Inventory {
-  // getParty(): [{ name, hp, maxHp }]; onEquip(id): put the weapon in your hand
+  // getParty(): [{ name, hp, maxHp } or { name, role }]; onEquip(id): put the weapon in your hand
   constructor(el, input, { player, getParty, onEquip, baseMoves }) {
     this.el = el; this.input = input;
     this.player = player; this.getParty = getParty; this.onEquip = onEquip; this.baseMoves = baseMoves;
@@ -64,10 +66,10 @@ export class Inventory {
       const it = ITEMS[id];
       if (!it || n <= 0) continue;
       const usable = !!(it.heal && P.health < 8) || !!(it.stamina && P.stamina < P.maxStamina);
-      rows.push({ kind: 'item', id, label: it.name, tag: `x${n}`, button: it.damage ? '' : 'Use', desc: it.desc + (it.damage ? ' (Only in battle.)' : ''),
+      rows.push({ kind: 'item', id, label: it.name, tag: `x${n}`, button: it.damage ? '' : 'Use', desc: it.desc + (QUICK[id] ? ` (Quick use: key ${QUICK[id]}.)` : ''),
         dim: !usable,
         act: () => {
-          if (it.damage) { this.note = 'Save that for a fight.'; return; }
+          if (it.damage) { this.note = `Press ${QUICK[id]} out in the world to throw one at the nearest enemy.`; return; }
           if (!usable) { this.note = it.heal ? "You're already at full Health." : "You've got all your Stamina."; return; }
           useItem(id);
           const before = [P.health, P.stamina];
@@ -84,7 +86,7 @@ export class Inventory {
     this.list = rows;
     if (this.sel >= rows.length) this.sel = rows.length - 1;
     const party = this.getParty();
-    const moves = [...this.baseMoves.map((m) => m.name), ...save.learned.map((id) => LEARNABLE[id] && LEARNABLE[id].name).filter(Boolean)];
+    const moves = [...this.baseMoves, ...save.learned.map((id) => LEARNABLE[id] && LEARNABLE[id].name).filter(Boolean)];
     const sect = (title, kind) => {
       const rs = rows.map((r, i) => [r, i]).filter(([r]) => r.kind === kind);
       if (!rs.length) return `<h3>${title}</h3><div class="inone">Nothing yet.</div>`;
@@ -98,7 +100,7 @@ export class Inventory {
           <div class="icol">${sect('Weapons', 'weapon')}${sect('Items', 'item')}</div>
           <div class="icol">
             <h3>Moves</h3><div class="imoves">${moves.join(' &middot; ')}</div>
-            <h3>Party</h3>${party.map((f) => `<div class="iparty"><span>${f.name}</span><span>${f.hp} / ${f.maxHp} Health</span></div>`).join('')}
+            <h3>Party</h3>${party.map((f) => `<div class="iparty"><span>${f.name}</span><span>${f.role || `${f.hp} / ${f.maxHp} Health`}</span></div>`).join('')}
           </div>
         </div>
         <div class="idesc">${this.note ? `<b>${this.note}</b><br>` : ''}${cur ? cur.desc : ''}</div>
