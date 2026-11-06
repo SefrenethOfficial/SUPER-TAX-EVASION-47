@@ -1,22 +1,22 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Input } from './input.js?v=46';
-import { World } from './world.js?v=46';
-import { Player, buildCharacter } from './player.js?v=46';
-import { FX } from './fx.js?v=46';
-import { GameAudio } from './audio.js?v=46';
-import { Dialogue } from './dialogue.js?v=46';
-import { Combat } from './combat.js?v=46';
-import { BASE_MOVES, weaponMesh } from './items.js?v=46';
-import { save } from './save.js?v=46';
-import { Inventory, QUICK } from './inventory.js?v=46';
+import { Input } from './input.js?v=47';
+import { World } from './world.js?v=47';
+import { Player, buildCharacter } from './player.js?v=47';
+import { FX } from './fx.js?v=47';
+import { GameAudio } from './audio.js?v=47';
+import { Dialogue } from './dialogue.js?v=47';
+import { Combat } from './combat.js?v=47';
+import { BASE_MOVES, weaponMesh } from './items.js?v=47';
+import { save } from './save.js?v=47';
+import { Inventory, QUICK } from './inventory.js?v=47';
 // The open world, one area per module.
-import * as blank from './stages/blank.js?v=46';
-import * as beach from './stages/beach.js?v=46';
+import * as blank from './stages/blank.js?v=47';
+import * as beach from './stages/beach.js?v=47';
 
 // Bump VERSION (and the ?v= on every local import) whenever files change,
 // so browsers never mix old and new code.
-const VERSION = '46';
+const VERSION = '47';
 const STAGES = { beach, blank };
 
 const canvas = document.getElementById('game');
@@ -351,13 +351,14 @@ function step(dt) {
     player.locked = player.locked || bag.open;
     if (bag.wasOpen && !bag.open && !dialogue.active) player.locked = false;
     bag.wasOpen = bag.open;
-    // things to do with B (instead of punching): talk to someone, pick something up
+    // things to do with E: talk to someone, pick something up
     const free = !S.busy && !dialogue.active && !fade.classList.contains('on') && player.grounded && player.state === 'ground' && player.health > 0;
     // (not mid-fight, though: then B is always an attack, even with your party right beside you)
     const act = free && S.fightMusic <= 0 ? S.level.interact && S.level.interact(game) : null;
+    if (act && input.usingGamepad) act.text = act.text.replace(/^E \u2014 /, 'Y \u2014 ');   // the gamepad button for it
     promptEl.textContent = act ? act.text : '';
     promptEl.classList.toggle('on', !!act);
-    if (act && input.pressed.B) { promptEl.classList.remove('on'); input.pressed.B = false; act.go(); }
+    if (act && input.pressed.E) { promptEl.classList.remove('on'); input.pressed.E = false; act.go(); }
     player.update(dt, input, cam.yaw);
     // when nothing's after you, Health slowly comes back
     if (player.health > 0 && player.health < 8 && !dialogue.active && S.fightMusic <= 0) {

@@ -1,14 +1,14 @@
 import * as THREE from 'three';
-import { Terrain } from '../terrain.js?v=46';
-import { ShyGhost } from '../ghost.js?v=46';
-import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture, obsidianTexture, strataTexture } from '../textures.js?v=46';
-import * as Fieldlands from './obsidian-fieldlands.js?v=46';
-import * as Hollow from './lantern-hollow.js?v=46';
-import * as Throne from './hollow-throne.js?v=46';
-import { NPC } from '../npc.js?v=46';
-import { Pickup } from '../pickup.js?v=46';
-import { save, store, flag, learn } from '../save.js?v=46';
-import { telegraph } from '../combat.js?v=46';
+import { Terrain } from '../terrain.js?v=47';
+import { ShyGhost } from '../ghost.js?v=47';
+import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture, obsidianTexture, strataTexture } from '../textures.js?v=47';
+import * as Fieldlands from './obsidian-fieldlands.js?v=47';
+import * as Hollow from './lantern-hollow.js?v=47';
+import * as Throne from './hollow-throne.js?v=47';
+import { NPC } from '../npc.js?v=47';
+import { Pickup } from '../pickup.js?v=47';
+import { save, store, flag, learn } from '../save.js?v=47';
+import { telegraph } from '../combat.js?v=47';
 
 // ---------------------------------------------------------------------------
 // THE WASHED-UP BEACH: the first area of the open world. You wake up face down
@@ -36,10 +36,11 @@ const basics = () => [
   { who: GHOST, text: 'Shift crouches. Crouch while you run and then jump, and you leap a long way. Press Shift in the air to slam down.' },
   { who: GHOST, text: 'In the air, next to a wall, jump again to kick off it. And you can grab onto ledges and climb up.' },
   { who: GHOST, text: "J, X or a click to punch. Keep pressing for a punch, punch, kick. Punch while you're running and you dive forward." },
-  { who: GHOST, text: 'The mouse moves the camera. Or Q and E, R and F. H shows all the controls if you forget.' },
+  { who: GHOST, text: 'The mouse moves the camera. Or Q and G, R and F. H shows all the controls if you forget.' },
   { who: GHOST, text: "Those are how you fight, too. Punches, kicks, dives, a slam from the air: they all hurt whatever's in the way." },
   { who: GHOST, text: "Every blow costs Stamina, the yellow bar. Stop swinging for a moment and it comes back. Swing with none left and you'll barely scratch them." },
   { who: GHOST, text: "Monsters flash red just before they lunge. That's when you jump, or get out of the way. Then hit them while they're catching their breath." },
+  { who: GHOST, text: "To talk to someone, or pick something up, walk up close and press E." },
   { who: GHOST, text: "Number keys use things from your bag straight away: 1 a Herb, 2 a Salve, 3 a Tonic, 4 throws an Ember Flask." },
   { who: GHOST, text: "If you want to practise fighting... you could fight me. Just come and talk to me. I'll, um, try to go easy on you." },
   { who: GHOST, text: "That's... all the basics. Sorry if that was too much." },
@@ -639,9 +640,9 @@ export function build(world, { models = {}, combat } = {}) {
     gameRef = game;
     const P = game.player;
     if (talking || bossBusy || sparring) return null;
-    for (const p of pickups) if (p.near(P)) return { text: `B \u2014 Pick up ${p.label}`, go: () => { const what = p.take(); game.toast(`Got ${what}`); } };
+    for (const p of pickups) if (p.near(P)) return { text: `E \u2014 Pick up ${p.label}`, go: () => { const what = p.take(); game.toast(`Got ${what}`); } };
     for (const [key, n] of Object.entries(hollow.npcs)) {
-      if (near(P, n)) return { text: `B \u2014 Talk to ${n.name}`, go: () => say(game, () => hollow.talks[key]({ game, npc: n, partyHeal, setRest,
+      if (near(P, n)) return { text: `E \u2014 Talk to ${n.name}`, go: () => say(game, () => hollow.talks[key]({ game, npc: n, partyHeal, setRest,
         inParty: () => inParty('marrow'),
         setParty: (on) => {
           setRecruit('marrow', on);
@@ -649,10 +650,10 @@ export function build(world, { models = {}, combat } = {}) {
           if (!on) { save.flags.marrowAt = { x: marrow.pos.x, y: marrow.pos.y, z: marrow.pos.z }; marrow.homeYaw = marrow.yaw; store(); }
         } })) };
     }
-    if (near(P, hermit)) return { text: 'B \u2014 Talk to the Hermit', go: () => say(game, () => talkHermit(game)) };
-    if (!save.flags.wardenDead && Math.hypot(P.pos.x - (Throne.GATE.x + 1.2), P.pos.z - Throne.GATE.z) < 3.2) return { text: 'B \u2014 Step through the fog', go: () => enterFog(game) };
+    if (near(P, hermit)) return { text: 'E \u2014 Talk to the Hermit', go: () => say(game, () => talkHermit(game)) };
+    if (!save.flags.wardenDead && Math.hypot(P.pos.x - (Throne.GATE.x + 1.2), P.pos.z - Throne.GATE.z) < 3.2) return { text: 'E \u2014 Step through the fog', go: () => enterFog(game) };
     // Vivian last: she's often right beside you
-    if (ghostNear(P)) return { text: `B \u2014 Talk to ${GHOST}`, go: () => chat(game) };
+    if (ghostNear(P)) return { text: `E \u2014 Talk to ${GHOST}`, go: () => chat(game) };
     return null;
   };
   marrow.following = inParty('marrow');

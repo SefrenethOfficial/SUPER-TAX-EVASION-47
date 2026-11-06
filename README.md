@@ -42,7 +42,7 @@ Everything (items, weapons, moves, recruits, the Warden) is saved in the browser
 
 ### The shy ghost
 
-When you get up, a dark figure is floating up ahead. Walk towards it and it backs away, always facing you, as fast as you can run. Chase it until it's pinned against the edge of the beach, and the darkness fades: it's Vivian, a shy ghost, who apologises for running and offers to teach you the basics (moving, jumping, the camera, and how fighting works). Afterwards, walk up to her and press **B** to talk: she'll go over the basics again, have a practice fight with you (she circles you and darts in, flashing red first; knock her Health to nothing to win, and she stops if she's hurt you too much or you walk away), or **join your party**. In your party she floats along behind you everywhere and throws bolts of shadow at anything that comes after you (2 damage every few seconds). Ask her to wait and she'll stay where you left her. Meeting and the lesson are remembered between visits (clear the site's storage to meet again). The ghost's name is `GHOST` at the top of `src/stages/beach.js`.
+When you get up, a dark figure is floating up ahead. Walk towards it and it backs away, always facing you, as fast as you can run. Chase it until it's pinned against the edge of the beach, and the darkness fades: it's Vivian, a shy ghost, who apologises for running and offers to teach you the basics (moving, jumping, the camera, and how fighting works). Afterwards, walk up to her and press **E** to talk: she'll go over the basics again, have a practice fight with you (she circles you and darts in, flashing red first; knock her Health to nothing to win, and she stops if she's hurt you too much or you walk away), or **join your party**. In your party she floats along behind you everywhere and throws bolts of shadow at anything that comes after you (2 damage every few seconds). Ask her to wait and she'll stay where you left her. Meeting and the lesson are remembered between visits (clear the site's storage to meet again). The ghost's name is `GHOST` at the top of `src/stages/beach.js`.
 
 ### Fighting
 
@@ -61,12 +61,13 @@ Every attack costs **Stamina** (the yellow bar under your Health, bottom left). 
 | A | Space | A |
 | B | J, X, left click | X or B |
 | Z | Shift, K, right click | Triggers or bumpers |
-| Camera | Mouse (click to lock), Q/E rotate, R/F tilt, wheel zoom | Right stick |
+| Talk / pick up | E | Y |
+| Camera | Mouse (click to lock), Q/G rotate, R/F tilt, wheel zoom | Right stick |
 | Controls list | H | |
 | Mute music | M | |
 | Debug readout | F3 or ` | |
 
-Touch screens get an on-screen stick plus A / B / Z buttons.
+Touch screens get an on-screen stick plus A / B / Z buttons and an E button for talking.
 
 ## Code layout
 

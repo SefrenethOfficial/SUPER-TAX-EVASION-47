@@ -41,6 +41,7 @@ body.loaded #start .go { display: block; }
 #touch [data-btn="A"] { background: rgba(60, 110, 255, .65); width: 76px; height: 76px; }
 #touch [data-btn="B"] { background: rgba(40, 180, 80, .65); margin-bottom: 30px; }
 #touch [data-btn="Z"] { background: rgba(120, 120, 120, .65); }
+#touch [data-btn="E"] { background: rgba(200, 160, 60, .65); grid-column: 3; grid-row: 1; width: 56px; height: 56px; font-size: 22px; justify-self: center; }
 #touch [data-btn].down { filter: brightness(1.5); }
 @media (pointer: coarse) { #hint { display: none; } }
 

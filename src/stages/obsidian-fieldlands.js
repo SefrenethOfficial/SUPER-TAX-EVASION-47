@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { FieldEnemy } from '../fieldenemy.js?v=46';
-import { grassTuftTexture, brightWaterTexture, flowerTexture, plankTexture } from '../textures.js?v=46';
+import { FieldEnemy } from '../fieldenemy.js?v=47';
+import { grassTuftTexture, brightWaterTexture, flowerTexture, plankTexture } from '../textures.js?v=47';
 
 // ---------------------------------------------------------------------------
 // OBSIDIAN FIELDLANDS: a wide, sunlit basin far below the beach, reached down

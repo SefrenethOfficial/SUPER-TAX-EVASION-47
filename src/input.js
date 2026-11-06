@@ -11,11 +11,11 @@ export class Input {
     this.zoom = 0;
     this.buttons = { A: false, B: false, Z: false };
     this.prev = { A: false, B: false, Z: false };
-    this.pressed = { A: false, B: false, Z: false };
+    this.pressed = { A: false, B: false, Z: false, E: false };
     this.mouseButtons = { B: false, Z: false };
     this.pointerLocked = false;
     this.usingGamepad = false;
-    this.touch = { active: false, stickId: null, camId: null, sx: 0, sy: 0, x: 0, y: 0, A: false, B: false, Z: false, lastCam: null };
+    this.touch = { active: false, stickId: null, camId: null, sx: 0, sy: 0, x: 0, y: 0, A: false, B: false, Z: false, E: false, lastCam: null };
 
     addEventListener('keydown', (e) => {
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
@@ -71,7 +71,7 @@ export class Input {
       el.addEventListener('touchend', set(false), { passive: false });
       el.addEventListener('touchcancel', set(false), { passive: false });
     };
-    ['A', 'B', 'Z'].forEach(btn);
+    ['A', 'B', 'Z', 'E'].forEach(btn);
 
     const R = 55;
     addEventListener('touchstart', (e) => {
@@ -131,10 +131,11 @@ export class Input {
 
     let A = k.has('Space');
     let B = k.has('KeyJ') || k.has('KeyX') || this.mouseButtons.B;
+    let E = k.has('KeyE');            // talk / pick up / use
     let Z = k.has('ShiftLeft') || k.has('ShiftRight') || k.has('KeyK') || this.mouseButtons.Z;
 
     if (k.has('KeyQ')) this.cam.x -= 2.6 * dt;
-    if (k.has('KeyE')) this.cam.x += 2.6 * dt;
+    if (k.has('KeyG')) this.cam.x += 2.6 * dt;
     if (k.has('KeyR')) this.cam.y -= 1.5 * dt;
     if (k.has('KeyF')) this.cam.y += 1.5 * dt;
 
@@ -152,21 +153,22 @@ export class Input {
       if (b(0)) { A = true; this.usingGamepad = true; }
       if (b(2) || b(1)) { B = true; this.usingGamepad = true; }
       if (b(6) || b(7) || b(4) || b(5)) { Z = true; this.usingGamepad = true; }
+      if (b(3)) { E = true; this.usingGamepad = true; }
       break;
     }
 
     // Touch
     if (this.touch.active) {
       if (this.touch.stickId !== null) { mx = this.touch.x; my = this.touch.y; }
-      A = A || this.touch.A; B = B || this.touch.B; Z = Z || this.touch.Z;
+      A = A || this.touch.A; B = B || this.touch.B; Z = Z || this.touch.Z; E = E || this.touch.E;
     }
 
     len = Math.hypot(mx, my);
     if (len > 1) { mx /= len; my /= len; }
     this.move.x = mx; this.move.y = my;
 
-    this.buttons.A = A; this.buttons.B = B; this.buttons.Z = Z;
-    for (const n of ['A', 'B', 'Z']) {
+    this.buttons.A = A; this.buttons.B = B; this.buttons.Z = Z; this.buttons.E = E;
+    for (const n of ['A', 'B', 'Z', 'E']) {
       this.pressed[n] = this.buttons[n] && !this.prev[n];
       this.prev[n] = this.buttons[n];
     }

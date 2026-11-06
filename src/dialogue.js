@@ -107,6 +107,6 @@ export class Dialogue {
       if (inp.pressed.A) this.choose(this.sel);
       return;
     }
-    if (inp.pressed.A || inp.pressed.B) this.advance();
+    if (inp.pressed.A || inp.pressed.B || inp.pressed.E) this.advance();
   }
 }

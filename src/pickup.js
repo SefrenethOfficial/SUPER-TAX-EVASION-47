@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import { save, store, addItem, addWeapon } from './save.js?v=46';
-import { ITEMS, WEAPONS, weaponMesh } from './items.js?v=46';
+import { save, store, addItem, addWeapon } from './save.js?v=47';
+import { ITEMS, WEAPONS, weaponMesh } from './items.js?v=47';
 
 // ---------------------------------------------------------------------------
 // Things lying about to pick up: a glinting light over the spot, and the item
-// itself (weapons show their model). Walk up and press B. Each one has an id
+// itself (weapons show their model). Walk up and press E. Each one has an id
 // so it stays gone once taken.
 // ---------------------------------------------------------------------------
 
