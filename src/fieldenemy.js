@@ -114,7 +114,13 @@ export class FieldEnemy {
     const dx = this.pos.x - from.x, dz = this.pos.z - from.z, d = Math.hypot(dx, dz) || 1;
     const k = this.kind.maxHp > 20 ? 2.5 : 6;
     this.knock.set((dx / d) * k, 0, (dz / d) * k);
-    if (this.hp <= 0) { this.set('dying'); this.alive = false; if (this.onDie) this.onDie(this); return; }
+    if (this.hp <= 0) {
+      this.set('dying'); this.alive = false;
+      // it bursts apart: every piece of it goes flying
+      if (this.gibs) { this.glow(0, 0, 0); this.model.rotation.set(0, 0, 0); this.gibs.shatter(this.model, new THREE.Vector3(from.x, this.pos.y + 0.4, from.z), this.kind.maxHp > 20 ? 5 : 7); }
+      if (this.onDie) this.onDie(this);
+      return;
+    }
     // big ones only flinch out of a wind-up sometimes
     if (this.mode !== 'lunge' && this.mode !== 'windup' && (this.kind.maxHp < 20 ? Math.random() < 0.7 : Math.random() < 0.25)) this.set('stagger');
   }
@@ -123,6 +129,7 @@ export class FieldEnemy {
     const K = this.kind;
     this.t += dt; this.mt += dt;
     const m = this.model;
+    if (this.mode === 'dying' && this.gibs) { if (this.mt > 0.1) { this.scene.remove(this.root); this.mode = 'gone'; } return; }
     if (this.mode === 'dying') {
       // tips over, sinks and fades
       m.rotation.x = Math.min(1.4, this.mt * 4);

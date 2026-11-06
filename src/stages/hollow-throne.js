@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { rockTexture } from '../textures.js?v=48';
+import { rockTexture } from '../textures.js?v=49';
 
 // ---------------------------------------------------------------------------
 // THE HOLLOW THRONE: up a pass in the west wall of the Obsidian Fieldlands, a
@@ -146,8 +146,8 @@ const blendPose = (cur, want, k) => { for (const key of POSE_KEYS) cur[key] += (
 // he spins and leaps twice, and he adds rolling rings of fire (jump them) and
 // a rain of embers (keep moving).
 export class Warden {
-  constructor(model, { scene, G, telegraph, fx }) {
-    this.model = model; this.scene = scene; this.G = G; this.telegraph = telegraph; this.fx = fx;
+  constructor(model, { scene, G, telegraph, fx, gibs }) {
+    this.model = model; this.scene = scene; this.G = G; this.telegraph = telegraph; this.fx = fx; this.gibs = gibs;
     this.name = 'Hollow Warden';
     this.boss = true;
     this.pos = model.position;            // moves the model directly
@@ -327,6 +327,26 @@ export class Warden {
       applyPose(m, this.cur);
       this.pos.y = y;
       if (this.mt > 1 && Math.floor(this.mt * 6) !== Math.floor((this.mt - dt) * 6)) this.fx.sparkle(this.pos.clone().setY(y + 1 + Math.random() * 3), 8);
+      // on his knees, his head comes away from his shoulders and rolls; the
+      // sword falls from his hand; then the rest of him comes apart in embers
+      const r = ud.rig;
+      if (this.gibs && this.mt > 1.2 && !this.beheaded) {
+        this.beheaded = true;
+        const f = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw));
+        this.gibs.fling(r.head, f.clone().multiplyScalar(2.5).add(new THREE.Vector3(0, 4, 0)), { spin: 6, life: 30 });
+        this.fx.explode(this.pos.clone().setY(y + 3.2));
+        const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.05, 8), new THREE.MeshBasicMaterial({ color: 0xff7a20 }));
+        neck.position.y = 1.6; r.torso.add(neck);
+      }
+      if (this.gibs && this.mt > 1.9 && !this.dropped) {
+        this.dropped = true;
+        this.gibs.fling(r.sword, new THREE.Vector3(Math.cos(this.yaw) * 2, 1, -Math.sin(this.yaw) * 2), { spin: 3, life: 30 });
+      }
+      if (this.gibs && this.mt > 2.5 && !this.crumbled) {
+        this.crumbled = true;
+        this.gibs.shatter(this.model, this.pos.clone().setY(y + 1.5), 4);
+        this.fx.explode(this.pos.clone().setY(y + 2));
+      }
       return;
     }
     if (!this.engaged || !this.alive) { applyPose(m, this.cur); return; }

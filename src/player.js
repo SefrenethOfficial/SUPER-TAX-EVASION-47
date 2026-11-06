@@ -189,8 +189,75 @@ export function buildCharacter(gltfScene, { wood, eye, cone } = {}) {
     apply('kneeR', q.setFromAxisAngle(X, v.kneeR));
   }
   pose({}, 1);
+
+  // Cut a part off (for when you die): the triangles skinned to that bone (and
+  // everything below it) are copied, as posed right now, into a mesh of their
+  // own in the world, along with anything held or worn there; on the body the
+  // bone shrinks to nothing, leaving a stump. Returns the piece (or null).
+  const cut = [];
+  const v = new THREE.Vector3();
+  function sever(key, scene) {
+    const b = bones[BONES[key]];
+    if (!b || !skinned || b.scale.x < 0.01) return null;
+    const set = new Set();
+    b.traverse((o) => { if (o.isBone) set.add(skinned.skeleton.bones.indexOf(o)); });
+    const g = skinned.geometry, pos = g.attributes.position, uv = g.attributes.uv, si = g.attributes.skinIndex, sw = g.attributes.skinWeight;
+    const idx = g.index ? g.index.array : null, n = idx ? idx.length : pos.count;
+    const dom = (i) => { let best = 0, bw = -1; for (let k = 0; k < 4; k++) { const w = sw.getComponent(i, k); if (w > bw) { bw = w; best = si.getComponent(i, k); } } return best; };
+    const groups = g.groups.length ? g.groups : [{ start: 0, count: n, materialIndex: 0 }];
+    const P = [], U = [], G2 = [];
+    skinned.updateMatrixWorld(true);
+    for (const gr of groups) {
+      const start = P.length / 3;
+      for (let t = gr.start; t < gr.start + gr.count; t += 3) {
+        const tri = [0, 1, 2].map((k) => (idx ? idx[t + k] : t + k));
+        if (!tri.every((i) => set.has(dom(i)))) continue;
+        for (const i of tri) {
+          skinned.getVertexPosition(i, v); v.applyMatrix4(skinned.matrixWorld);
+          P.push(v.x, v.y, v.z);
+          if (uv) U.push(uv.getX(i), uv.getY(i)); else U.push(0, 0);
+        }
+      }
+      const count = P.length / 3 - start;
+      if (count) G2.push([start, count, gr.materialIndex || 0]);
+    }
+    if (!P.length) return null;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2));
+    for (const [st, c, m] of G2) geo.addGroup(st, c, m);
+    geo.computeBoundingBox();
+    const c = geo.boundingBox.getCenter(new THREE.Vector3());
+    geo.translate(-c.x, -c.y, -c.z);
+    geo.computeVertexNormals();
+    const mats = Array.isArray(skinned.material) ? skinned.material : [skinned.material];
+    const piece = new THREE.Group();
+    piece.position.copy(c);
+    piece.add(new THREE.Mesh(geo, mats.length > 1 ? mats : mats[0]));
+    scene.add(piece);
+    piece.updateMatrixWorld(true);
+    // things held or worn on it (a weapon, the hat): copied across as they are
+    b.traverse((o) => {
+      if (o.isBone || o === b) return;
+      if (o.parent && o.parent.isBone && (o.isMesh || o.isGroup)) {
+        const k = o.clone(true);
+        o.getWorldPosition(k.position); o.getWorldQuaternion(k.quaternion); o.getWorldScale(k.scale);
+        piece.attach(k);
+        k.position.copy(piece.worldToLocal(o.getWorldPosition(new THREE.Vector3())));
+      }
+    });
+    // a dark red cap over the cut
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshLambertMaterial({ color: 0x5a0a0a }));
+    piece.add(cap);
+    b.getWorldPosition(v); cap.position.copy(piece.worldToLocal(v.clone()));
+    b.scale.setScalar(0.0001);
+    cut.push(b);
+    return piece;
+  }
+  // put everything back on (a fresh life)
+  function mend() { for (const b of cut) b.scale.setScalar(1); cut.length = 0; }
   // the right forearm: things held in the hand hang off this (see setWeapon)
-  return { root, pose, hand: bones[BONES.elbowR] };
+  return { root, pose, hand: bones[BONES.elbowR], sever, mend };
 }
 
 // ---------------------------------------------------------------------------
@@ -224,6 +291,8 @@ export class Player {
   }
 
   reset() {
+    if (this.character && this.character.mend) this.character.mend();
+    this.gibs = [];
     this.pos = this.spawn.clone();
     this.vy = 0; this.fwd = 0; this.yaw = 0;
     this.state = 'ground'; this.t = 0;
@@ -259,10 +328,11 @@ export class Player {
       this.fx.shake(0.15);
       if (this.onGuard) this.onGuard(amount);
       if (this.onHurt) this.onHurt(this.health);
-      if (this.health <= 0) { this.setState('hurt'); if (this.onDeath) this.onDeath(); }
+      if (this.health <= 0) this.die(amount, fromX, fromZ);
       return true;
     }
     this.health = Math.max(0, this.health - amount);
+    if (this.health <= 0) { this.die(amount, fromX, fromZ); return true; }
     this.invuln = 2;
     this.yaw = Math.atan2(fromX - this.pos.x, fromZ - this.pos.z);   // face the hit
     this.fwd = -7 * power; this.vy = 9 * Math.sqrt(power); this.airControl = 0; this.airMax = Math.max(RUN, -this.fwd);
@@ -274,6 +344,68 @@ export class Player {
     if (this.onHurt) this.onHurt(this.health);
     if (this.health <= 0 && this.onDeath) this.onDeath();
     return true;
+  }
+
+  // Killed: the blow knocks you back, takes an arm off (and on a big hit, your
+  // head), and you stagger, drop to your knees and fall flat.
+  die(amount, fromX, fromZ) {
+    this.health = 0;
+    this.yaw = Math.atan2(fromX - this.pos.x, fromZ - this.pos.z);
+    this.fwd = -5; this.vy = 0;
+    this.setState('dead');
+    this.invuln = 0;
+    this.say('hurt');
+    this.fx.shake(0.6);
+    const scene = this.root.parent;
+    const away = new THREE.Vector3(this.pos.x - fromX, 0, this.pos.z - fromZ).normalize();
+    const fling = (key, up, side) => {
+      const piece = this.character.sever && this.character.sever(key, scene);
+      if (!piece) return;
+      const vel = away.clone().multiplyScalar(4 + Math.random() * 3);
+      vel.x += Math.cos(this.yaw) * side; vel.z -= Math.sin(this.yaw) * side;
+      vel.y = up;
+      this.gibs.push({ m: piece, vel, spin: new THREE.Vector3((Math.random() - 0.5) * 14, (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 14), rest: false });
+      this.bleed(piece.position, 16);
+    };
+    fling(Math.random() < 0.5 ? 'armR' : 'armL', 7, (Math.random() - 0.5) * 4);
+    if (amount >= 4 || Math.random() < 0.35) fling('head', 9, (Math.random() - 0.5) * 2);
+    if (this.onHurt) this.onHurt(0);
+    if (this.onDeath) this.onDeath();
+  }
+
+  // a spray of dark red droplets
+  bleed(at, n) {
+    const scene = this.root.parent;
+    this.dropMat = this.dropMat || new THREE.MeshBasicMaterial({ color: 0x6e0b0b });
+    this.dropGeo = this.dropGeo || new THREE.SphereGeometry(0.045, 5, 4);
+    for (let i = 0; i < n; i++) {
+      const m = new THREE.Mesh(this.dropGeo, this.dropMat);
+      m.position.copy(at);
+      scene.add(m);
+      this.gibs.push({ m, drop: true, life: 1.2 + Math.random() * 0.6, vel: new THREE.Vector3((Math.random() - 0.5) * 5, 2 + Math.random() * 4, (Math.random() - 0.5) * 5) });
+    }
+  }
+
+  // severed parts and droplets: fly, fall, bounce and settle
+  updateGibs(dt) {
+    if (!this.gibs || !this.gibs.length) return;
+    for (let i = this.gibs.length - 1; i >= 0; i--) {
+      const g = this.gibs[i], m = g.m;
+      if (g.rest) continue;
+      g.vel.y -= 22 * dt;
+      m.position.addScaledVector(g.vel, dt);
+      const fy = this.world.floorBelow(m.position.x, m.position.z, m.position.y + 0.5, 0);
+      const r = g.drop ? 0.02 : 0.12;
+      if (fy > -Infinity && m.position.y - r < fy) {
+        m.position.y = fy + r;
+        if (g.drop) { m.scale.set(1.6, 0.25, 1.6); g.rest = true; continue; }
+        g.vel.y = Math.abs(g.vel.y) * 0.3; g.vel.x *= 0.5; g.vel.z *= 0.5; g.spin.multiplyScalar(0.5);
+        if (g.vel.length() < 1.2) g.rest = true;
+        else if (Math.random() < 0.5) this.bleed(m.position, 3);
+      }
+      if (!g.drop) { m.rotation.x += g.spin.x * dt; m.rotation.y += g.spin.y * dt; m.rotation.z += g.spin.z * dt; }
+      else if ((g.life -= dt) < 0) { m.parent && m.parent.remove(m); this.gibs.splice(i, 1); }
+    }
   }
 
   heal(n) {
@@ -367,6 +499,7 @@ export class Player {
   // --- landing ---------------------------------------------------------------
   land() {
     const from = this.state;
+    if (from === 'dead') { this.vy = 0; this.grounded = true; return; }
     if (this.screaming && this.sfxStop) this.sfxStop('falling');
     this.screaming = false;
     const impact = Math.min(1, -this.vy / 25);
@@ -438,6 +571,7 @@ export class Player {
     // blink while invulnerable
     this.root.visible = this.invuln <= 0 || Math.floor(this.invuln * 12) % 2 === 0;
     this.animate(dt);
+    this.updateGibs(dt);
   }
 
   // State machine: inputs and velocities. Physics (collision) happens after.
@@ -527,6 +661,9 @@ export class Player {
         break;
       }
       case 'hurt': case 'starjump': case 'grabbed': case 'incannon':
+        break;
+      case 'dead':
+        this.fwd = approach(this.fwd, 0, 9 * dt);
         break;
       case 'cannonfly':
         if (Zp) { this.groundPound(); break; }
@@ -691,7 +828,8 @@ export class Player {
         // walked off a ledge
         const keep = this.state;
         this.grounded = false;
-        if (keep === 'bellyslide' || keep === 'slide') { this.setState('dive'); this.vy = 0; }
+        if (keep === 'dead') { this.vy = 0; }
+        else if (keep === 'bellyslide' || keep === 'slide') { this.setState('dive'); this.vy = 0; }
         else { this.setState('fall'); this.coyote = 0.08; this.vy = 0; this.airMax = Math.max(RUN, this.fwd); this.airControl = 1; }
       }
     } else {
@@ -922,6 +1060,19 @@ export class Player {
         // face down, arms out past the head, breathing
         pitch = 1.55; bob = -0.62 + Math.sin(performance.now() / 900) * 0.01;
         armL = 2.9; armR = 2.7; armSpread = 0.35; legL = -0.15; legR = -0.05; legSpread = 0.15; direct = true;
+        break;
+      }
+      case 'dead': {
+        // reel back from the blow, buckle to the knees, then pitch forward flat
+        const k1 = ease(Math.min(1, t / 0.35)), k2 = ease(Math.max(0, Math.min(1, (t - 0.35) / 0.4))), k3 = ease(Math.max(0, Math.min(1, (t - 0.85) / 0.35)));
+        pitch = lerp(lerp(0, -0.5, k1), 0.35, k2) + (1.55 - 0.35) * k3;
+        bob = lerp(0, -0.35, k2) + (-0.62 + 0.35) * k3;
+        roll = Math.sin(Math.min(1, t / 0.8) * Math.PI) * 0.18;
+        crouch = 0.35 * k2 * (1 - k3);
+        armL = lerp(lerp(0, -0.6, k1), 0.3, k2) * (1 - k3) + 2.2 * k3; armR = lerp(lerp(0, -0.4, k1), 0.2, k2) * (1 - k3) + 1.6 * k3;
+        armSpread = lerp(0.9 * k1, 0.4, k2);
+        legL = lerp(0, 1.2, k2) * (1 - k3) - 0.1 * k3; legR = lerp(0, 1.0, k2) * (1 - k3) + 0.05 * k3; legSpread = 0.2 * k3;
+        direct = true;
         break;
       }
       case 'getup': {

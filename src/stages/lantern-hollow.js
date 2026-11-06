@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { NPC } from '../npc.js?v=48';
-import { save, flag, addItem, learn } from '../save.js?v=48';
-import { plankTexture, rockTexture } from '../textures.js?v=48';
+import { NPC } from '../npc.js?v=49';
+import { save, flag, addItem, learn } from '../save.js?v=49';
+import { plankTexture, rockTexture } from '../textures.js?v=49';
 
 // ---------------------------------------------------------------------------
 // LANTERN HOLLOW: a green valley east of the Obsidian Fieldlands, through a

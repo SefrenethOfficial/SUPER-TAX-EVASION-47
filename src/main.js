@@ -1,22 +1,22 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Input } from './input.js?v=48';
-import { World } from './world.js?v=48';
-import { Player, buildCharacter } from './player.js?v=48';
-import { FX } from './fx.js?v=48';
-import { GameAudio } from './audio.js?v=48';
-import { Dialogue } from './dialogue.js?v=48';
-import { Combat } from './combat.js?v=48';
-import { BASE_MOVES, weaponMesh } from './items.js?v=48';
-import { save } from './save.js?v=48';
-import { Inventory, QUICK } from './inventory.js?v=48';
+import { Input } from './input.js?v=49';
+import { World } from './world.js?v=49';
+import { Player, buildCharacter } from './player.js?v=49';
+import { FX } from './fx.js?v=49';
+import { GameAudio } from './audio.js?v=49';
+import { Dialogue } from './dialogue.js?v=49';
+import { Combat } from './combat.js?v=49';
+import { BASE_MOVES, weaponMesh } from './items.js?v=49';
+import { save } from './save.js?v=49';
+import { Inventory, QUICK } from './inventory.js?v=49';
 // The open world, one area per module.
-import * as blank from './stages/blank.js?v=48';
-import * as beach from './stages/beach.js?v=48';
+import * as blank from './stages/blank.js?v=49';
+import * as beach from './stages/beach.js?v=49';
 
 // Bump VERSION (and the ?v= on every local import) whenever files change,
 // so browsers never mix old and new code.
-const VERSION = '48';
+const VERSION = '49';
 const STAGES = { beach, blank };
 
 const canvas = document.getElementById('game');
@@ -124,7 +124,7 @@ function updateCamera(dt, player) {
 let player = null, character = null;
 let S = null;   // the running stage
 
-function loadStage(key, { from } = {}) {
+function loadStage(key, { from, respawn } = {}) {
   const mod = STAGES[key];
   const scene = new THREE.Scene();
   const world = new World(scene, VERSION);
@@ -141,7 +141,12 @@ function loadStage(key, { from } = {}) {
     player.sfx = (n) => audio.voice(n);
     player.sfxStop = (n) => audio.stopVoice(n);
     // knocked down for good: YOU FELL, and you come round where you last rested
-    player.onDeath = () => { banner('YOU FELL', 'died'); setTimeout(() => go(S.key), 2600); };
+    // ...and you come round in the same part of the world you fell in
+    player.onDeath = () => {
+      banner('YOU FELL', 'died');
+      const at = S.level.respawnFor ? S.level.respawnFor(player.pos) : null;
+      setTimeout(() => go(S.key, { respawn: at }), 3200);
+    };
     player.canGuard = () => save.learned.includes('guard');
     player.onGuard = (n) => S.combat.float(player.pos.clone().setY(player.pos.y + 2.3), `Guarded (${n})`, 'note');
   } else {
@@ -150,11 +155,12 @@ function loadStage(key, { from } = {}) {
   }
   // arriving from another area: use that area's entrance if there is one
   const entry = from && level.entrances && level.entrances[from];
-  player.spawn.copy(entry ? entry.pos : level.spawn);
-  player.spawnYaw = entry ? entry.yaw : level.spawnYaw;
+  player.spawn.copy(respawn ? respawn.pos : entry ? entry.pos : level.spawn);
+  player.spawnYaw = respawn ? respawn.yaw : entry ? entry.yaw : level.spawnYaw;
   player.reset();
   player.yaw = player.spawnYaw;
-  if (level.startLying && !entry) player.setState('washed');   // wake up on the ground
+  if (respawn || (level.startLying && !entry)) player.setState('washed');   // come round on the ground
+  if (respawn) player.invuln = 4;          // a moment's grace to get up before anything can hit you
 
   player.tryGrab = null; player.onThrow = null;
   S = { key, mod, scene, world, fx, level, combat, portals: level.portals || [], busy: false, talkWith: null, areaMusic: mod.MUSIC, playing: undefined, fightMusic: 0 };

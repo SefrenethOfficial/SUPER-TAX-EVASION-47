@@ -1,14 +1,15 @@
 import * as THREE from 'three';
-import { Terrain } from '../terrain.js?v=48';
-import { ShyGhost } from '../ghost.js?v=48';
-import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture, obsidianTexture, strataTexture } from '../textures.js?v=48';
-import * as Fieldlands from './obsidian-fieldlands.js?v=48';
-import * as Hollow from './lantern-hollow.js?v=48';
-import * as Throne from './hollow-throne.js?v=48';
-import { NPC } from '../npc.js?v=48';
-import { Pickup } from '../pickup.js?v=48';
-import { save, store, flag, learn } from '../save.js?v=48';
-import { telegraph } from '../combat.js?v=48';
+import { Terrain } from '../terrain.js?v=49';
+import { ShyGhost } from '../ghost.js?v=49';
+import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture, obsidianTexture, strataTexture } from '../textures.js?v=49';
+import * as Fieldlands from './obsidian-fieldlands.js?v=49';
+import * as Hollow from './lantern-hollow.js?v=49';
+import * as Throne from './hollow-throne.js?v=49';
+import { NPC } from '../npc.js?v=49';
+import { Pickup } from '../pickup.js?v=49';
+import { save, store, flag, learn } from '../save.js?v=49';
+import { telegraph } from '../combat.js?v=49';
+import { Gibs } from '../gibs.js?v=49';
 
 // ---------------------------------------------------------------------------
 // THE WASHED-UP BEACH: the first area of the open world. You wake up face down
@@ -400,7 +401,8 @@ export function build(world, { models = {}, combat } = {}) {
   combat.addAlly({ kind: 'melee', every: 2.8, dmg: 3, range: 10, from: () => marrow.pos,
     active: () => inParty('marrow') && !marrowHit,
     onMelee: (foe, hit) => { marrowHit = { foe, t: 0, hit }; } });
-  for (const e of fields.enemies) combat.add(e);
+  const gibs = new Gibs(scene, G);
+  for (const e of fields.enemies) { e.gibs = gibs; combat.add(e); }
 
   // --- Region names and music ------------------------------------------------------
   const regionOf = (P) => (Throne.contains(P.pos.x, P.pos.z) ? 'throne' : Hollow.contains(P.pos.x, P.pos.z) ? 'hollow' : fields.inside ? 'fields' : 'beach');
@@ -435,7 +437,7 @@ export function build(world, { models = {}, combat } = {}) {
     game.music(Throne.MUSIC);
     setTimeout(() => { throne.rise(); game.banner('THE HOLLOW WARDEN'); }, 900);
     setTimeout(() => {
-      warden = new Throne.Warden(throne.warden, { scene, G, telegraph, fx: game.fx });
+      warden = new Throne.Warden(throne.warden, { scene, G, telegraph, fx: game.fx, gibs });
       throne.fighting = true;
       warden.onPhase = () => game.toast("The Warden's armour splits open. Fire pours out!");
       warden.onDie = () => {
@@ -447,7 +449,7 @@ export function build(world, { models = {}, combat } = {}) {
           combat.remove(warden); warden.remove(); warden = null;
           scene.add(bossReward.root);
           game.toast('The fog clears from the throne.');
-        }, 2600);
+        }, 3400);
       };
       combat.add(warden);
       warden.start();
@@ -479,6 +481,7 @@ export function build(world, { models = {}, combat } = {}) {
       }
       hollow.update(dt, P);
       throne.update(dt);
+      gibs.update(dt);
       if (warden) {
         warden.update(dt, P);
         // no leaving till it's over: the fog walls the arena in
@@ -665,7 +668,25 @@ export function build(world, { models = {}, combat } = {}) {
     return null;
   };
   marrow.following = inParty('marrow');
+
+  // Where you come round after falling: back in the same part of the world,
+  // at the nearest safe spot to where you went down (souls-style, the
+  // monsters are back too).
+  const RESPAWNS = {
+    beach: [[sx, sz, 0], [0, 60, 0], [-30, 20, 0.5], [30, 20, -0.5]],
+    fields: [[2, 262, 0], [Fieldlands.CAMP.x - 3, Fieldlands.CAMP.z + 2, 0], [-4, 290, 0], [-9, 314, 0], [-30, 342, 0.5], [-16, 372, 0],
+      [Fieldlands.HEIGHTS.x - 4, Fieldlands.HEIGHTS.z - 6, 0], [40, 300, 0], [70, 350, 0], [-60, 370, 0.8], [30, 430, 0], [-40, 300, 0]],
+    hollow: [[hollow.restSpot.x, hollow.restSpot.z, hollow.restYaw], [150, 280, Math.PI / 2]],
+    throne: [[Throne.GATE.x + 6, Throne.GATE.z, -Math.PI / 2], [-170, Throne.PLATEAU.z, -Math.PI / 2]],   // outside the fog, never in the arena
+  };
+  const respawnFor = (pos) => {
+    const r = Throne.contains(pos.x, pos.z) ? 'throne' : Hollow.contains(pos.x, pos.z) ? 'hollow' : pos.z > Fieldlands.SLOPE.z1 - 10 ? 'fields' : 'beach';
+    let best = null, bd = Infinity;
+    for (const [x, z, yaw] of RESPAWNS[r]) { const d = Math.hypot(pos.x - x, pos.z - z); if (d < bd) { bd = d; best = { pos: new THREE.Vector3(x, G(x, z) + 0.05, z), yaw }; } }
+    return best;
+  };
   return {
+    respawnFor,
     spawn: rested ? hollow.restSpot.clone() : new THREE.Vector3(sx, G(sx, sz), sz),
     spawnYaw: rested ? hollow.restYaw : 0,
     startLying: !rested,
