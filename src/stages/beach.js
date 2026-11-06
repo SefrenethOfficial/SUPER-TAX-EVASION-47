@@ -1,13 +1,13 @@
 import * as THREE from 'three';
-import { Terrain } from '../terrain.js?v=43';
-import { ShyGhost } from '../ghost.js?v=43';
-import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture, obsidianTexture } from '../textures.js?v=43';
-import * as Fieldlands from './obsidian-fieldlands.js?v=43';
-import * as Hollow from './lantern-hollow.js?v=43';
-import * as Throne from './hollow-throne.js?v=43';
-import { NPC } from '../npc.js?v=43';
-import { Pickup } from '../pickup.js?v=43';
-import { save, store, flag, learn, addWeapon, addItem } from '../save.js?v=43';
+import { Terrain } from '../terrain.js?v=45';
+import { ShyGhost } from '../ghost.js?v=45';
+import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture, obsidianTexture, strataTexture } from '../textures.js?v=45';
+import * as Fieldlands from './obsidian-fieldlands.js?v=45';
+import * as Hollow from './lantern-hollow.js?v=45';
+import * as Throne from './hollow-throne.js?v=45';
+import { NPC } from '../npc.js?v=45';
+import { Pickup } from '../pickup.js?v=45';
+import { save, store, flag, learn, addWeapon, addItem } from '../save.js?v=45';
 
 // ---------------------------------------------------------------------------
 // THE WASHED-UP BEACH: the first area of the open world. You wake up face down
@@ -174,13 +174,13 @@ export function build(world, { models = {} } = {}) {
   const terrain = new Terrain({
     ...AREA, res: 1.5, height: Throne.withThrone(Hollow.withHollow(Fieldlands.withFieldlands(height))),
     paths: [Fieldlands.PATH,
-      { width: 3.5, points: [[40, 300], [90, 284], [120, 280], [184, 281], [214, 299]] },               // east, to the tavern
-      { width: 3.5, points: [[-20, 340], [-70, 396], [-112, 404], [-180, 404], [Throne.GATE.x + 2, 404]] },   // west, to the throne
+      { width: 3.5, points: [[-4, 292], [40, 296], [90, 284], [120, 280], [184, 281], [214, 299]] },     // east, to the tavern
+      { width: 3.5, points: [[-30, 342], [-52, 380], [-80, 398], [-112, 404], [-180, 404], [Throne.GATE.x + 2, 404]] },   // west, to the throne
     ],
-    grass: grassTexture(), cliff: rockTexture(), path: dirtTexture(),
-    rock: obsidianTexture(), rockZone: new THREE.Vector3(Fieldlands.CENTRE.x, Fieldlands.CENTRE.z, 175),   // obsidian cliffs round the basin
+    grass: grassTexture(), cliff: strataTexture(), path: dirtTexture(),
+    rock: obsidianTexture(), rockZone: new THREE.Vector3(Fieldlands.OBSIDIAN.x, Fieldlands.OBSIDIAN.z, Fieldlands.OBSIDIAN.r),   // the black glass cliffs of the falls
     fields: { x: Fieldlands.CENTRE.x, z: Fieldlands.CENTRE.z, r: 150 },
-    groundZones: Fieldlands.OBSIDIAN_FLATS,                    // patches of black glass ground
+    groundZones: Fieldlands.OBSIDIAN_GROUND,                   // black glass round the pool under the falls
     sand: sandTexture(), sandTop: SAND_TOP, sandMaxZ: 70,
     grade: { sat: 0.6, tint: new THREE.Color(0.92, 0.93, 0.94) },
   });
@@ -317,16 +317,16 @@ export function build(world, { models = {} } = {}) {
     { id: 'herb-beach', item: 'herb', x: -30, z: 6 },
     { id: 'herb-f1', item: 'herb', x: 22, z: 312 },
     { id: 'herb-f2', item: 'herb', x: -46, z: 372 },
-    { id: 'herb-f3', item: 'herb', count: 2, x: 66, z: 418 },
-    { id: 'tonic-west', item: 'tonic', x: -86, z: 312 },               // up the West Peak
-    { id: 'tonic-east', item: 'tonic', x: 96, z: 392 },                // up the East Range
-    { id: 'dagger', weapon: 'dagger', x: 54, z: 459 },                  // on top of Obsidian Peak
+    { id: 'herb-f3', item: 'herb', count: 2, x: 74, z: 422 },
+    { id: 'tonic-west', item: 'tonic', x: 12, z: 404 },                // on the plateau
+    { id: 'tonic-east', item: 'tonic', x: 88, z: 338 },                // at the foot of the great tree
+    { id: 'dagger', weapon: 'dagger', x: 38, z: 450 },                  // among the black rocks under the falls
     { id: 'ember-flat', item: 'ember', x: -36, z: 300 },
   ].map((p) => new Pickup(scene, { ...p, pos: new THREE.Vector3(p.x, G(p.x, p.z), p.z) }));
 
-  // --- The hermit on the West Peak: teaches Skybreaker to anyone who climbs up --------
-  const peak = Fieldlands.MOUNTAINS[0];
-  const hermit = new NPC(scene, { name: 'Hermit', pos: { x: peak.x + 2.5, z: peak.z + 1 }, ground: G, yaw: Math.PI / 2,
+  // --- The hermit on the plateau: teaches Skybreaker to anyone who climbs up ---------
+  const peak = Fieldlands.HEIGHTS;
+  const hermit = new NPC(scene, { name: 'Hermit', pos: { x: peak.x + 2.5, z: peak.z + 1 }, ground: G, yaw: -2.4,
     look: { skin: 0xb89a80, shirt: 0x6a6a5a, pants: 0x4a4a40, cloak: 0x5a5448, hat: 'wide', hatColor: 0x5a5040, beard: 0xe8e8e0, height: 1.7 } });
   const talkHermit = (game) => game.talk(save.learned.includes('skybreaker') ? [
     { who: 'Hermit', text: 'Still here? The view is the same as ever. Go on, use what I showed you.' },

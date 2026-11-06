@@ -10,7 +10,9 @@ The first area. You wake up face down on the sand in thick sea fog under a heavy
 
 ## Obsidian Fieldlands
 
-Past the grassland north of the beach, a dirt path runs down a long slope to a wide basin way below. From above it's lost in the fog; step down into it and the fog lifts, the sky turns blue and the fieldlands' music starts (and the fog comes back if you climb up to the beach again). It's a patchwork of grass fields with patches of tall grass swaying in the wind, broken up by **obsidian flats** (patches of black glass ground bristling with forests of glass spires and shards) and **mountains**: the tall West Peak, the East Range, the North Ridge and **Obsidian Peak**, a mountain of black glass crowned with great spires. Jagged peaks rise behind the obsidian cliffs all round.
+Past the grassland north of the beach, a dirt path runs down a long slope to a wide basin way below. From above it's lost in the fog; step down into it and the fog lifts, the sky turns blue and the fieldlands' music starts (and the fog comes back if you climb up to the beach again).
+
+It's styled after the Obsidian Fieldlands of *Pokémon Legends: Arceus*: rolling, sunlit green plains with big patches of tall grass swaying in the wind and wildflowers everywhere, a little **camp** of tents where the path comes down, a **river** winding through the plains (with a wooden bridge where the path crosses), fed by a **waterfall** pouring over dark obsidian cliffs at the far end, a **lake** ringed by cliffs of layered rock, a raised **plateau** in the middle with woods on top and a path up its south side, a deep **forest** in the east around one enormous tree, a **flower meadow**, rock stacks, boulders and scattered trees, and a great snow-capped mountain on the hazy horizon.
 
 **Enemies** roam the fields: **Shardlings** (little hopping shards of obsidian; 8 Health, hit for 2) and **Thornbacks** (mossy grazers with obsidian spines; 15 Health, hit for 3). They wander, chase you when you get close, and touching one starts a battle. Beaten enemies are gone; run away and they leave you alone for a few seconds. If your party is knocked out you come round on the beach again, and the enemies are back. Out of battle your Health slowly comes back.
 
@@ -22,7 +24,7 @@ Through a pass in the east wall of the fieldlands (follow the path east), a gree
 - **Marrow**, a sellsword with a lantern: **recruitable**. He walks behind you and fights in your party (14 Health; Lantern Bash, Cleave, Guard, Catch Breath). Ask him to wait and he stays where you leave him.
 - **Old Bruno**, a retired guardsman: a **move teacher**. Teaches **Guard** (1 SP, half damage until your next turn) and **Heavy Swing** (5 SP, 6–8 damage; he wants you to have a weapon first).
 
-A **Hermit** at the top of the **West Peak** teaches **Skybreaker** (7 SP, a two-hit leap and crash, 9–11) to anyone who makes the climb.
+A **Hermit** on top of the **plateau** in the middle of the fieldlands teaches **Skybreaker** (7 SP, a two-hit leap and crash, 9–11) to anyone who makes the climb.
 
 ## The Hollow Throne
 
@@ -32,8 +34,8 @@ Up a pass in the west wall of the fieldlands (follow the path west), a dark, smo
 
 Press **I** (or **Tab**) to open your **bag**: equip a weapon, use Herbs and the like on yourself, and see your moves and party. On PC the mouse is freed while it's open: click **Equip** / **Use**, or move with W / S or the arrow keys and press Space, Enter or E; I, Tab or Esc closes it. Items can also be used in battle with **Item**.
 
-- **Weapons** add damage to every blow you land, and you hold the one you've equipped: **Driftwood Club** (+1, washed up by the wreck), **Obsidian Dagger** (+2, on top of Obsidian Peak), **Ashen Blade** (+4, from the Warden).
-- **Items**: **Herb** (+4 Health), **Hearth Salve** (+8 Health), **Tonic** (+5 Stamina), **Ember Flask** (thrown in battle for 7 damage). Look for the glints: around the beach and fields, up the West Peak and the East Range, and from Hesta.
+- **Weapons** add damage to every blow you land, and you hold the one you've equipped: **Driftwood Club** (+1, washed up by the wreck), **Obsidian Dagger** (+2, among the black rocks under the waterfall), **Ashen Blade** (+4, from the Warden).
+- **Items**: **Herb** (+4 Health), **Hearth Salve** (+8 Health), **Tonic** (+5 Stamina), **Ember Flask** (thrown in battle for 7 damage). Look for the glints: around the beach and fields, on the plateau, by the great tree, and from Hesta.
 - **Moves**: Punch, Kick, Flurry and Catch Breath to start, plus whatever the teachers show you.
 
 Your party's Health carries over between fights until you rest. Everything (items, weapons, moves, recruits, the Warden) is saved in the browser.
@@ -75,7 +77,7 @@ Touch screens get an on-screen stick plus A / B / Z buttons.
 - `src/terrain.js`: heightmap terrain (sand, grass, rock and path blending, colour grading)
 - `src/textures.js`: procedural textures (sand, grass, rock, dirt, planks, water) painted at load time
 - `src/audio.js`: music and voice lines
-- `src/stages/obsidian-fieldlands.js`: the basin below the beach (shares the beach's ground): slope, fields, obsidian, tall grass, enemies, the fog lifting
+- `src/stages/obsidian-fieldlands.js`: the basin below the beach (shares the beach's ground): plains, river, falls, lake, plateau, forest, camp, tall grass, flowers, enemies, the weather
 - `src/fieldenemy.js`: enemies out in the world (Shardling, Thornback): wander, chase, start a battle on touch
 - `src/stages/lantern-hollow.js`: the valley and tavern east of the fieldlands, with Hesta, Marrow and Old Bruno
 - `src/stages/hollow-throne.js`: the boss arena west of the fieldlands, the fog gate and the Hollow Warden

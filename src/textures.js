@@ -43,12 +43,12 @@ export function sandTexture() {
 export function grassTexture() {
   return canvasTexture(128, (g, n) => {
     const r = rng(19);
-    g.fillStyle = '#4c5a3c'; g.fillRect(0, 0, n, n);
-    speckle(g, n, r, 2600, ['rgba(40,52,32,0.55)', 'rgba(96,110,72,0.45)', 'rgba(70,76,52,0.5)', 'rgba(110,104,78,0.3)']);
+    g.fillStyle = '#6a8c40'; g.fillRect(0, 0, n, n);
+    speckle(g, n, r, 2600, ['rgba(52,84,36,0.5)', 'rgba(120,150,78,0.45)', 'rgba(84,112,52,0.5)', 'rgba(140,140,86,0.25)']);
     // blades
     for (let i = 0; i < 700; i++) {
       const x = r() * n, y = r() * n, l = 2 + r() * 4;
-      g.strokeStyle = r() < 0.5 ? 'rgba(110,126,84,0.5)' : 'rgba(34,44,28,0.5)';
+      g.strokeStyle = r() < 0.5 ? 'rgba(140,176,92,0.5)' : 'rgba(40,66,30,0.45)';
       g.lineWidth = 1; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (r() - 0.5) * 2, y - l); g.stroke();
     }
   });
@@ -124,7 +124,7 @@ export function waterTexture() {
 export function obsidianTexture() {
   return canvasTexture(128, (g, n) => {
     const r = rng(71);
-    g.fillStyle = '#121117'; g.fillRect(0, 0, n, n);
+    g.fillStyle = '#2b2933'; g.fillRect(0, 0, n, n);
     for (let i = 0; i < 40; i++) {
       const x = r() * n, y = r() * n, l = 20 + r() * 60, a = -0.6 + r() * 0.3;
       g.strokeStyle = r() < 0.5 ? 'rgba(120,100,170,0.16)' : 'rgba(200,200,215,0.10)';
@@ -140,11 +140,66 @@ export function grassTuftTexture() {
   const t = canvasTexture(64, (g, n) => {
     const r = rng(83);
     g.clearRect(0, 0, n, n);
-    for (let i = 0; i < 26; i++) {
+    for (let i = 0; i < 40; i++) {
       const x = 6 + r() * (n - 12), h = n * (0.45 + r() * 0.55), lean = (r() - 0.5) * 18, w = 2 + r() * 2.5;
       const shade = 0.75 + r() * 0.35;
-      g.fillStyle = `rgb(${Math.floor(92 * shade)},${Math.floor(142 * shade)},${Math.floor(58 * shade)})`;
+      g.fillStyle = `rgb(${Math.floor(58 * shade)},${Math.floor(112 * shade)},${Math.floor(44 * shade)})`;
       g.beginPath(); g.moveTo(x - w, n); g.quadraticCurveTo(x + lean * 0.3, n - h * 0.6, x + lean, n - h); g.quadraticCurveTo(x + lean * 0.3 + 1, n - h * 0.6, x + w, n); g.fill();
+    }
+  });
+  t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+  return t;
+}
+
+// Layered cliff rock, light grey and buff, in horizontal strata (cliffs are
+// textured with world height as one axis, so the bands run level).
+export function strataTexture() {
+  const t = canvasTexture(256, (g, n) => {
+    const r = rng(97);
+    let y = 0;
+    while (y < n) {
+      const h = 6 + r() * 22, k = r();
+      const base = k < 0.33 ? [178, 172, 160] : k < 0.66 ? [156, 150, 140] : [194, 184, 162];
+      const v = 0.9 + r() * 0.16;
+      g.fillStyle = `rgb(${Math.floor(base[0] * v)},${Math.floor(base[1] * v)},${Math.floor(base[2] * v)})`;
+      g.fillRect(0, y, n, h + 1);
+      g.fillStyle = 'rgba(70,64,56,0.35)'; g.fillRect(0, y + h - 1.5, n, 1.5);      // the seam under each layer
+      y += h;
+    }
+    speckle(g, n, r, 4000, ['rgba(90,84,74,0.25)', 'rgba(230,226,214,0.22)']);
+    // vertical cracks
+    g.strokeStyle = 'rgba(60,56,50,0.35)'; g.lineWidth = 1.2;
+    for (let i = 0; i < 26; i++) { let x = r() * n, yy = r() * n; g.beginPath(); g.moveTo(x, yy); for (let k = 0; k < 4; k++) { x += (r() - 0.5) * 8; yy += 6 + r() * 12; g.lineTo(x, yy); } g.stroke(); }
+  });
+  return t;
+}
+
+// Bright river and lake water, with glints.
+export function brightWaterTexture() {
+  return canvasTexture(128, (g, n) => {
+    const r = rng(101);
+    g.fillStyle = '#3f9fcf'; g.fillRect(0, 0, n, n);
+    for (let i = 0; i < 14; i++) {
+      const y0 = r() * n, x0 = r() * n, l = 20 + r() * 30;
+      g.strokeStyle = 'rgba(220,245,255,0.45)'; g.lineWidth = 1.5;
+      g.beginPath(); for (let x = 0; x <= l; x += 4) g.lineTo((x0 + x) % n, y0 + Math.sin(x * 0.35) * 2.5); g.stroke();
+    }
+    speckle(g, n, r, 120, ['rgba(255,255,255,0.6)']);
+  });
+}
+
+// One small wildflower head (white, yellow or pink petals) on a transparent background.
+export function flowerTexture() {
+  const t = canvasTexture(64, (g, n) => {
+    g.clearRect(0, 0, n, n);
+    const r = rng(113);
+    const cols = ['#f4f1e4', '#f2d64a', '#ee9ab8', '#c9b6f0'];
+    for (let i = 0; i < 9; i++) {
+      const x = 7 + r() * (n - 14), y = n * 0.2 + r() * n * 0.4, s = 4 + r() * 3, c = cols[Math.floor(r() * cols.length)];
+      g.strokeStyle = '#4c7a34'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (r() - 0.5) * 4, n); g.stroke();
+      g.fillStyle = c;
+      for (let p = 0; p < 5; p++) { const a = (p / 5) * Math.PI * 2; g.beginPath(); g.arc(x + Math.cos(a) * s * 0.7, y + Math.sin(a) * s * 0.7, s * 0.55, 0, Math.PI * 2); g.fill(); }
+      g.fillStyle = '#e8b030'; g.beginPath(); g.arc(x, y, s * 0.35, 0, Math.PI * 2); g.fill();
     }
   });
   t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;

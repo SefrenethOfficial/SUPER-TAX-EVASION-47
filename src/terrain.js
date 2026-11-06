@@ -15,7 +15,7 @@ export class Terrain {
   // (x, z, radius), e.g. red rock on a mountain.
   // sand / sandTop: optional sand texture on everything below sandTop (a beach).
   // grade: { sat, tint } colour grading for moodier areas (sat 1 = untouched).
-  // fields: { x, z, r }: inside this circle the grass is a patchwork of fields.
+  // fields: { x, z, r }: inside this circle the grass varies in big soft meadows.
   // sandMaxZ: no sand north of this (so low ground far inland stays grass).
   // groundZones: [{ x, z, r }, ...] (up to 6): flat ground inside these is the rock texture too (e.g. obsidian flats).
   constructor({ minX, maxX, minZ, maxZ, res, height, paths = [], grass, cliff, path, rock = null, rockZone = null, sand = null, sandTop = -1e9, sandMaxZ = 1e9, grade = null, fields = null, groundZones = [] }) {
@@ -157,17 +157,14 @@ vec4 g = texture2D(grassMap, vWPos.xz / 2.5);
 // large-scale tint so the field doesn't look tiled
 float tint = 0.88 + 0.12 * sin(vWPos.x * 0.06) * sin(vWPos.z * 0.05 + 1.7) + 0.06 * sin(vWPos.x * 0.013 + vWPos.z * 0.021);
 g.rgb *= vec3(tint, 0.96 + 0.06 * tint, tint);
-// a patchwork of grass fields, each its own shade, with darker hedgerow edges
+// meadows: big soft swathes of lighter, sunnier grass and cooler, deeper green
 if (fieldZone.z > 0.0) {
   float inF = 1.0 - smoothstep(fieldZone.z - 20.0, fieldZone.z, distance(vWPos.xz, fieldZone.xy));
-  vec2 q = mat2(0.94, -0.34, 0.34, 0.94) * vWPos.xz / 24.0;
-  q += 0.25 * vec2(sin(q.y * 1.7), sin(q.x * 1.3));
-  vec2 cell = floor(q), f = fract(q);
-  float h = fhash(cell);
-  vec3 shade = h < 0.25 ? vec3(1.15, 1.12, 0.62) : h < 0.5 ? vec3(0.78, 1.0, 0.7) : h < 0.75 ? vec3(1.05, 1.18, 0.85) : vec3(0.9, 0.95, 0.6);
-  float edge = smoothstep(0.0, 0.05, min(min(f.x, 1.0 - f.x), min(f.y, 1.0 - f.y)));
-  shade *= mix(0.55, 1.0, edge);
-  g.rgb = mix(g.rgb, g.rgb * shade, inF);
+  float n1 = sin(vWPos.x * 0.021 + sin(vWPos.z * 0.017) * 2.0) * 0.5 + 0.5;
+  float n2 = sin(vWPos.z * 0.029 + vWPos.x * 0.012 + 1.3) * 0.5 + 0.5;
+  float n3 = sin(vWPos.x * 0.083 + vWPos.z * 0.061) * 0.5 + 0.5;
+  vec3 meadow = mix(vec3(0.86, 0.98, 0.84), vec3(1.14, 1.12, 0.8), n1 * n2) * (0.95 + 0.1 * n3);
+  g.rgb = mix(g.rgb, g.rgb * meadow, inF);
 }
 // sand below the beach line, with a wobbly edge
 float sandEdge = sandTop + 0.5 * sin(vWPos.x * 0.21) + 0.35 * sin(vWPos.z * 0.17 + vWPos.x * 0.05);

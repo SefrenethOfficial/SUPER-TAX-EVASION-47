@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { NPC } from '../npc.js?v=43';
-import { save, flag, addItem, learn } from '../save.js?v=43';
-import { plankTexture, rockTexture } from '../textures.js?v=43';
+import { NPC } from '../npc.js?v=45';
+import { save, flag, addItem, learn } from '../save.js?v=45';
+import { plankTexture, rockTexture } from '../textures.js?v=45';
 
 // ---------------------------------------------------------------------------
 // LANTERN HOLLOW: a green valley east of the Obsidian Fieldlands, through a
@@ -103,7 +103,7 @@ function talkBruno(ctx) {
   if (!save.learned.includes('heavy')) opts.push(['Teach me Heavy Swing', 'heavy']);
   if (!opts.length) {
     return game.talk([{ who: 'Old Bruno', text: "I've nothing left to teach you. Go and use it." },
-      { who: 'Old Bruno', text: "They say there's a hermit up on the West Peak who knows a trick or two. If your legs can take the climb." }], { with: ctx.npc.root.position });
+      { who: 'Old Bruno', text: "They say there's a hermit up on the plateau in the middle of the fieldlands who knows a trick or two. Take the path up its south side." }], { with: ctx.npc.root.position });
   }
   return game.talk([
     { who: 'Old Bruno', text: save.flags.metBruno ? 'Back for another lesson?' : "Old Bruno. Thirty years in the Warden's guard, before he... well. I can still teach a thing or two." },

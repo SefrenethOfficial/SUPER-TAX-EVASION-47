@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { ITEMS } from './items.js?v=43';
-import { save, useItem } from './save.js?v=43';
+import { ITEMS } from './items.js?v=45';
+import { save, useItem } from './save.js?v=45';
 
 // ---------------------------------------------------------------------------
 // Turn-based battles. Exploring stops, the camera swings round to a side view

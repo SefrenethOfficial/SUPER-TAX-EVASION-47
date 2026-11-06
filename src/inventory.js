@@ -1,5 +1,5 @@
-import { ITEMS, WEAPONS, LEARNABLE } from './items.js?v=43';
-import { save, useItem, equip } from './save.js?v=43';
+import { ITEMS, WEAPONS, LEARNABLE } from './items.js?v=45';
+import { save, useItem, equip } from './save.js?v=45';
 
 // ---------------------------------------------------------------------------
 // The bag: press I (or Tab, or Select on a pad) while exploring. Shows your
