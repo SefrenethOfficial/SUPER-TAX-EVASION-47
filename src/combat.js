@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { WEAPONS, ITEMS } from './items.js?v=47';
-import { save, useItem } from './save.js?v=47';
+import { WEAPONS, ITEMS } from './items.js?v=48';
+import { save, useItem } from './save.js?v=48';
 
 // ---------------------------------------------------------------------------
 // Real-time combat. Your moves are your attacks: the punch combo (punch,

@@ -13,8 +13,8 @@ const glass = () => new THREE.MeshPhongMaterial({ color: 0x17151d, specular: 0x8
 export const KINDS = {
   // a little hopping shard of obsidian with glowing eyes
   shardling: {
-    name: 'Shardling', maxHp: 6, atk: 1, windup: 0.5, lunge: 9, recover: 0.8, reach: 1.6,
-    speed: 5.2, sight: 11, radius: 0.55, top: 1.9,
+    name: 'Shardling', maxHp: 16, atk: 2, windup: 0.4, lunge: 10, recover: 0.6, reach: 1.7, combo: 2,
+    speed: 6.2, sight: 13, radius: 0.55, top: 1.9,
     build() {
       const g = new THREE.Group();
       const body = new THREE.Mesh(new THREE.OctahedronGeometry(0.55, 0), glass());
@@ -37,8 +37,8 @@ export const KINDS = {
   },
   // a mossy, round grazer with obsidian spines down its back
   thornback: {
-    name: 'Thornback', maxHp: 14, atk: 2, windup: 0.75, lunge: 13, recover: 1.2, reach: 2.4,
-    speed: 4.2, sight: 13, radius: 0.95, top: 2.4,
+    name: 'Thornback', maxHp: 34, atk: 3, windup: 0.6, lunge: 15, recover: 0.95, reach: 2.6, combo: 1,
+    speed: 5.0, sight: 15, radius: 0.95, top: 2.4,
     build() {
       const g = new THREE.Group();
       const moss = new THREE.MeshLambertMaterial({ color: 0x4f6a3a, flatShading: true });
@@ -112,11 +112,11 @@ export class FieldEnemy {
     this.engaged = true;
     this.flash = 0.15;
     const dx = this.pos.x - from.x, dz = this.pos.z - from.z, d = Math.hypot(dx, dz) || 1;
-    const k = this.kind.maxHp > 10 ? 4 : 8;
+    const k = this.kind.maxHp > 20 ? 2.5 : 6;
     this.knock.set((dx / d) * k, 0, (dz / d) * k);
     if (this.hp <= 0) { this.set('dying'); this.alive = false; if (this.onDie) this.onDie(this); return; }
     // big ones only flinch out of a wind-up sometimes
-    if (this.mode !== 'lunge' && (this.kind.maxHp < 10 || Math.random() < 0.5)) this.set('stagger');
+    if (this.mode !== 'lunge' && this.mode !== 'windup' && (this.kind.maxHp < 20 ? Math.random() < 0.7 : Math.random() < 0.25)) this.set('stagger');
   }
 
   update(dt, player, busy) {
@@ -180,9 +180,14 @@ export class FieldEnemy {
         // one hit per lunge, if you're in front of it and not in the air above
         if (!this.didHit && d < K.radius + 0.75 && player.pos.y - this.pos.y < 1.6) {
           this.didHit = true;
-          player.hurt(K.atk, this.pos.x, this.pos.z, K.maxHp > 10 ? 1.3 : 0.9);
+          player.hurt(K.atk, this.pos.x, this.pos.z, K.maxHp > 20 ? 1.4 : 0.95);
         }
-        if (this.mt > 0.3) this.set('recover');
+        if (this.mt > 0.3) {
+          // quick ones go again straight away, now and then
+          this.chain = (this.chain || 0) + 1;
+          if (this.chain < K.combo && d < K.reach + K.radius + 1.5) { this.set('windup'); this.mt = K.windup * 0.45; }
+          else { this.chain = 0; this.set('recover'); }
+        }
         break;
       }
       case 'recover':

@@ -1,14 +1,14 @@
 import * as THREE from 'three';
-import { Terrain } from '../terrain.js?v=47';
-import { ShyGhost } from '../ghost.js?v=47';
-import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture, obsidianTexture, strataTexture } from '../textures.js?v=47';
-import * as Fieldlands from './obsidian-fieldlands.js?v=47';
-import * as Hollow from './lantern-hollow.js?v=47';
-import * as Throne from './hollow-throne.js?v=47';
-import { NPC } from '../npc.js?v=47';
-import { Pickup } from '../pickup.js?v=47';
-import { save, store, flag, learn } from '../save.js?v=47';
-import { telegraph } from '../combat.js?v=47';
+import { Terrain } from '../terrain.js?v=48';
+import { ShyGhost } from '../ghost.js?v=48';
+import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture, obsidianTexture, strataTexture } from '../textures.js?v=48';
+import * as Fieldlands from './obsidian-fieldlands.js?v=48';
+import * as Hollow from './lantern-hollow.js?v=48';
+import * as Throne from './hollow-throne.js?v=48';
+import { NPC } from '../npc.js?v=48';
+import { Pickup } from '../pickup.js?v=48';
+import { save, store, flag, learn } from '../save.js?v=48';
+import { telegraph } from '../combat.js?v=48';
 
 // ---------------------------------------------------------------------------
 // THE WASHED-UP BEACH: the first area of the open world. You wake up face down
@@ -479,7 +479,14 @@ export function build(world, { models = {}, combat } = {}) {
       }
       hollow.update(dt, P);
       throne.update(dt);
-      if (warden) warden.update(dt, P);
+      if (warden) {
+        warden.update(dt, P);
+        // no leaving till it's over: the fog walls the arena in
+        if (warden.alive) {
+          const ox = P.pos.x - Throne.ARENA.x, oz = P.pos.z - Throne.ARENA.z, od = Math.hypot(ox, oz), lim = Throne.ARENA.r - 1.4;
+          if (od > lim) { P.pos.x = Throne.ARENA.x + (ox / od) * lim; P.pos.z = Throne.ARENA.z + (oz / od) * lim; }
+        }
+      }
       hermit.update(dt, P);
       for (const p of pickups) p.update(dt);
       if (inParty('marrow')) followMarrow(dt, P);
@@ -639,7 +646,8 @@ export function build(world, { models = {}, combat } = {}) {
   const interact = (game) => {
     gameRef = game;
     const P = game.player;
-    if (talking || bossBusy || sparring) return null;
+    // nothing to talk to or pick up mid-fight: not even your party
+    if (talking || bossBusy || sparring || (warden && warden.alive)) return null;
     for (const p of pickups) if (p.near(P)) return { text: `E \u2014 Pick up ${p.label}`, go: () => { const what = p.take(); game.toast(`Got ${what}`); } };
     for (const [key, n] of Object.entries(hollow.npcs)) {
       if (near(P, n)) return { text: `E \u2014 Talk to ${n.name}`, go: () => say(game, () => hollow.talks[key]({ game, npc: n, partyHeal, setRest,
