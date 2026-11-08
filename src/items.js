@@ -19,6 +19,7 @@ export const WEAPONS = {
   club: { name: 'Driftwood Club', desc: 'A heavy branch from the wreck. +1 damage per hit.', atk: 1 },
   dagger: { name: 'Obsidian Dagger', desc: 'Black glass, wickedly sharp. +2 damage per hit.', atk: 2 },
   blade: { name: 'Ashen Blade', desc: "The Warden's sword, still warm. +4 damage per hit.", atk: 4 },
+  cinderaxe: { name: 'Cinder Axe', desc: 'Forged in the volcano, its edge still glowing. +5 damage per hit.', atk: 5 },
 };
 
 // The attacks everyone knows (they're your moves: see combat.js).
@@ -29,6 +30,7 @@ export const LEARNABLE = {
   guard: { name: 'Guard', desc: 'Crouch to guard: blows do half damage and barely move you.' },
   heavy: { name: 'Heavy Swing', desc: 'The kick that ends your punch combo hits far harder (+4 damage).' },
   skybreaker: { name: 'Skybreaker', desc: 'Your ground pound shakes the earth: it hits everything around you (+4 damage).' },
+  miststep: { name: 'Mist Step', desc: 'While you slide, dive or belly slide, attacks pass straight through you.' },
 };
 
 // A small model of each weapon, in metres, held by the grip at the origin with
@@ -53,6 +55,14 @@ export function weaponMesh(id) {
     const blade = new THREE.Mesh(new THREE.BoxGeometry(0.09, 1.05, 0.025), iron); blade.position.y = 0.68;
     const edge = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.95, 0.03), glow); edge.position.y = 0.66;
     g.add(grip, guard, blade, edge);
+  } else if (id === 'cinderaxe') {
+    const rock = new THREE.MeshLambertMaterial({ color: 0x242022, flatShading: true });
+    const glow = new THREE.MeshBasicMaterial({ color: 0xff6a1a });
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.95, 6), new THREE.MeshLambertMaterial({ color: 0x3a2a1e })); shaft.position.y = 0.38;
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.26, 0.05), rock); head.position.set(0.14, 0.78, 0);
+    const edge = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.3, 0.06), glow); edge.position.set(0.32, 0.78, 0);
+    const back = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.18, 4), rock); back.position.set(-0.06, 0.78, 0); back.rotation.z = Math.PI / 2;
+    g.add(shaft, head, edge, back);
   }
   return g;
 }

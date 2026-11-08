@@ -319,6 +319,12 @@ export class Player {
   // invulnerable. onHurt / onDeath let the game update the HUD and respawn.
   hurt(amount, fromX, fromZ, power = 1) {
     if (this.invuln > 0 || this.locked || this.health <= 0) return false;
+    // Mist Step: sliding and diving, attacks pass straight through you
+    if (this.canEvade && this.canEvade() && (this.state === 'crouchslide' || this.state === 'dive' || this.state === 'bellyslide' || this.state === 'slidekick')) {
+      this.invuln = 0.35;
+      if (this.onEvade) this.onEvade();
+      return false;
+    }
     // guarding (crouched, once Bruno has taught you): half damage, and you hold your ground
     if (this.canGuard && this.canGuard() && this.grounded && (this.state === 'crouch' || this.state === 'crouchwalk')) {
       amount = Math.max(1, Math.ceil(amount / 2));
@@ -739,16 +745,18 @@ export class Player {
   turnToward(a, b, max) { const dd = wrap(b - a); return a + Math.max(-max, Math.min(max, dd)); }
 
   groundMove(dt) {
-    const target = this.inMag * RUN;
+    // what you're standing on (set by the area): deep snow slows you, ice is slippery
+    const S = this.surface, grip = S ? S.grip : 1;
+    const target = this.inMag * RUN * (S ? S.speed : 1);
     if (this.inMag > 0.05) {
-      const rate = this.fwd < 2 ? 22 : lerp(13, 7, Math.min(1, this.fwd / RUN));
+      const rate = (this.fwd < 2 ? 22 : lerp(13, 7, Math.min(1, this.fwd / RUN))) * (S ? Math.max(0.25, grip) : 1);
       this.yaw = this.turnToward(this.yaw, this.inYaw, rate * dt);
       // turning hard bleeds a little speed
       const d = Math.abs(wrap(this.inYaw - this.yaw));
       if (d > 0.6) this.fwd = approach(this.fwd, 0, d * 6 * dt);
     }
-    if (this.fwd < target) this.fwd = approach(this.fwd, target, (this.fwd < 3 ? 26 : 13) * dt);
-    else this.fwd = approach(this.fwd, target, (this.fwd > RUN ? 14 : 24) * dt);
+    if (this.fwd < target) this.fwd = approach(this.fwd, target, (this.fwd < 3 ? 26 : 13) * grip * dt);
+    else this.fwd = approach(this.fwd, target, (this.fwd > RUN ? 14 : 24) * grip * dt);
   }
 
   airMove(dt, scale = 1) {

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { WEAPONS, ITEMS } from './items.js?v=52';
-import { save, useItem } from './save.js?v=52';
+import { WEAPONS, ITEMS } from './items.js?v=53';
+import { save, useItem } from './save.js?v=53';
 
 // ---------------------------------------------------------------------------
 // Real-time combat. Your moves are your attacks: the punch combo (punch,
@@ -49,7 +49,7 @@ export class Combat {
   nearest(pos, range, filter = () => true) {
     let best = null, bd = range;
     for (const f of this.foes) {
-      if (!f.alive || !filter(f)) continue;
+      if (!f.alive || f.untouchable || !filter(f)) continue;
       const d = Math.hypot(f.pos.x - pos.x, f.pos.z - pos.z);
       if (d < bd) { bd = d; best = f; }
     }
@@ -102,7 +102,7 @@ export class Combat {
       if (P.t < dt * 1.5 && save.learned.includes('skybreaker')) { this.fx.ring(P.pos); this.fx.shake(0.35); }
     }
     for (const f of this.foes) {
-      if (!f.alive || this.hitThisSwing.has(f)) continue;
+      if (!f.alive || f.untouchable || this.hitThisSwing.has(f)) continue;
       const d = Math.hypot(f.pos.x - cx, f.pos.z - cz);
       const dy = P.pos.y + 0.9 - (f.pos.y + f.height * 0.5);
       if (d < radius + f.radius && Math.abs(dy) < f.height * 0.5 + 1.2) {
@@ -158,7 +158,7 @@ export class Combat {
         if (T.alive && l < 1.2) {
           if (s.kind === 'flask') {
             this.fx.explode(m.position);
-            for (const f of this.foes) if (f.alive && f.pos.distanceTo(m.position) < 3 + f.radius) this.hit(f, s.dmg, m.position, 'mine');
+            for (const f of this.foes) if (f.alive && !f.untouchable && f.pos.distanceTo(m.position) < 3 + f.radius) this.hit(f, s.dmg, m.position, 'mine');
           } else {
             this.fx.sparkle(m.position, 6);
             this.hit(T, s.dmg, m.position, 'ally');
@@ -214,7 +214,7 @@ export class Combat {
     }
     for (const f of this.foes) {
       if (f.boss) continue;
-      const show = f.alive && (f.hp < f.maxHp || f.engaged) && Math.hypot(f.pos.x - P.pos.x, f.pos.z - P.pos.z) < 30;
+      const show = f.alive && !f.untouchable && !f.hidden && (f.hp < f.maxHp || f.engaged) && Math.hypot(f.pos.x - P.pos.x, f.pos.z - P.pos.z) < 30;
       if (!show) { if (f.bar) f.bar.style.display = 'none'; continue; }
       if (!f.bar) {
         f.bar = document.createElement('div');

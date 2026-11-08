@@ -205,3 +205,76 @@ export function flowerTexture() {
   t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
   return t;
 }
+
+// --- Ground for the wilds ----------------------------------------------------------
+
+// Marsh mud: dark, wet, with mossy patches and puddle sheens.
+export function mudTexture() {
+  return canvasTexture(128, (g, n) => {
+    const r = rng(41);
+    g.fillStyle = '#3e3a2a'; g.fillRect(0, 0, n, n);
+    for (let i = 0; i < 26; i++) {
+      const x = r() * n, y = r() * n, rr = 6 + r() * 16;
+      const gr = g.createRadialGradient(x, y, 0, x, y, rr);
+      const moss = r() < 0.55;
+      gr.addColorStop(0, moss ? 'rgba(78,96,46,0.55)' : 'rgba(30,30,24,0.6)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = gr;
+      for (const dx of [-n, 0, n]) for (const dy of [-n, 0, n]) { g.beginPath(); g.arc(x + dx, y + dy, rr, 0, Math.PI * 2); g.fill(); }
+    }
+    speckle(g, n, r, 2200, ['rgba(20,18,12,0.5)', 'rgba(96,104,60,0.35)', 'rgba(120,112,84,0.25)']);
+  });
+}
+
+// Fallen autumn leaves over dark earth.
+export function leafTexture() {
+  return canvasTexture(128, (g, n) => {
+    const r = rng(53);
+    g.fillStyle = '#4a3624'; g.fillRect(0, 0, n, n);
+    const cols = ['#b5541f', '#c9782a', '#8e3a1c', '#d39a3a', '#7a4a22', '#a8622a', '#6e5a2a'];
+    for (let i = 0; i < 520; i++) {
+      const x = r() * n, y = r() * n, s = 2 + r() * 3.5, a = r() * Math.PI;
+      g.fillStyle = cols[Math.floor(r() * cols.length)];
+      g.save(); g.translate(x, y); g.rotate(a);
+      g.beginPath(); g.ellipse(0, 0, s, s * 0.55, 0, 0, Math.PI * 2); g.fill();
+      g.restore();
+    }
+    speckle(g, n, r, 600, ['rgba(30,20,10,0.4)', 'rgba(220,170,90,0.25)']);
+  });
+}
+
+// Red desert sand, with wind ripples.
+export function redSandTexture() {
+  return canvasTexture(128, (g, n) => {
+    const r = rng(67);
+    g.fillStyle = '#c98a55'; g.fillRect(0, 0, n, n);
+    speckle(g, n, r, 3000, ['rgba(160,96,52,0.35)', 'rgba(230,180,130,0.35)', 'rgba(120,70,40,0.3)', 'rgba(210,150,96,0.4)']);
+    g.strokeStyle = 'rgba(130,76,40,0.18)'; g.lineWidth = 2;
+    for (let y = 4; y < n; y += 9) { g.beginPath(); for (let x = 0; x <= n; x += 6) g.lineTo(x, y + Math.sin((x * 0.11) + y * 0.3) * 3); g.stroke(); }
+  });
+}
+
+// Ash and cinders: grey-black, with glowing flecks.
+export function ashTexture() {
+  return canvasTexture(128, (g, n) => {
+    const r = rng(79);
+    g.fillStyle = '#5a5552'; g.fillRect(0, 0, n, n);
+    speckle(g, n, r, 3400, ['rgba(30,26,26,0.5)', 'rgba(140,132,126,0.35)', 'rgba(90,84,80,0.45)'], 3, 2);
+    speckle(g, n, r, 70, ['rgba(255,110,40,0.7)', 'rgba(255,170,60,0.55)'], 1, 1);
+  });
+}
+
+// Snow: white, faintly blue in the hollows, a little sparkle.
+export function snowTexture() {
+  return canvasTexture(128, (g, n) => {
+    const r = rng(97);
+    g.fillStyle = '#e6ebf2'; g.fillRect(0, 0, n, n);
+    for (let i = 0; i < 30; i++) {
+      const x = r() * n, y = r() * n, rr = 8 + r() * 20;
+      const gr = g.createRadialGradient(x, y, 0, x, y, rr);
+      gr.addColorStop(0, 'rgba(170,186,214,0.28)'); gr.addColorStop(1, 'rgba(170,186,214,0)');
+      g.fillStyle = gr;
+      for (const dx of [-n, 0, n]) for (const dy of [-n, 0, n]) { g.beginPath(); g.arc(x + dx, y + dy, rr, 0, Math.PI * 2); g.fill(); }
+    }
+    speckle(g, n, r, 400, ['rgba(255,255,255,0.9)', 'rgba(200,210,230,0.5)']);
+  });
+}

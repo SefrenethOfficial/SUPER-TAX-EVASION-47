@@ -68,6 +68,8 @@ export class World {
 
   // Add a solid box. `material` is one material, or { top, side, bottom }.
   addBox(min, max, material, { visible = true } = {}) {
+    // collision only: no mesh at all
+    if (!visible) { const box = { min: new THREE.Vector3(...min), max: new THREE.Vector3(...max), mesh: null }; this.boxes.push(box); return box; }
     const sx = max[0] - min[0], sy = max[1] - min[1], sz = max[2] - min[2];
     const geo = new THREE.BoxGeometry(sx, sy, sz);
     const mats = material.isMaterial

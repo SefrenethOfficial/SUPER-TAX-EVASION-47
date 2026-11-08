@@ -18,7 +18,13 @@ export class Terrain {
   // fields: { x, z, r }: inside this circle the grass varies in big soft meadows.
   // sandMaxZ: no sand north of this (so low ground far inland stays grass).
   // groundZones: [{ x, z, r }, ...] (up to 6): flat ground inside these is the rock texture too (e.g. obsidian flats).
-  constructor({ minX, maxX, minZ, maxZ, res, height, paths = [], grass, cliff, path, rock = null, rockZone = null, sand = null, sandTop = -1e9, sandMaxZ = 1e9, grade = null, fields = null, groundZones = [] }) {
+  // spans: { x: [[from, to, res], ...], z: [...] }: a grid that's finer in some
+  //   places than others (e.g. fine in the middle of the world, coarser out in
+  //   the wilds). Without it the grid is res everywhere.
+  // biomes: { weights(x, z) -> [w0..w4], res, layers: [{ ground, cliff: [r, g, b] }, ...] }:
+  //   up to five kinds of ground painted over everything else (snow, ash...),
+  //   each with its own flat-ground texture and a tint for its cliffs.
+  constructor({ minX, maxX, minZ, maxZ, res, height, paths = [], grass, cliff, path, rock = null, rockZone = null, sand = null, sandTop = -1e9, sandMaxZ = 1e9, grade = null, fields = null, groundZones = [], spans = null, biomes = null }) {
     this.groundZones = Array.from({ length: 6 }, (_, i) => (groundZones[i] ? new THREE.Vector3(groundZones[i].x, groundZones[i].z, groundZones[i].r) : new THREE.Vector3(0, 0, -1)));
     this.sandMaxZ = sandMaxZ;
     this.grade = grade || { sat: 1, tint: new THREE.Color(1, 1, 1) };
@@ -27,17 +33,61 @@ export class Terrain {
     this.rock = rock || cliff; this.rockZone = rockZone || new THREE.Vector3(0, 0, -1);
     this.sand = sand || grass; this.sandTop = sandTop;
     this.minX = minX; this.minZ = minZ; this.res = res;
-    this.nx = Math.ceil((maxX - minX) / res) + 1;
-    this.nz = Math.ceil((maxZ - minZ) / res) + 1;
-    this.maxX = minX + (this.nx - 1) * res;
-    this.maxZ = minZ + (this.nz - 1) * res;
+    // the grid lines along each axis
+    const axis = (lo, hi, sp) => {
+      const out = [];
+      for (const [a, b, r] of sp || [[lo, hi, res]]) {
+        const n = Math.max(1, Math.round((b - a) / r));
+        for (let k = out.length && Math.abs(out[out.length - 1] - a) < 1e-6 ? 1 : 0; k <= n; k++) out.push(a + ((b - a) * k) / n);
+      }
+      return Float64Array.from(out);
+    };
+    this.xs = axis(minX, maxX, spans && spans.x);
+    this.zs = axis(minZ, maxZ, spans && spans.z);
+    this.nx = this.xs.length; this.nz = this.zs.length;
+    this.maxX = this.xs[this.nx - 1]; this.maxZ = this.zs[this.nz - 1];
+    this.minX = this.xs[0]; this.minZ = this.zs[0];
+    // quick lookup of which cell a coordinate falls in (a table at 0.5 m steps)
+    const table = (arr) => {
+      const lo = arr[0], n = Math.ceil((arr[arr.length - 1] - lo) / 0.5) + 1, t = new Int32Array(n);
+      let k = 0;
+      for (let q = 0; q < n; q++) { const v = lo + q * 0.5; while (k < arr.length - 2 && arr[k + 1] <= v) k++; t[q] = k; }
+      return t;
+    };
+    this.tx = table(this.xs); this.tz = table(this.zs);
     const N = this.nx * this.nz;
     this.h = new Float32Array(N);
     for (let j = 0; j < this.nz; j++) {
-      const z = minZ + j * res;
-      for (let i = 0; i < this.nx; i++) this.h[j * this.nx + i] = height(minX + i * res, z);
+      const z = this.zs[j];
+      for (let i = 0; i < this.nx; i++) this.h[j * this.nx + i] = height(this.xs[i], z);
     }
+    this.biomes = biomes;
+    if (biomes) this.biomeMaps = this.paintBiomes(biomes);
     this.mesh = this.buildMesh(paths, grass, cliff, path);
+  }
+
+  // index of the grid cell containing coordinate v along an axis (-1 outside)
+  cell(arr, table, v) {
+    if (v < arr[0] || v >= arr[arr.length - 1]) return -1;
+    let k = table[Math.floor((v - arr[0]) / 0.5)];
+    while (k < arr.length - 2 && arr[k + 1] <= v) k++;
+    while (k > 0 && arr[k] > v) k--;
+    return k;
+  }
+
+  // The biome weights painted into two small textures (rgba + r) covering the whole grid.
+  paintBiomes({ weights, res = 4 }) {
+    const w = Math.ceil((this.maxX - this.minX) / res) + 1, h = Math.ceil((this.maxZ - this.minZ) / res) + 1;
+    const a = new Uint8Array(w * h * 4), b = new Uint8Array(w * h * 4);
+    for (let j = 0; j < h; j++) {
+      for (let i = 0; i < w; i++) {
+        const W = weights(this.minX + i * res, this.minZ + j * res), k = (j * w + i) * 4;
+        a[k] = W[0] * 255; a[k + 1] = W[1] * 255; a[k + 2] = W[2] * 255; a[k + 3] = W[3] * 255;
+        b[k] = W[4] * 255; b[k + 3] = 255;
+      }
+    }
+    const tex = (data) => { const t = new THREE.DataTexture(data, w, h, THREE.RGBAFormat); t.magFilter = t.minFilter = THREE.LinearFilter; t.needsUpdate = true; return t; };
+    return { a: tex(a), b: tex(b), box: new THREE.Vector4(this.minX, this.minZ, (w - 1) * res, (h - 1) * res) };
   }
 
   // Bilinear height. Outside the grid counts as a tall wall.
@@ -45,9 +95,9 @@ export class Terrain {
   setGrade(sat, r, g, b) { this.uSat.value = sat; this.grade.tint.setRGB(r, g, b); }
 
   height(x, z) {
-    const fx = (x - this.minX) / this.res, fz = (z - this.minZ) / this.res;
-    if (fx < 0 || fz < 0 || fx >= this.nx - 1 || fz >= this.nz - 1) return 999;
-    const i = Math.floor(fx), j = Math.floor(fz), tx = fx - i, tz = fz - j;
+    const i = this.cell(this.xs, this.tx, x), j = this.cell(this.zs, this.tz, z);
+    if (i < 0 || j < 0) return 999;
+    const tx = (x - this.xs[i]) / (this.xs[i + 1] - this.xs[i]), tz = (z - this.zs[j]) / (this.zs[j + 1] - this.zs[j]);
     const n = this.nx, k = j * n + i, H = this.h;
     const a = H[k] + (H[k + 1] - H[k]) * tx;
     const b = H[k + n] + (H[k + n + 1] - H[k + n]) * tx;
@@ -56,22 +106,25 @@ export class Terrain {
 
   // Height gradient (dh/dx, dh/dz).
   gradient(x, z, out = { x: 0, z: 0 }) {
-    const e = this.res * 0.75;
+    const i = Math.max(0, this.cell(this.xs, this.tx, x));
+    const e = (this.xs[Math.min(this.nx - 1, i + 1)] - this.xs[i]) * 0.75 || this.res * 0.75;
     out.x = (this.height(x + e, z) - this.height(x - e, z)) / (2 * e);
     out.z = (this.height(x, z + e) - this.height(x, z - e)) / (2 * e);
     return out;
   }
 
   buildMesh(paths, grassTex, cliffTex, pathTex) {
-    const { nx, nz, res, minX, minZ } = this;
+    const { nx, nz, xs, zs } = this;
     const N = nx * nz;
     const pos = new Float32Array(N * 3);
     for (let j = 0; j < nz; j++) {
       for (let i = 0; i < nx; i++) {
         const k = j * nx + i;
-        pos[k * 3] = minX + i * res; pos[k * 3 + 1] = this.h[k]; pos[k * 3 + 2] = minZ + j * res;
+        pos[k * 3] = xs[i]; pos[k * 3 + 1] = this.h[k]; pos[k * 3 + 2] = zs[j];
       }
     }
+    const lowI = (v, arr, t) => Math.max(0, v <= arr[0] ? 0 : v >= arr[arr.length - 1] ? arr.length - 1 : this.cell(arr, t, v));
+    const highI = (v, arr, t) => Math.min(arr.length - 1, (v >= arr[arr.length - 1] ? arr.length - 1 : lowI(v, arr, t) + 1));
     const idx = new Uint32Array((nx - 1) * (nz - 1) * 6);
     let w = 0;
     for (let j = 0; j < nz - 1; j++) {
@@ -93,13 +146,11 @@ export class Terrain {
         const sx = bx - ax, sz = bz - az, len = Math.hypot(sx, sz);
         if (len < 1e-6) continue;
         const ux = sx / len, uz = sz / len;
-        const i0 = Math.max(0, Math.floor((Math.min(ax, bx) - hw - minX) / res));
-        const i1 = Math.min(nx - 1, Math.ceil((Math.max(ax, bx) + hw - minX) / res));
-        const j0 = Math.max(0, Math.floor((Math.min(az, bz) - hw - minZ) / res));
-        const j1 = Math.min(nz - 1, Math.ceil((Math.max(az, bz) + hw - minZ) / res));
+        const i0 = lowI(Math.min(ax, bx) - hw, xs, this.tx), i1 = highI(Math.max(ax, bx) + hw, xs, this.tx);
+        const j0 = lowI(Math.min(az, bz) - hw, zs, this.tz), j1 = highI(Math.max(az, bz) + hw, zs, this.tz);
         for (let j = j0; j <= j1; j++) {
           for (let i = i0; i <= i1; i++) {
-            const x = minX + i * res, z = minZ + j * res;
+            const x = xs[i], z = zs[j];
             const rx = x - ax, rz = z - az;
             const t = Math.max(0, Math.min(len, rx * ux + rz * uz));
             const lat = rx * -uz + rz * ux;             // signed side distance
@@ -139,6 +190,17 @@ export class Terrain {
       sh.uniforms.sandMaxZ = { value: this.sandMaxZ };
       sh.uniforms.groundZones = { value: this.groundZones };
       sh.uniforms.gradeTint = { value: this.grade.tint };
+      const B = this.biomes, BM = this.biomeMaps;
+      const blank = new THREE.DataTexture(new Uint8Array(4), 1, 1); blank.needsUpdate = true;
+      sh.uniforms.biomeA = { value: BM ? BM.a : blank };
+      sh.uniforms.biomeB = { value: BM ? BM.b : blank };
+      sh.uniforms.biomeBox = { value: BM ? BM.box : new THREE.Vector4(0, 0, 1, 1) };
+      for (let k = 0; k < 5; k++) {
+        const L = B && B.layers[k];
+        sh.uniforms['bGround' + k] = { value: L ? L.ground : grassTex };
+        sh.uniforms['bCliff' + k] = { value: new THREE.Vector3(...(L ? L.cliff : [1, 1, 1])) };
+        sh.uniforms['bScale' + k] = { value: L ? (L.scale || 3) : 3 };
+      }
       sh.vertexShader = sh.vertexShader
         .replace('#include <common>', `#include <common>
 attribute float aPath; attribute vec2 aPathUV;
@@ -148,6 +210,10 @@ vPath = aPath; vPathUV = aPathUV; vWPos = position; vWN = normal;`);
       sh.fragmentShader = sh.fragmentShader
         .replace('#include <common>', `#include <common>
 uniform sampler2D grassMap; uniform sampler2D cliffMap; uniform sampler2D pathMap; uniform sampler2D rockMap; uniform vec3 rockZone;
+uniform sampler2D biomeA; uniform sampler2D biomeB; uniform vec4 biomeBox;
+uniform sampler2D bGround0; uniform sampler2D bGround1; uniform sampler2D bGround2; uniform sampler2D bGround3; uniform sampler2D bGround4;
+uniform vec3 bCliff0; uniform vec3 bCliff1; uniform vec3 bCliff2; uniform vec3 bCliff3; uniform vec3 bCliff4;
+uniform float bScale0; uniform float bScale1; uniform float bScale2; uniform float bScale3; uniform float bScale4;
 uniform sampler2D sandMap; uniform float sandTop; uniform float gradeSat; uniform vec3 gradeTint; uniform vec3 fieldZone; uniform float sandMaxZ; uniform vec3 groundZones[6];
 float fhash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 varying float vPath; varying vec2 vPathUV; varying vec3 vWPos; varying vec3 vWN;`)
@@ -183,7 +249,22 @@ vec2 cuv = abs(tn.x) > abs(tn.z) ? vWPos.zy : vWPos.xy;
 vec4 c = texture2D(cliffMap, cuv / 2.0);
 float inRock = 1.0 - step(rockZone.z, distance(vWPos.xz, rockZone.xy));
 c = mix(c, texture2D(rockMap, cuv / 2.0), inRock);
+// the wilds: each biome paints its own ground over the flat, and tints the cliffs
+vec2 buv = (vWPos.xz - biomeBox.xy) / biomeBox.zw;
+vec4 wa = texture2D(biomeA, buv); float w4 = texture2D(biomeB, buv).r;
+float wsum = min(1.0, wa.r + wa.g + wa.b + wa.a + w4);
+if (wsum > 0.003) {
+  vec4 bg = texture2D(bGround0, vWPos.xz / bScale0) * wa.r + texture2D(bGround1, vWPos.xz / bScale1) * wa.g
+          + texture2D(bGround2, vWPos.xz / bScale2) * wa.b + texture2D(bGround3, vWPos.xz / bScale3) * wa.a
+          + texture2D(bGround4, vWPos.xz / bScale4) * w4;
+  float tot = max(0.001, wa.r + wa.g + wa.b + wa.a + w4);
+  g = mix(g, bg / tot, wsum);
+  vec3 ct = (bCliff0 * wa.r + bCliff1 * wa.g + bCliff2 * wa.b + bCliff3 * wa.a + bCliff4 * w4) / tot;
+  c.rgb = mix(c.rgb, c.rgb * ct, wsum);
+}
 vec4 p = texture2D(pathMap, vPathUV);
+// out in the wilds a path is the same ground, trodden down
+if (wsum > 0.003) p = mix(p, mix(p, g * 0.8, 0.75), wsum);
 float steep = smoothstep(0.45, 0.62, 1.0 - tn.y);
 vec4 col = mix(g, p, smoothstep(0.35, 0.65, vPath) * (1.0 - steep));
 col = mix(col, c, steep);

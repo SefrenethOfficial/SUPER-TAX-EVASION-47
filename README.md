@@ -30,11 +30,21 @@ A **Hermit** on top of the **plateau** in the middle of the fieldlands teaches *
 
 Up a pass in the west wall of the fieldlands (follow the path west), a dark, smoky plateau with a ruined ring of pillars around a throne. A curtain of swirling fog hangs across the whole gap in the ring. Step through it (E, anywhere along it), the fog seals behind you, and the camera cuts away to the throne: the **Hollow Warden** lifts his head, pushes himself up off the throne on his greatsword, steps down off the dais and roars. Then it's: a hard, real-time soulslike boss fight with his own music and a Health bar along the bottom of the screen. There's no leaving the arena and no talking to your party until it's over, and your Health doesn't come back on its own. He's a fully animated armoured knight (walk cycle, wind-ups, swings, leaps, a roar, falling to his knees, losing his head and crumbling apart) with 160 Health, and every attack marks the ground red where it will land: a **three-swing combo** (two sweeps, then an overhead slam), a **slam** that sends eruptions racing across the floor, a full **spin** (jump it), a **leap** that homes in and comes down on you, and a lunging **thrust** across the arena. After each string of attacks he stops to catch his breath: that's your opening. At half Health he roars, his armour splits, fire pours out and everything gets faster and hits harder: he spins and leaps twice, and adds **rings of fire** that roll out across the arena (jump them) and a **rain of embers** (keep moving). Beat him (**WARDEN FELLED**) and the fog clears and his **Ashen Blade** is yours; fall (**YOU FELL**) and you come round outside the fog.
 
+## The wilds
+
+Past the old mountain walls the world goes on, about two and a half times as big as it was, with five new lands, each its own biome with its own weather, ground, creatures and music. Passes cut through the old walls lead to them, and two more join the new lands to each other, so the north and east loop round. Dying in one brings you back there.
+
+- **Mirefen Marsh** (west along the coast from the beach): still black water, dead twisted trees, reeds, lily pads, fireflies and thick green fog. Boardwalks cross from island to island to a half-sunken stone chapel (with Hearth Salves at the altar). The water slows you down. **Bog Lurkers** lie under the water with only ripples showing, and heave up when you come close. Music: "Hazy Maze Cave".
+- **Emberleaf Woods** (east along the coast): red, orange and gold trees, falling leaves, golden light, mossy ruins, and a stone watchtower on a hill you can climb by the stairs round the outside (herbs and a tonic on top, and the view). **Barklings** stand still among the trees, looking like stumps, until you walk past. Music: "Steam Gardens".
+- **Sunscorch Expanse** (east past Lantern Hollow, or north out of the woods): red dunes, sheer sandstone mesas, a bright sky and heat. **Sabra** the merchant camps at a palm-ringed oasis (trade her a story for supplies); the bleached bones of something colossal lie out on the sand, ribs you can walk under. Sand slows you a little. **Dune Scuttlers** burrow and race at you under the sand: when the ground glows red under your feet, move. Music: "Steam Gardens".
+- **Ashen Peaks** (north, up a climb beside the obsidian falls): ash and black rock under an orange sky, basalt spires, smoking vents, rivers of lava running down from a dead volcano, and a lake of lava in its crater. Lava throws you into the air and burns. The **Cinder Axe** (+5) lies in the crater. **Cinderhounds** are fast and bite twice, and when they die they burst into flames you shouldn't stand in. Music: "Lethal Lava Land".
+- **Frostveil Pass** (north-west, up from the Hollow Throne's plateau): snow, snowy pines, blizzard gusts that close the fog in, deep snow that slows you down, and a frozen lake you slide across. On a hill stands an ice shrine, where **Sister Isolde** teaches **Mist Step** (while you slide, dive or belly slide, attacks pass straight through you). **Rimewraiths** hover out of reach and throw icicles. A high saddle joins it to the Ashen Peaks. Music: "Cool, Cool Mountain".
+
 ## Items, weapons and moves
 
 Press **I** (or **Tab**) to open your **bag**: equip a weapon, use Herbs and the like on yourself, and see your moves and party. On PC the mouse is freed while it's open: click **Equip** / **Use**, or move with W / S or the arrow keys and press Space, Enter or E; I, Tab or Esc closes it. Out in the world the **number keys** use items straight away: **1** Herb, **2** Hearth Salve, **3** Tonic, **4** throws an Ember Flask at the nearest enemy.
 
-- **Weapons** add damage to every blow you land, and you hold the one you've equipped: **Driftwood Club** (+1, washed up by the wreck), **Obsidian Dagger** (+2, among the black rocks under the waterfall), **Ashen Blade** (+4, from the Warden).
+- **Weapons** add damage to every blow you land, and you hold the one you've equipped: **Driftwood Club** (+1, washed up by the wreck), **Obsidian Dagger** (+2, among the black rocks under the waterfall), **Ashen Blade** (+4, from the Warden), **Cinder Axe** (+5, in the Ashen Peaks' crater).
 - **Items**: **Herb** (+4 Health), **Hearth Salve** (+8 Health), **Tonic** (+5 Stamina), **Ember Flask** (thrown at the nearest enemy: 7 damage to everything where it bursts). Look for the glints: around the beach and fields, on the plateau, by the great tree, and from Hesta.
 - **Moves**: Punch, Kick, Flurry and Catch Breath to start, plus whatever the teachers show you.
 
@@ -77,11 +87,12 @@ Touch screens get an on-screen stick plus A / B / Z buttons and an E button for 
 - `src/player.js`: character rig setup and the movement state machine (collision, procedural animation)
 - `src/world.js`: sky, lighting and level-building helpers; boxes double as collision
 - `src/collider.js`: triangle collision for level models: floors, walls and ceilings
-- `src/terrain.js`: heightmap terrain (sand, grass, rock and path blending, colour grading)
+- `src/terrain.js`: heightmap terrain (finer in the middle of the world, coarser out in the wilds; sand, grass, rock, path and biome blending, colour grading)
 - `src/textures.js`: procedural textures (sand, grass, rock, dirt, planks, water) painted at load time
 - `src/audio.js`: music and voice lines
 - `src/stages/obsidian-fieldlands.js`: the basin below the beach (shares the beach's ground): plains, river, falls, lake, plateau, forest, camp, tall grass, flowers, enemies, the weather
-- `src/fieldenemy.js`: enemies out in the world (Shardling, Thornback): wander, chase, wind up, lunge, recover, stagger
+- `src/stages/wilds.js`: the five lands past the old walls: their ground, passes, biomes, weather, landmarks, people, creatures, hazards and falling snow / leaves / ash
+- `src/fieldenemy.js`: enemies out in the world (Shardling, Thornback, Bog Lurker, Barkling, Dune Scuttler, Cinderhound, Rimewraith): wander, chase, wind up, lunge, recover, stagger; lie in wait, burrow, throw icicles
 - `src/gibs.js`: pieces flying off things that die: flung, spinning, bouncing, settling
 - `src/combat.js`: real-time fighting: your attacks by move, Stamina, party members' attacks, thrown flasks, quick items, damage numbers, enemy and boss Health bars, red ground telegraphs
 - `src/stages/lantern-hollow.js`: the valley and tavern east of the fieldlands, with Hesta, Marrow and Old Bruno
@@ -106,6 +117,6 @@ Traffic cone hat: "Traffic Cone" by [hinndia](https://sketchfab.com/hinndia) on 
 
 Ghost model: "Vivian" by [Peardian](https://sketchfab.com/Peardian) on [Sketchfab](https://sketchfab.com/3d-models/vivian-8a2afe0fea6f4e558c24289bf40d5ad4), licensed [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/).
 
-Battle music ("Enemy"), the Hollow Warden's music ("Return To Slime" ft. SixteenInMono) and Obsidian Fieldlands music ("Steam Gardens", from Nintendo's Super Mario Odyssey): supplied by the project owner.
+Battle music ("Enemy"), the Hollow Warden's music ("Return To Slime" ft. SixteenInMono), Obsidian Fieldlands music ("Steam Gardens", from Nintendo's Super Mario Odyssey), and the wilds' music ("Cool, Cool Mountain", "Hazy Maze Cave" and "Lethal Lava Land", from Nintendo's Super Mario 64): supplied by the project owner.
 
 Voice lines: supplied by the project owner; from Nintendo's Super Mario 64.

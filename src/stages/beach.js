@@ -1,15 +1,16 @@
 import * as THREE from 'three';
-import { Terrain } from '../terrain.js?v=52';
-import { ShyGhost } from '../ghost.js?v=52';
-import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture, obsidianTexture, strataTexture } from '../textures.js?v=52';
-import * as Fieldlands from './obsidian-fieldlands.js?v=52';
-import * as Hollow from './lantern-hollow.js?v=52';
-import * as Throne from './hollow-throne.js?v=52';
-import { NPC } from '../npc.js?v=52';
-import { Pickup } from '../pickup.js?v=52';
-import { save, store, flag, learn } from '../save.js?v=52';
-import { telegraph } from '../combat.js?v=52';
-import { Gibs } from '../gibs.js?v=52';
+import { Terrain } from '../terrain.js?v=53';
+import { ShyGhost } from '../ghost.js?v=53';
+import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture, obsidianTexture, strataTexture } from '../textures.js?v=53';
+import * as Fieldlands from './obsidian-fieldlands.js?v=53';
+import * as Hollow from './lantern-hollow.js?v=53';
+import * as Throne from './hollow-throne.js?v=53';
+import * as Wilds from './wilds.js?v=53';
+import { NPC } from '../npc.js?v=53';
+import { Pickup } from '../pickup.js?v=53';
+import { save, store, flag, learn } from '../save.js?v=53';
+import { telegraph } from '../combat.js?v=53';
+import { Gibs } from '../gibs.js?v=53';
 
 // ---------------------------------------------------------------------------
 // THE WASHED-UP BEACH: the first area of the open world. You wake up face down
@@ -176,9 +177,13 @@ export function build(world, { models = {}, combat } = {}) {
   scene.add(skyMesh);
 
   // --- Ground ------------------------------------------------------------------
+  // the whole world: the beach and the fieldlands, the hollow and the throne,
+  // and out past the old walls, the wilds (see wilds.js)
+  const H = Wilds.withWilds(Throne.withThrone(Hollow.withHollow(Fieldlands.withFieldlands(height))));
   const terrain = new Terrain({
-    ...AREA, res: 1.5, height: Throne.withThrone(Hollow.withHollow(Fieldlands.withFieldlands(height))),
-    paths: [Fieldlands.PATH,
+    ...Wilds.AREA, res: 1.5, spans: Wilds.SPANS, height: H,
+    biomes: { weights: Wilds.biomeWeights(H), res: 4, layers: Wilds.biomeLayers() },
+    paths: [Fieldlands.PATH, ...Wilds.PATHS,
       { width: 3.5, points: [[-4, 292], [40, 296], [90, 284], [120, 280], [184, 281], [214, 299]] },     // east, to the tavern
       { width: 3.5, points: [[-30, 342], [-52, 380], [-80, 398], [-112, 404], [-180, 404], [Throne.GATE.x + 2, 404]] },   // west, to the throne
     ],
@@ -196,13 +201,13 @@ export function build(world, { models = {}, combat } = {}) {
   // --- The sea: a big plane that slowly drifts, and a second one for shimmer ------
   const wt = waterTexture();
   wt.repeat.set(60, 60);
-  const sea = new THREE.Mesh(new THREE.PlaneGeometry(1200, 840), new THREE.MeshLambertMaterial({ map: wt, transparent: true, opacity: 0.9, depthWrite: false }));
+  const sea = new THREE.Mesh(new THREE.PlaneGeometry(1600, 840), new THREE.MeshLambertMaterial({ map: wt, transparent: true, opacity: 0.9, depthWrite: false }));
   sea.rotation.x = -Math.PI / 2;
   sea.position.set(0, SEA, -380);        // ends just inland of the beach (the basin is below sea level)
   sea.renderOrder = 1;
   scene.add(sea);
   const wt2 = wt.clone(); wt2.needsUpdate = true; wt2.repeat.set(41, 41);
-  const shimmer = new THREE.Mesh(new THREE.PlaneGeometry(1200, 840), new THREE.MeshBasicMaterial({ map: wt2, transparent: true, opacity: 0.08, depthWrite: false, blending: THREE.AdditiveBlending }));
+  const shimmer = new THREE.Mesh(new THREE.PlaneGeometry(1600, 840), new THREE.MeshBasicMaterial({ map: wt2, transparent: true, opacity: 0.08, depthWrite: false, blending: THREE.AdditiveBlending }));
   shimmer.rotation.x = -Math.PI / 2;
   shimmer.position.set(0, SEA + 0.02, -380);
   shimmer.renderOrder = 1;
@@ -315,6 +320,7 @@ export function build(world, { models = {}, combat } = {}) {
   const fields = Fieldlands.build({ world, scene, G, terrain, overcast: skyMesh, rng, box });
   const hollow = Hollow.build({ world, scene, G, box, rng });
   const throne = Throne.build({ scene, G, box, rng });
+  const wilds = Wilds.build({ scene, G, box, rng });
 
   // --- Things to pick up around the world ------------------------------------------
   const pickups = [
@@ -402,11 +408,15 @@ export function build(world, { models = {}, combat } = {}) {
     active: () => inParty('marrow') && !marrowHit && !falling,
     onMelee: (foe, hit) => { marrowHit = { foe, t: 0, hit }; } });
   const gibs = new Gibs(scene, G);
-  for (const e of fields.enemies) { e.gibs = gibs; combat.add(e); }
+  // every creature in the world: the fieldlands' and the wilds'
+  const enemies = [...fields.enemies, ...wilds.enemies];
+  for (const e of enemies) { e.gibs = gibs; e.telegraph = telegraph; combat.add(e); }
+  pickups.push(...wilds.pickups);
 
   // --- Region names and music ------------------------------------------------------
-  const regionOf = (P) => (Throne.contains(P.pos.x, P.pos.z) ? 'throne' : Hollow.contains(P.pos.x, P.pos.z) ? 'hollow' : fields.inside ? 'fields' : 'beach');
+  const regionOf = (P) => Wilds.regionAt(P.pos.x, P.pos.z) || (Throne.contains(P.pos.x, P.pos.z) ? 'throne' : Hollow.contains(P.pos.x, P.pos.z) ? 'hollow' : fields.inside ? 'fields' : 'beach');
   const REGION = {
+    ...Object.fromEntries(Object.values(Wilds.REGIONS).map((R) => [R.key, { name: R.name, music: R.music }])),
     beach: { name: NAME, music: MUSIC },
     fields: { name: Fieldlands.NAME, music: Fieldlands.MUSIC },
     hollow: { name: Hollow.NAME, music: Fieldlands.MUSIC },
@@ -494,8 +504,10 @@ export function build(world, { models = {}, combat } = {}) {
       const P = game.player;
       // the weather: the fog lifts as you come down into the fieldlands, and
       // closes in, dark, round the Hollow Throne
-      fields.update(dt, P, Throne.contains(P.pos.x, P.pos.z));
       const r = regionOf(P);
+      const wild = Wilds.LOOKS[r] || null;
+      fields.update(dt, P, Throne.contains(P.pos.x, P.pos.z), wild, r === 'frost' ? wilds.gust() : 0);
+      wilds.update(dt, P, game, Wilds.REGIONS[r] ? r : null);
       if (r !== region) {
         const was = REGION[region];
         region = r;
@@ -525,7 +537,13 @@ export function build(world, { models = {}, combat } = {}) {
       // the monsters out there
       const busy = game.talking || bossBusy || (game.bag && game.bag.open);
       const prey = falling ? falling.target() : P;
-      for (const e of fields.enemies) e.update(dt, prey, busy);
+      for (const e of enemies) {
+        if (!e.fx) e.fx = game.fx;
+        // far away and not after you: leave it be (and don't draw it)
+        const far = Math.hypot(e.pos.x - P.pos.x, e.pos.z - P.pos.z) > 170 && !e.engaged;
+        e.root.visible = !far || e.mode === 'gone';
+        if (!far) e.update(dt, prey, busy);
+      }
     }
     wt.offset.set(t * 0.004, t * 0.012);
     wt2.offset.set(-t * 0.006, t * 0.008);
@@ -690,6 +708,7 @@ export function build(world, { models = {}, combat } = {}) {
         } })) };
     }
     if (near(P, hermit)) return { text: 'E \u2014 Talk to the Hermit', go: () => say(game, () => talkHermit(game)) };
+    { const w = wilds.nearNPC(P); if (w) return { text: `E \u2014 Talk to ${w[1].name}`, go: () => say(game, () => wilds.talks[w[0]](game)) }; }
     // Vivian last: she's often right beside you
     if (ghostNear(P)) return { text: `E \u2014 Talk to ${GHOST}`, go: () => chat(game) };
     return null;
@@ -734,7 +753,7 @@ export function build(world, { models = {}, combat } = {}) {
     }));
     if (!list.length) return null;
     // the nearest thing that's after you turns on them
-    for (const e of fields.enemies) if (e.alive && Math.hypot(e.pos.x - P.pos.x, e.pos.z - P.pos.z) < 22) { e.engaged = true; if (e.mode === 'idle') e.set('chase'); }
+    for (const e of enemies) if (e.alive && !e.hidden && Math.hypot(e.pos.x - P.pos.x, e.pos.z - P.pos.z) < 22) { e.engaged = true; if (e.mode === 'idle') e.set('chase'); }
     return new Promise((res) => {
       falling = { list, t: 0, done: res, vivian: list.find((v) => v.who === 'vivian'),
         target() { return this.list.find((v) => !v.dead) || this.list[this.list.length - 1]; } };
@@ -769,15 +788,16 @@ export function build(world, { models = {}, combat } = {}) {
       if (k >= 1 && !M.thud) { M.thud = true; game.fx.dust(marrow.pos, 10); game.fx.shake(0.2); }
     } else if (inParty('marrow')) {
       // braced, lantern up, facing whatever's coming
-      const tgt = fields.enemies.find((e) => e.alive && e.engaged) || warden;
+      const tgt = enemies.find((e) => e.alive && e.engaged) || warden;
       if (tgt) { marrow.yaw += Math.atan2(Math.sin(Math.atan2(tgt.pos.x - marrow.pos.x, tgt.pos.z - marrow.pos.z) - marrow.yaw), Math.cos(Math.atan2(tgt.pos.x - marrow.pos.x, tgt.pos.z - marrow.pos.z) - marrow.yaw)) * Math.min(1, dt * 6); marrow.root.rotation.y = marrow.yaw; }
       const parts = marrow.model.userData.parts; parts.armR.rotation.x = -1.2 + Math.sin(F.t * 20) * 0.05;
     }
     if (!living.length && !F.over) { F.over = true; setTimeout(() => F.done(), 1600); }
   };
 
+  Object.assign(RESPAWNS, Wilds.RESPAWNS);
   const respawnFor = (pos) => {
-    const r = Throne.contains(pos.x, pos.z) ? 'throne' : Hollow.contains(pos.x, pos.z) ? 'hollow' : pos.z > Fieldlands.SLOPE.z1 - 10 ? 'fields' : 'beach';
+    const r = Wilds.regionAt(pos.x, pos.z) || (Throne.contains(pos.x, pos.z) ? 'throne' : Hollow.contains(pos.x, pos.z) ? 'hollow' : pos.z > Fieldlands.SLOPE.z1 - 10 ? 'fields' : 'beach');
     let best = null, bd = Infinity;
     for (const [x, z, yaw] of RESPAWNS[r]) { const d = Math.hypot(pos.x - x, pos.z - z); if (d < bd) { bd = d; best = { pos: new THREE.Vector3(x, G(x, z) + 0.05, z), yaw }; } }
     return best;
@@ -788,7 +808,7 @@ export function build(world, { models = {}, combat } = {}) {
     spawnYaw: rested ? hollow.restYaw : 0,
     startLying: !rested,
     update,
-    ghost, fields, hollow, throne, pickups, hermit, get warden() { return warden; },   // for tests
+    ghost, fields, hollow, throne, wilds, enemies, pickups, hermit, get warden() { return warden; },   // for tests
     // B near the ghost: talk
     interact,
   };

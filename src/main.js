@@ -1,22 +1,22 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Input } from './input.js?v=52';
-import { World } from './world.js?v=52';
-import { Player, buildCharacter } from './player.js?v=52';
-import { FX } from './fx.js?v=52';
-import { GameAudio } from './audio.js?v=52';
-import { Dialogue } from './dialogue.js?v=52';
-import { Combat } from './combat.js?v=52';
-import { BASE_MOVES, weaponMesh } from './items.js?v=52';
-import { save } from './save.js?v=52';
-import { Inventory, QUICK } from './inventory.js?v=52';
+import { Input } from './input.js?v=53';
+import { World } from './world.js?v=53';
+import { Player, buildCharacter } from './player.js?v=53';
+import { FX } from './fx.js?v=53';
+import { GameAudio } from './audio.js?v=53';
+import { Dialogue } from './dialogue.js?v=53';
+import { Combat } from './combat.js?v=53';
+import { BASE_MOVES, weaponMesh } from './items.js?v=53';
+import { save } from './save.js?v=53';
+import { Inventory, QUICK } from './inventory.js?v=53';
 // The open world, one area per module.
-import * as blank from './stages/blank.js?v=52';
-import * as beach from './stages/beach.js?v=52';
+import * as blank from './stages/blank.js?v=53';
+import * as beach from './stages/beach.js?v=53';
 
 // Bump VERSION (and the ?v= on every local import) whenever files change,
 // so browsers never mix old and new code.
-const VERSION = '52';
+const VERSION = '53';
 const STAGES = { beach, blank };
 
 const canvas = document.getElementById('game');
@@ -161,6 +161,8 @@ function loadStage(key, { from, respawn } = {}) {
       Promise.all([new Promise((r) => setTimeout(r, 3200)), more]).then(() => go(S.key, { respawn: at }));
     };
     player.canGuard = () => save.learned.includes('guard');
+    player.canEvade = () => save.learned.includes('miststep');
+    player.onEvade = () => S.combat.float(player.pos.clone().setY(player.pos.y + 2.3), 'Evaded', 'note');
     player.onGuard = (n) => S.combat.float(player.pos.clone().setY(player.pos.y + 2.3), `Guarded (${n})`, 'note');
   } else {
     player.world = world; player.fx = fx;
