@@ -1,7 +1,7 @@
-import { ITEMS, WEAPONS, LEARNABLE } from './items.js?v=53';
+import { ITEMS, WEAPONS, LEARNABLE } from './items.js?v=54';
 // number keys that use an item straight away, without opening the bag
 export const QUICK = { herb: 1, salve: 2, tonic: 3, ember: 4 };
-import { save, useItem, equip } from './save.js?v=53';
+import { save, useItem, equip } from './save.js?v=54';
 
 // ---------------------------------------------------------------------------
 // The bag: press I (or Tab, or Select on a pad) while exploring. Shows your

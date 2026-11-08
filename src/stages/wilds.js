@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { FieldEnemy } from '../fieldenemy.js?v=53';
-import { NPC } from '../npc.js?v=53';
-import { Pickup } from '../pickup.js?v=53';
-import { save, store, flag, learn, addItem } from '../save.js?v=53';
-import { mudTexture, leafTexture, redSandTexture, ashTexture, snowTexture, plankTexture } from '../textures.js?v=53';
+import { FieldEnemy } from '../fieldenemy.js?v=54';
+import { NPC } from '../npc.js?v=54';
+import { Pickup } from '../pickup.js?v=54';
+import { save, store, flag, learn, addItem } from '../save.js?v=54';
+import { mudTexture, leafTexture, redSandTexture, ashTexture, snowTexture, plankTexture } from '../textures.js?v=54';
 
 // ---------------------------------------------------------------------------
 // THE WILDS: five new lands out past the old walls of the world, each its own
@@ -93,7 +93,7 @@ export const REGIONS = {
     },
   },
   desert: {
-    name: 'Sunscorch Expanse', music: 'obsidian-fieldlands.mp3', cx: 485, cz: 440, rx: 180, rz: 175,
+    name: 'Sunscorch Expanse', music: 'ashen.mp3', cx: 485, cz: 440, rx: 180, rz: 175,
     floor: (x, z) => {
       // long dunes, rippling across the wind
       let h = -8 + 4.5 * Math.sin(x * 0.05 + 1.6 * Math.sin(z * 0.017)) * (0.5 + fbm(x * 0.01, z * 0.01)) + 3 * fbm(x * 0.03, z * 0.03);

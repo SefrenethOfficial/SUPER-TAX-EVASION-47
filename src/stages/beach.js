@@ -1,16 +1,16 @@
 import * as THREE from 'three';
-import { Terrain } from '../terrain.js?v=53';
-import { ShyGhost } from '../ghost.js?v=53';
-import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture, obsidianTexture, strataTexture } from '../textures.js?v=53';
-import * as Fieldlands from './obsidian-fieldlands.js?v=53';
-import * as Hollow from './lantern-hollow.js?v=53';
-import * as Throne from './hollow-throne.js?v=53';
-import * as Wilds from './wilds.js?v=53';
-import { NPC } from '../npc.js?v=53';
-import { Pickup } from '../pickup.js?v=53';
-import { save, store, flag, learn } from '../save.js?v=53';
-import { telegraph } from '../combat.js?v=53';
-import { Gibs } from '../gibs.js?v=53';
+import { Terrain } from '../terrain.js?v=54';
+import { ShyGhost } from '../ghost.js?v=54';
+import { sandTexture, grassTexture, rockTexture, dirtTexture, plankTexture, waterTexture, obsidianTexture, strataTexture } from '../textures.js?v=54';
+import * as Fieldlands from './obsidian-fieldlands.js?v=54';
+import * as Hollow from './lantern-hollow.js?v=54';
+import * as Throne from './hollow-throne.js?v=54';
+import * as Wilds from './wilds.js?v=54';
+import { NPC } from '../npc.js?v=54';
+import { Pickup } from '../pickup.js?v=54';
+import { save, store, flag, learn } from '../save.js?v=54';
+import { telegraph } from '../combat.js?v=54';
+import { Gibs } from '../gibs.js?v=54';
 
 // ---------------------------------------------------------------------------
 // THE WASHED-UP BEACH: the first area of the open world. You wake up face down

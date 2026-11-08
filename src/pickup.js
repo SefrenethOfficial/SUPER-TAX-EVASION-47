@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { save, store, addItem, addWeapon } from './save.js?v=53';
-import { ITEMS, WEAPONS, weaponMesh } from './items.js?v=53';
+import { save, store, addItem, addWeapon } from './save.js?v=54';
+import { ITEMS, WEAPONS, weaponMesh } from './items.js?v=54';
 
 // ---------------------------------------------------------------------------
 // Things lying about to pick up: a glinting light over the spot, and the item
